@@ -1,0 +1,72 @@
+name: Publish Hongseong Adventure
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'dist/**'
+      - 'tests/**'
+      - 'package.json'
+      - '.github/workflows/deploy-pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      ready: ${{ steps.source.outputs.ready }}
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v6
+      - name: Check application source is present
+        id: source
+        shell: bash
+        run: |
+          if [ -f dist/index.html ] && [ -f package.json ]; then
+            echo 'ready=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'ready=false' >> "$GITHUB_OUTPUT"
+            echo 'Application source has not been uploaded. Deployment was skipped; this is not an application release.' >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Set up Node.js
+        if: steps.source.outputs.ready == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run application tests
+        if: steps.source.outputs.ready == 'true'
+        run: node --test tests/*.test.js
+      - name: Prepare static site
+        if: steps.source.outputs.ready == 'true'
+        run: touch dist/.nojekyll
+      - name: Upload Pages artifact
+        if: steps.source.outputs.ready == 'true'
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    if: needs.build.outputs.ready == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+      - name: Publish site
+        id: deployment
+        uses: actions/deploy-pages@v4
