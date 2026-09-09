@@ -1,0 +1,40 @@
+name: Verify v1.3.2 deployment source
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/source-preflight.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Verify the existing app against the uploaded source ZIP
+        shell: python
+        run: |
+          import hashlib
+          import urllib.error
+          import urllib.request
+          base = 'https://hongseong-adventure-demo.anyconium.chatgpt.site/'
+          expected = {
+              'index.html': '941f1dd47d62710d8c72ea6fcb3d93b049ed400cb4f1e5cee378c18bbdf50a02',
+              'release.js': 'b464c289a53eab347d3f6347627128c51ff402ccc55c05ae3e6556046b72d1c5',
+          }
+          for path, digest in expected.items():
+              try:
+                  request = urllib.request.Request(base + path, headers={'User-Agent': 'Hongseong-Adventure-Source-Verification/1.3.2'})
+                  with urllib.request.urlopen(request, timeout=25) as response:
+                      payload = response.read(2_000_000)
+              except Exception as error:
+                  raise SystemExit(f'Source is not publicly downloadable: {type(error).__name__}: {error}')
+              actual = hashlib.sha256(payload).hexdigest()
+              if actual != digest:
+                  raise SystemExit(f'{path}: checksum mismatch; import stopped without changing app files.')
+              print(f'{path}: matches the user-uploaded v1.3.2 source exactly')
+          print('Source verification succeeded. No application files were modified.')
