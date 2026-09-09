@@ -1,0 +1,37 @@
+{
+  "namsan-address": {
+    "lon": 126.6527329,
+    "lat": 36.5767448,
+    "locationSource": "https://findby.co.kr/details/32244-448003252053-st-652c0c55f27008be2c55e097"
+  },
+  "pool-coordinate": {
+    "lon": 126.6463146,
+    "lat": 36.6066535,
+    "locationSource": "https://findby.co.kr/details/32216-448003262035-st-6936f8663be63ba92f012a1c"
+  },
+  "gyeolnoodle": {
+    "lon": 126.5480551,
+    "lat": 36.5272492,
+    "locationSource": "https://www.diningcode.com/profile.php?rid=XgXqsEZIgPxY"
+  },
+  "hanbat": {
+    "lon": 126.6259877,
+    "lat": 36.501127,
+    "locationSource": "https://www.diningcode.com/profile.php?rid=G0HqCB8wmJxe"
+  },
+  "gukbap": {
+    "lon": 126.6683608,
+    "lat": 36.6014306,
+    "locationSource": "https://www.diningcode.com/profile.php?rid=UjoZtlJbWFKm"
+  },
+  "seafood": {
+    "lon": 126.6783715,
+    "lat": 36.5928727,
+    "locationSource": "https://www.diningcode.com/profile.php?rid=z0X2UzPOBwbm"
+  },
+  "mido": {
+    "lon": 126.6263879,
+    "lat": 36.5007641,
+    "locationSource": "https://www.diningcode.com/profile.php?rid=5XveFn1v5GNu"
+  }
+}

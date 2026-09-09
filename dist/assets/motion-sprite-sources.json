@@ -1,0 +1,4087 @@
+{
+  "generator": "built-in image_gen",
+  "columns": 4,
+  "rows": 4,
+  "framesPerDirection": 2,
+  "directionOrder": [
+    "E",
+    "SE",
+    "S",
+    "SW",
+    "W",
+    "NW",
+    "N",
+    "NE"
+  ],
+  "layout": [
+    [
+      "E-A",
+      "E-B",
+      "SE-A",
+      "SE-B"
+    ],
+    [
+      "S-A",
+      "S-B",
+      "SW-A",
+      "SW-B"
+    ],
+    [
+      "W-A",
+      "W-B",
+      "NW-A",
+      "NW-B"
+    ],
+    [
+      "N-A",
+      "N-B",
+      "NE-A",
+      "NE-B"
+    ]
+  ],
+  "chromaKey": "near-magenta; intended #FF00FF, generated RGB varies",
+  "cropNote": "Canvas can use fractional cell size 313.5. Integer bounds use floor(i*dimension/4), last edge=image dimension. Per-cell foregroundBounds are in absolute atlas pixels, exclusive right/bottom. Preserve common scale across frames; use whole cells or normalize anchors.",
+  "assets": [
+    {
+      "name": "walker",
+      "path": "assets/motion-walk.png",
+      "width": 1254,
+      "height": 1254,
+      "mode": "RGB",
+      "cellWidth": 313.5,
+      "cellHeight": 313.5,
+      "cornerRGB": [
+        236,
+        11,
+        236
+      ],
+      "exactMagentaFraction": 3.1796178862409033e-06,
+      "frames": [
+        {
+          "index": 0,
+          "direction": "E",
+          "phase": 0,
+          "column": 0,
+          "row": 0,
+          "cell": [
+            0,
+            0,
+            313,
+            313
+          ],
+          "foregroundBounds": [
+            65,
+            27,
+            253,
+            307
+          ],
+          "foregroundSize": [
+            188,
+            280
+          ],
+          "gutter": [
+            65,
+            27,
+            60,
+            6
+          ],
+          "spriteBounds": [
+            65,
+            27,
+            253,
+            307
+          ],
+          "recommendedSourceRect": [
+            62,
+            24,
+            194,
+            286
+          ]
+        },
+        {
+          "index": 1,
+          "direction": "E",
+          "phase": 1,
+          "column": 1,
+          "row": 0,
+          "cell": [
+            313,
+            0,
+            627,
+            313
+          ],
+          "foregroundBounds": [
+            369,
+            26,
+            558,
+            302
+          ],
+          "foregroundSize": [
+            189,
+            276
+          ],
+          "gutter": [
+            56,
+            26,
+            69,
+            11
+          ],
+          "spriteBounds": [
+            369,
+            26,
+            558,
+            302
+          ],
+          "recommendedSourceRect": [
+            366,
+            23,
+            195,
+            282
+          ]
+        },
+        {
+          "index": 2,
+          "direction": "SE",
+          "phase": 0,
+          "column": 2,
+          "row": 0,
+          "cell": [
+            627,
+            0,
+            940,
+            313
+          ],
+          "foregroundBounds": [
+            678,
+            32,
+            864,
+            312
+          ],
+          "foregroundSize": [
+            186,
+            280
+          ],
+          "gutter": [
+            51,
+            32,
+            76,
+            1
+          ],
+          "spriteBounds": [
+            678,
+            32,
+            864,
+            312
+          ],
+          "recommendedSourceRect": [
+            675,
+            29,
+            192,
+            286
+          ]
+        },
+        {
+          "index": 3,
+          "direction": "SE",
+          "phase": 1,
+          "column": 3,
+          "row": 0,
+          "cell": [
+            940,
+            0,
+            1254,
+            313
+          ],
+          "foregroundBounds": [
+            984,
+            31,
+            1169,
+            309
+          ],
+          "foregroundSize": [
+            185,
+            278
+          ],
+          "gutter": [
+            44,
+            31,
+            85,
+            4
+          ],
+          "spriteBounds": [
+            984,
+            31,
+            1169,
+            309
+          ],
+          "recommendedSourceRect": [
+            981,
+            28,
+            191,
+            284
+          ]
+        },
+        {
+          "index": 4,
+          "direction": "S",
+          "phase": 0,
+          "column": 0,
+          "row": 1,
+          "cell": [
+            0,
+            313,
+            313,
+            627
+          ],
+          "foregroundBounds": [
+            63,
+            345,
+            255,
+            617
+          ],
+          "foregroundSize": [
+            192,
+            272
+          ],
+          "gutter": [
+            63,
+            32,
+            58,
+            10
+          ],
+          "spriteBounds": [
+            63,
+            345,
+            255,
+            617
+          ],
+          "recommendedSourceRect": [
+            60,
+            342,
+            198,
+            278
+          ]
+        },
+        {
+          "index": 5,
+          "direction": "S",
+          "phase": 1,
+          "column": 1,
+          "row": 1,
+          "cell": [
+            313,
+            313,
+            627,
+            627
+          ],
+          "foregroundBounds": [
+            368,
+            345,
+            559,
+            617
+          ],
+          "foregroundSize": [
+            191,
+            272
+          ],
+          "gutter": [
+            55,
+            32,
+            68,
+            10
+          ],
+          "spriteBounds": [
+            368,
+            345,
+            559,
+            617
+          ],
+          "recommendedSourceRect": [
+            365,
+            342,
+            197,
+            278
+          ]
+        },
+        {
+          "index": 6,
+          "direction": "SW",
+          "phase": 0,
+          "column": 2,
+          "row": 1,
+          "cell": [
+            627,
+            313,
+            940,
+            627
+          ],
+          "foregroundBounds": [
+            685,
+            348,
+            867,
+            620
+          ],
+          "foregroundSize": [
+            182,
+            272
+          ],
+          "gutter": [
+            58,
+            35,
+            73,
+            7
+          ],
+          "spriteBounds": [
+            685,
+            348,
+            867,
+            620
+          ],
+          "recommendedSourceRect": [
+            682,
+            345,
+            188,
+            278
+          ]
+        },
+        {
+          "index": 7,
+          "direction": "SW",
+          "phase": 1,
+          "column": 3,
+          "row": 1,
+          "cell": [
+            940,
+            313,
+            1254,
+            627
+          ],
+          "foregroundBounds": [
+            993,
+            347,
+            1177,
+            619
+          ],
+          "foregroundSize": [
+            184,
+            272
+          ],
+          "gutter": [
+            53,
+            34,
+            77,
+            8
+          ],
+          "spriteBounds": [
+            993,
+            347,
+            1177,
+            619
+          ],
+          "recommendedSourceRect": [
+            990,
+            344,
+            190,
+            278
+          ]
+        },
+        {
+          "index": 8,
+          "direction": "W",
+          "phase": 0,
+          "column": 0,
+          "row": 2,
+          "cell": [
+            0,
+            627,
+            313,
+            940
+          ],
+          "foregroundBounds": [
+            65,
+            643,
+            253,
+            912
+          ],
+          "foregroundSize": [
+            188,
+            269
+          ],
+          "gutter": [
+            65,
+            16,
+            60,
+            28
+          ],
+          "spriteBounds": [
+            65,
+            643,
+            253,
+            912
+          ],
+          "recommendedSourceRect": [
+            62,
+            640,
+            194,
+            275
+          ]
+        },
+        {
+          "index": 9,
+          "direction": "W",
+          "phase": 1,
+          "column": 1,
+          "row": 2,
+          "cell": [
+            313,
+            627,
+            627,
+            940
+          ],
+          "foregroundBounds": [
+            366,
+            641,
+            557,
+            916
+          ],
+          "foregroundSize": [
+            191,
+            275
+          ],
+          "gutter": [
+            53,
+            14,
+            70,
+            24
+          ],
+          "spriteBounds": [
+            366,
+            641,
+            557,
+            916
+          ],
+          "recommendedSourceRect": [
+            363,
+            638,
+            197,
+            281
+          ]
+        },
+        {
+          "index": 10,
+          "direction": "NW",
+          "phase": 0,
+          "column": 2,
+          "row": 2,
+          "cell": [
+            627,
+            627,
+            940,
+            940
+          ],
+          "foregroundBounds": [
+            682,
+            647,
+            866,
+            921
+          ],
+          "foregroundSize": [
+            184,
+            274
+          ],
+          "gutter": [
+            55,
+            20,
+            74,
+            19
+          ],
+          "spriteBounds": [
+            682,
+            647,
+            866,
+            921
+          ],
+          "recommendedSourceRect": [
+            679,
+            644,
+            190,
+            280
+          ]
+        },
+        {
+          "index": 11,
+          "direction": "NW",
+          "phase": 1,
+          "column": 3,
+          "row": 2,
+          "cell": [
+            940,
+            627,
+            1254,
+            940
+          ],
+          "foregroundBounds": [
+            994,
+            648,
+            1177,
+            916
+          ],
+          "foregroundSize": [
+            183,
+            268
+          ],
+          "gutter": [
+            54,
+            21,
+            77,
+            24
+          ],
+          "spriteBounds": [
+            994,
+            648,
+            1177,
+            916
+          ],
+          "recommendedSourceRect": [
+            991,
+            645,
+            189,
+            274
+          ]
+        },
+        {
+          "index": 12,
+          "direction": "N",
+          "phase": 0,
+          "column": 0,
+          "row": 3,
+          "cell": [
+            0,
+            940,
+            313,
+            1254
+          ],
+          "foregroundBounds": [
+            61,
+            944,
+            241,
+            1220
+          ],
+          "foregroundSize": [
+            180,
+            276
+          ],
+          "gutter": [
+            61,
+            4,
+            72,
+            34
+          ],
+          "spriteBounds": [
+            61,
+            944,
+            241,
+            1220
+          ],
+          "recommendedSourceRect": [
+            58,
+            941,
+            186,
+            282
+          ]
+        },
+        {
+          "index": 13,
+          "direction": "N",
+          "phase": 1,
+          "column": 1,
+          "row": 3,
+          "cell": [
+            313,
+            940,
+            627,
+            1254
+          ],
+          "foregroundBounds": [
+            368,
+            944,
+            552,
+            1220
+          ],
+          "foregroundSize": [
+            184,
+            276
+          ],
+          "gutter": [
+            55,
+            4,
+            75,
+            34
+          ],
+          "spriteBounds": [
+            368,
+            944,
+            552,
+            1220
+          ],
+          "recommendedSourceRect": [
+            365,
+            941,
+            190,
+            282
+          ]
+        },
+        {
+          "index": 14,
+          "direction": "NE",
+          "phase": 0,
+          "column": 2,
+          "row": 3,
+          "cell": [
+            627,
+            940,
+            940,
+            1254
+          ],
+          "foregroundBounds": [
+            682,
+            948,
+            865,
+            1221
+          ],
+          "foregroundSize": [
+            183,
+            273
+          ],
+          "gutter": [
+            55,
+            8,
+            75,
+            33
+          ],
+          "spriteBounds": [
+            682,
+            948,
+            865,
+            1221
+          ],
+          "recommendedSourceRect": [
+            679,
+            945,
+            189,
+            279
+          ]
+        },
+        {
+          "index": 15,
+          "direction": "NE",
+          "phase": 1,
+          "column": 3,
+          "row": 3,
+          "cell": [
+            940,
+            940,
+            1254,
+            1254
+          ],
+          "foregroundBounds": [
+            989,
+            946,
+            1174,
+            1220
+          ],
+          "foregroundSize": [
+            185,
+            274
+          ],
+          "gutter": [
+            49,
+            6,
+            80,
+            34
+          ],
+          "spriteBounds": [
+            989,
+            946,
+            1174,
+            1220
+          ],
+          "recommendedSourceRect": [
+            986,
+            943,
+            191,
+            280
+          ]
+        }
+      ]
+    },
+    {
+      "name": "bicycle",
+      "path": "assets/motion-bike.png",
+      "width": 1254,
+      "height": 1254,
+      "mode": "RGB",
+      "cellWidth": 313.5,
+      "cellHeight": 313.5,
+      "cornerRGB": [
+        236,
+        11,
+        239
+      ],
+      "exactMagentaFraction": 1.2718471544963613e-05,
+      "frames": [
+        {
+          "index": 0,
+          "direction": "E",
+          "phase": 0,
+          "column": 0,
+          "row": 0,
+          "cell": [
+            0,
+            0,
+            313,
+            313
+          ],
+          "foregroundBounds": [
+            59,
+            33,
+            280,
+            303
+          ],
+          "foregroundSize": [
+            221,
+            270
+          ],
+          "gutter": [
+            59,
+            33,
+            33,
+            10
+          ],
+          "spriteBounds": [
+            59,
+            33,
+            280,
+            303
+          ],
+          "recommendedSourceRect": [
+            56,
+            30,
+            227,
+            276
+          ]
+        },
+        {
+          "index": 1,
+          "direction": "E",
+          "phase": 1,
+          "column": 1,
+          "row": 0,
+          "cell": [
+            313,
+            0,
+            627,
+            313
+          ],
+          "foregroundBounds": [
+            373,
+            32,
+            594,
+            303
+          ],
+          "foregroundSize": [
+            221,
+            271
+          ],
+          "gutter": [
+            60,
+            32,
+            33,
+            10
+          ],
+          "spriteBounds": [
+            373,
+            32,
+            594,
+            303
+          ],
+          "recommendedSourceRect": [
+            370,
+            29,
+            227,
+            277
+          ]
+        },
+        {
+          "index": 2,
+          "direction": "SE",
+          "phase": 0,
+          "column": 2,
+          "row": 0,
+          "cell": [
+            627,
+            0,
+            940,
+            313
+          ],
+          "foregroundBounds": [
+            699,
+            28,
+            867,
+            313
+          ],
+          "foregroundSize": [
+            168,
+            285
+          ],
+          "gutter": [
+            72,
+            28,
+            73,
+            0
+          ],
+          "spriteBounds": [
+            699,
+            28,
+            867,
+            316
+          ],
+          "recommendedSourceRect": [
+            696,
+            25,
+            174,
+            294
+          ]
+        },
+        {
+          "index": 3,
+          "direction": "SE",
+          "phase": 1,
+          "column": 3,
+          "row": 0,
+          "cell": [
+            940,
+            0,
+            1254,
+            313
+          ],
+          "foregroundBounds": [
+            1001,
+            28,
+            1171,
+            313
+          ],
+          "foregroundSize": [
+            170,
+            285
+          ],
+          "gutter": [
+            61,
+            28,
+            83,
+            0
+          ],
+          "spriteBounds": [
+            1001,
+            28,
+            1171,
+            317
+          ],
+          "recommendedSourceRect": [
+            998,
+            25,
+            176,
+            295
+          ]
+        },
+        {
+          "index": 4,
+          "direction": "S",
+          "phase": 0,
+          "column": 0,
+          "row": 1,
+          "cell": [
+            0,
+            313,
+            313,
+            627
+          ],
+          "foregroundBounds": [
+            93,
+            338,
+            243,
+            618
+          ],
+          "foregroundSize": [
+            150,
+            280
+          ],
+          "gutter": [
+            93,
+            25,
+            70,
+            9
+          ],
+          "spriteBounds": [
+            93,
+            338,
+            243,
+            618
+          ],
+          "recommendedSourceRect": [
+            90,
+            335,
+            156,
+            286
+          ]
+        },
+        {
+          "index": 5,
+          "direction": "S",
+          "phase": 1,
+          "column": 1,
+          "row": 1,
+          "cell": [
+            313,
+            313,
+            627,
+            627
+          ],
+          "foregroundBounds": [
+            407,
+            338,
+            556,
+            618
+          ],
+          "foregroundSize": [
+            149,
+            280
+          ],
+          "gutter": [
+            94,
+            25,
+            71,
+            9
+          ],
+          "spriteBounds": [
+            407,
+            338,
+            556,
+            618
+          ],
+          "recommendedSourceRect": [
+            404,
+            335,
+            155,
+            286
+          ]
+        },
+        {
+          "index": 6,
+          "direction": "SW",
+          "phase": 0,
+          "column": 2,
+          "row": 1,
+          "cell": [
+            627,
+            313,
+            940,
+            627
+          ],
+          "foregroundBounds": [
+            690,
+            313,
+            852,
+            623
+          ],
+          "foregroundSize": [
+            162,
+            310
+          ],
+          "gutter": [
+            63,
+            0,
+            88,
+            4
+          ],
+          "spriteBounds": [
+            690,
+            339,
+            852,
+            623
+          ],
+          "recommendedSourceRect": [
+            687,
+            336,
+            168,
+            290
+          ]
+        },
+        {
+          "index": 7,
+          "direction": "SW",
+          "phase": 1,
+          "column": 3,
+          "row": 1,
+          "cell": [
+            940,
+            313,
+            1254,
+            627
+          ],
+          "foregroundBounds": [
+            1002,
+            313,
+            1163,
+            623
+          ],
+          "foregroundSize": [
+            161,
+            310
+          ],
+          "gutter": [
+            62,
+            0,
+            91,
+            4
+          ],
+          "spriteBounds": [
+            1002,
+            340,
+            1163,
+            623
+          ],
+          "recommendedSourceRect": [
+            999,
+            337,
+            167,
+            289
+          ]
+        },
+        {
+          "index": 8,
+          "direction": "W",
+          "phase": 0,
+          "column": 0,
+          "row": 2,
+          "cell": [
+            0,
+            627,
+            313,
+            940
+          ],
+          "foregroundBounds": [
+            50,
+            647,
+            274,
+            916
+          ],
+          "foregroundSize": [
+            224,
+            269
+          ],
+          "gutter": [
+            50,
+            20,
+            39,
+            24
+          ],
+          "spriteBounds": [
+            50,
+            647,
+            274,
+            916
+          ],
+          "recommendedSourceRect": [
+            47,
+            644,
+            230,
+            275
+          ]
+        },
+        {
+          "index": 9,
+          "direction": "W",
+          "phase": 1,
+          "column": 1,
+          "row": 2,
+          "cell": [
+            313,
+            627,
+            627,
+            940
+          ],
+          "foregroundBounds": [
+            363,
+            647,
+            585,
+            916
+          ],
+          "foregroundSize": [
+            222,
+            269
+          ],
+          "gutter": [
+            50,
+            20,
+            42,
+            24
+          ],
+          "spriteBounds": [
+            363,
+            647,
+            585,
+            916
+          ],
+          "recommendedSourceRect": [
+            360,
+            644,
+            228,
+            275
+          ]
+        },
+        {
+          "index": 10,
+          "direction": "NW",
+          "phase": 0,
+          "column": 2,
+          "row": 2,
+          "cell": [
+            627,
+            627,
+            940,
+            940
+          ],
+          "foregroundBounds": [
+            690,
+            646,
+            861,
+            916
+          ],
+          "foregroundSize": [
+            171,
+            270
+          ],
+          "gutter": [
+            63,
+            19,
+            79,
+            24
+          ],
+          "spriteBounds": [
+            690,
+            646,
+            861,
+            916
+          ],
+          "recommendedSourceRect": [
+            687,
+            643,
+            177,
+            276
+          ]
+        },
+        {
+          "index": 11,
+          "direction": "NW",
+          "phase": 1,
+          "column": 3,
+          "row": 2,
+          "cell": [
+            940,
+            627,
+            1254,
+            940
+          ],
+          "foregroundBounds": [
+            1000,
+            646,
+            1170,
+            917
+          ],
+          "foregroundSize": [
+            170,
+            271
+          ],
+          "gutter": [
+            60,
+            19,
+            84,
+            23
+          ],
+          "spriteBounds": [
+            1000,
+            646,
+            1170,
+            917
+          ],
+          "recommendedSourceRect": [
+            997,
+            643,
+            176,
+            277
+          ]
+        },
+        {
+          "index": 12,
+          "direction": "N",
+          "phase": 0,
+          "column": 0,
+          "row": 3,
+          "cell": [
+            0,
+            940,
+            313,
+            1254
+          ],
+          "foregroundBounds": [
+            99,
+            947,
+            236,
+            1218
+          ],
+          "foregroundSize": [
+            137,
+            271
+          ],
+          "gutter": [
+            99,
+            7,
+            77,
+            36
+          ],
+          "spriteBounds": [
+            99,
+            947,
+            236,
+            1218
+          ],
+          "recommendedSourceRect": [
+            96,
+            944,
+            143,
+            277
+          ]
+        },
+        {
+          "index": 13,
+          "direction": "N",
+          "phase": 1,
+          "column": 1,
+          "row": 3,
+          "cell": [
+            313,
+            940,
+            627,
+            1254
+          ],
+          "foregroundBounds": [
+            414,
+            947,
+            549,
+            1217
+          ],
+          "foregroundSize": [
+            135,
+            270
+          ],
+          "gutter": [
+            101,
+            7,
+            78,
+            37
+          ],
+          "spriteBounds": [
+            414,
+            947,
+            549,
+            1217
+          ],
+          "recommendedSourceRect": [
+            411,
+            944,
+            141,
+            276
+          ]
+        },
+        {
+          "index": 14,
+          "direction": "NE",
+          "phase": 0,
+          "column": 2,
+          "row": 3,
+          "cell": [
+            627,
+            940,
+            940,
+            1254
+          ],
+          "foregroundBounds": [
+            693,
+            944,
+            854,
+            1216
+          ],
+          "foregroundSize": [
+            161,
+            272
+          ],
+          "gutter": [
+            66,
+            4,
+            86,
+            38
+          ],
+          "spriteBounds": [
+            693,
+            944,
+            854,
+            1216
+          ],
+          "recommendedSourceRect": [
+            690,
+            941,
+            167,
+            278
+          ]
+        },
+        {
+          "index": 15,
+          "direction": "NE",
+          "phase": 1,
+          "column": 3,
+          "row": 3,
+          "cell": [
+            940,
+            940,
+            1254,
+            1254
+          ],
+          "foregroundBounds": [
+            1005,
+            945,
+            1172,
+            1216
+          ],
+          "foregroundSize": [
+            167,
+            271
+          ],
+          "gutter": [
+            65,
+            5,
+            82,
+            38
+          ],
+          "spriteBounds": [
+            1005,
+            945,
+            1172,
+            1216
+          ],
+          "recommendedSourceRect": [
+            1002,
+            942,
+            173,
+            277
+          ]
+        }
+      ]
+    },
+    {
+      "name": "car",
+      "path": "assets/motion-fast.png",
+      "width": 1254,
+      "height": 1254,
+      "mode": "RGB",
+      "cellWidth": 313.5,
+      "cellHeight": 313.5,
+      "cornerRGB": [
+        238,
+        13,
+        240
+      ],
+      "exactMagentaFraction": 6.995159349729987e-06,
+      "frames": [
+        {
+          "index": 0,
+          "direction": "E",
+          "phase": 0,
+          "column": 0,
+          "row": 0,
+          "cell": [
+            0,
+            0,
+            313,
+            313
+          ],
+          "foregroundBounds": [
+            40,
+            30,
+            287,
+            289
+          ],
+          "foregroundSize": [
+            247,
+            259
+          ],
+          "gutter": [
+            40,
+            30,
+            26,
+            24
+          ],
+          "spriteBounds": [
+            40,
+            30,
+            287,
+            289
+          ],
+          "recommendedSourceRect": [
+            37,
+            27,
+            253,
+            265
+          ]
+        },
+        {
+          "index": 1,
+          "direction": "E",
+          "phase": 1,
+          "column": 1,
+          "row": 0,
+          "cell": [
+            313,
+            0,
+            627,
+            313
+          ],
+          "foregroundBounds": [
+            354,
+            30,
+            601,
+            289
+          ],
+          "foregroundSize": [
+            247,
+            259
+          ],
+          "gutter": [
+            41,
+            30,
+            26,
+            24
+          ],
+          "spriteBounds": [
+            354,
+            30,
+            601,
+            289
+          ],
+          "recommendedSourceRect": [
+            351,
+            27,
+            253,
+            265
+          ]
+        },
+        {
+          "index": 2,
+          "direction": "SE",
+          "phase": 0,
+          "column": 2,
+          "row": 0,
+          "cell": [
+            627,
+            0,
+            940,
+            313
+          ],
+          "foregroundBounds": [
+            663,
+            27,
+            904,
+            299
+          ],
+          "foregroundSize": [
+            241,
+            272
+          ],
+          "gutter": [
+            36,
+            27,
+            36,
+            14
+          ],
+          "spriteBounds": [
+            663,
+            27,
+            904,
+            299
+          ],
+          "recommendedSourceRect": [
+            660,
+            24,
+            247,
+            278
+          ]
+        },
+        {
+          "index": 3,
+          "direction": "SE",
+          "phase": 1,
+          "column": 3,
+          "row": 0,
+          "cell": [
+            940,
+            0,
+            1254,
+            313
+          ],
+          "foregroundBounds": [
+            976,
+            27,
+            1217,
+            299
+          ],
+          "foregroundSize": [
+            241,
+            272
+          ],
+          "gutter": [
+            36,
+            27,
+            37,
+            14
+          ],
+          "spriteBounds": [
+            976,
+            27,
+            1217,
+            299
+          ],
+          "recommendedSourceRect": [
+            973,
+            24,
+            247,
+            278
+          ]
+        },
+        {
+          "index": 4,
+          "direction": "S",
+          "phase": 0,
+          "column": 0,
+          "row": 1,
+          "cell": [
+            0,
+            313,
+            313,
+            627
+          ],
+          "foregroundBounds": [
+            57,
+            339,
+            262,
+            598
+          ],
+          "foregroundSize": [
+            205,
+            259
+          ],
+          "gutter": [
+            57,
+            26,
+            51,
+            29
+          ],
+          "spriteBounds": [
+            57,
+            339,
+            262,
+            598
+          ],
+          "recommendedSourceRect": [
+            54,
+            336,
+            211,
+            265
+          ]
+        },
+        {
+          "index": 5,
+          "direction": "S",
+          "phase": 1,
+          "column": 1,
+          "row": 1,
+          "cell": [
+            313,
+            313,
+            627,
+            627
+          ],
+          "foregroundBounds": [
+            368,
+            339,
+            571,
+            598
+          ],
+          "foregroundSize": [
+            203,
+            259
+          ],
+          "gutter": [
+            55,
+            26,
+            56,
+            29
+          ],
+          "spriteBounds": [
+            368,
+            339,
+            571,
+            598
+          ],
+          "recommendedSourceRect": [
+            365,
+            336,
+            209,
+            265
+          ]
+        },
+        {
+          "index": 6,
+          "direction": "SW",
+          "phase": 0,
+          "column": 2,
+          "row": 1,
+          "cell": [
+            627,
+            313,
+            940,
+            627
+          ],
+          "foregroundBounds": [
+            642,
+            337,
+            894,
+            606
+          ],
+          "foregroundSize": [
+            252,
+            269
+          ],
+          "gutter": [
+            15,
+            24,
+            46,
+            21
+          ],
+          "spriteBounds": [
+            642,
+            337,
+            894,
+            606
+          ],
+          "recommendedSourceRect": [
+            639,
+            334,
+            258,
+            275
+          ]
+        },
+        {
+          "index": 7,
+          "direction": "SW",
+          "phase": 1,
+          "column": 3,
+          "row": 1,
+          "cell": [
+            940,
+            313,
+            1254,
+            627
+          ],
+          "foregroundBounds": [
+            955,
+            337,
+            1207,
+            606
+          ],
+          "foregroundSize": [
+            252,
+            269
+          ],
+          "gutter": [
+            15,
+            24,
+            47,
+            21
+          ],
+          "spriteBounds": [
+            955,
+            337,
+            1207,
+            606
+          ],
+          "recommendedSourceRect": [
+            952,
+            334,
+            258,
+            275
+          ]
+        },
+        {
+          "index": 8,
+          "direction": "W",
+          "phase": 0,
+          "column": 0,
+          "row": 2,
+          "cell": [
+            0,
+            627,
+            313,
+            940
+          ],
+          "foregroundBounds": [
+            36,
+            649,
+            282,
+            900
+          ],
+          "foregroundSize": [
+            246,
+            251
+          ],
+          "gutter": [
+            36,
+            22,
+            31,
+            40
+          ],
+          "spriteBounds": [
+            36,
+            649,
+            282,
+            900
+          ],
+          "recommendedSourceRect": [
+            33,
+            646,
+            252,
+            257
+          ]
+        },
+        {
+          "index": 9,
+          "direction": "W",
+          "phase": 1,
+          "column": 1,
+          "row": 2,
+          "cell": [
+            313,
+            627,
+            627,
+            940
+          ],
+          "foregroundBounds": [
+            349,
+            649,
+            595,
+            900
+          ],
+          "foregroundSize": [
+            246,
+            251
+          ],
+          "gutter": [
+            36,
+            22,
+            32,
+            40
+          ],
+          "spriteBounds": [
+            349,
+            649,
+            595,
+            900
+          ],
+          "recommendedSourceRect": [
+            346,
+            646,
+            252,
+            257
+          ]
+        },
+        {
+          "index": 10,
+          "direction": "NW",
+          "phase": 0,
+          "column": 2,
+          "row": 2,
+          "cell": [
+            627,
+            627,
+            940,
+            940
+          ],
+          "foregroundBounds": [
+            657,
+            652,
+            904,
+            906
+          ],
+          "foregroundSize": [
+            247,
+            254
+          ],
+          "gutter": [
+            30,
+            25,
+            36,
+            34
+          ],
+          "spriteBounds": [
+            657,
+            652,
+            904,
+            906
+          ],
+          "recommendedSourceRect": [
+            654,
+            649,
+            253,
+            260
+          ]
+        },
+        {
+          "index": 11,
+          "direction": "NW",
+          "phase": 1,
+          "column": 3,
+          "row": 2,
+          "cell": [
+            940,
+            627,
+            1254,
+            940
+          ],
+          "foregroundBounds": [
+            971,
+            652,
+            1218,
+            906
+          ],
+          "foregroundSize": [
+            247,
+            254
+          ],
+          "gutter": [
+            31,
+            25,
+            36,
+            34
+          ],
+          "spriteBounds": [
+            971,
+            652,
+            1218,
+            906
+          ],
+          "recommendedSourceRect": [
+            968,
+            649,
+            253,
+            260
+          ]
+        },
+        {
+          "index": 12,
+          "direction": "N",
+          "phase": 0,
+          "column": 0,
+          "row": 3,
+          "cell": [
+            0,
+            940,
+            313,
+            1254
+          ],
+          "foregroundBounds": [
+            55,
+            955,
+            266,
+            1203
+          ],
+          "foregroundSize": [
+            211,
+            248
+          ],
+          "gutter": [
+            55,
+            15,
+            47,
+            51
+          ],
+          "spriteBounds": [
+            55,
+            955,
+            266,
+            1203
+          ],
+          "recommendedSourceRect": [
+            52,
+            952,
+            217,
+            254
+          ]
+        },
+        {
+          "index": 13,
+          "direction": "N",
+          "phase": 1,
+          "column": 1,
+          "row": 3,
+          "cell": [
+            313,
+            940,
+            627,
+            1254
+          ],
+          "foregroundBounds": [
+            368,
+            955,
+            579,
+            1203
+          ],
+          "foregroundSize": [
+            211,
+            248
+          ],
+          "gutter": [
+            55,
+            15,
+            48,
+            51
+          ],
+          "spriteBounds": [
+            368,
+            955,
+            579,
+            1203
+          ],
+          "recommendedSourceRect": [
+            365,
+            952,
+            217,
+            254
+          ]
+        },
+        {
+          "index": 14,
+          "direction": "NE",
+          "phase": 0,
+          "column": 2,
+          "row": 3,
+          "cell": [
+            627,
+            940,
+            940,
+            1254
+          ],
+          "foregroundBounds": [
+            659,
+            955,
+            907,
+            1211
+          ],
+          "foregroundSize": [
+            248,
+            256
+          ],
+          "gutter": [
+            32,
+            15,
+            33,
+            43
+          ],
+          "spriteBounds": [
+            659,
+            955,
+            907,
+            1211
+          ],
+          "recommendedSourceRect": [
+            656,
+            952,
+            254,
+            262
+          ]
+        },
+        {
+          "index": 15,
+          "direction": "NE",
+          "phase": 1,
+          "column": 3,
+          "row": 3,
+          "cell": [
+            940,
+            940,
+            1254,
+            1254
+          ],
+          "foregroundBounds": [
+            973,
+            955,
+            1220,
+            1211
+          ],
+          "foregroundSize": [
+            247,
+            256
+          ],
+          "gutter": [
+            33,
+            15,
+            34,
+            43
+          ],
+          "spriteBounds": [
+            973,
+            955,
+            1220,
+            1211
+          ],
+          "recommendedSourceRect": [
+            970,
+            952,
+            253,
+            262
+          ]
+        }
+      ]
+    },
+    {
+      "name": "supercar",
+      "path": "assets/motion-faster.png",
+      "width": 1254,
+      "height": 1254,
+      "mode": "RGB",
+      "cellWidth": 313.5,
+      "cellHeight": 313.5,
+      "cornerRGB": [
+        236,
+        12,
+        237
+      ],
+      "exactMagentaFraction": 2.5436943089927226e-06,
+      "frames": [
+        {
+          "index": 0,
+          "direction": "E",
+          "phase": 0,
+          "column": 0,
+          "row": 0,
+          "cell": [
+            0,
+            0,
+            313,
+            313
+          ],
+          "foregroundBounds": [
+            38,
+            47,
+            305,
+            280
+          ],
+          "foregroundSize": [
+            267,
+            233
+          ],
+          "gutter": [
+            38,
+            47,
+            8,
+            33
+          ],
+          "spriteBounds": [
+            38,
+            47,
+            305,
+            280
+          ],
+          "recommendedSourceRect": [
+            35,
+            44,
+            273,
+            239
+          ]
+        },
+        {
+          "index": 1,
+          "direction": "E",
+          "phase": 1,
+          "column": 1,
+          "row": 0,
+          "cell": [
+            313,
+            0,
+            627,
+            313
+          ],
+          "foregroundBounds": [
+            347,
+            47,
+            614,
+            280
+          ],
+          "foregroundSize": [
+            267,
+            233
+          ],
+          "gutter": [
+            34,
+            47,
+            13,
+            33
+          ],
+          "spriteBounds": [
+            347,
+            47,
+            614,
+            280
+          ],
+          "recommendedSourceRect": [
+            344,
+            44,
+            273,
+            239
+          ]
+        },
+        {
+          "index": 2,
+          "direction": "SE",
+          "phase": 0,
+          "column": 2,
+          "row": 0,
+          "cell": [
+            627,
+            0,
+            940,
+            313
+          ],
+          "foregroundBounds": [
+            655,
+            48,
+            915,
+            299
+          ],
+          "foregroundSize": [
+            260,
+            251
+          ],
+          "gutter": [
+            28,
+            48,
+            25,
+            14
+          ],
+          "spriteBounds": [
+            655,
+            48,
+            915,
+            299
+          ],
+          "recommendedSourceRect": [
+            652,
+            45,
+            266,
+            257
+          ]
+        },
+        {
+          "index": 3,
+          "direction": "SE",
+          "phase": 1,
+          "column": 3,
+          "row": 0,
+          "cell": [
+            940,
+            0,
+            1254,
+            313
+          ],
+          "foregroundBounds": [
+            967,
+            48,
+            1226,
+            298
+          ],
+          "foregroundSize": [
+            259,
+            250
+          ],
+          "gutter": [
+            27,
+            48,
+            28,
+            15
+          ],
+          "spriteBounds": [
+            967,
+            48,
+            1226,
+            298
+          ],
+          "recommendedSourceRect": [
+            964,
+            45,
+            265,
+            256
+          ]
+        },
+        {
+          "index": 4,
+          "direction": "S",
+          "phase": 0,
+          "column": 0,
+          "row": 1,
+          "cell": [
+            0,
+            313,
+            313,
+            627
+          ],
+          "foregroundBounds": [
+            39,
+            339,
+            281,
+            591
+          ],
+          "foregroundSize": [
+            242,
+            252
+          ],
+          "gutter": [
+            39,
+            26,
+            32,
+            36
+          ],
+          "spriteBounds": [
+            39,
+            339,
+            281,
+            591
+          ],
+          "recommendedSourceRect": [
+            36,
+            336,
+            248,
+            258
+          ]
+        },
+        {
+          "index": 5,
+          "direction": "S",
+          "phase": 1,
+          "column": 1,
+          "row": 1,
+          "cell": [
+            313,
+            313,
+            627,
+            627
+          ],
+          "foregroundBounds": [
+            349,
+            339,
+            591,
+            591
+          ],
+          "foregroundSize": [
+            242,
+            252
+          ],
+          "gutter": [
+            36,
+            26,
+            36,
+            36
+          ],
+          "spriteBounds": [
+            349,
+            339,
+            591,
+            591
+          ],
+          "recommendedSourceRect": [
+            346,
+            336,
+            248,
+            258
+          ]
+        },
+        {
+          "index": 6,
+          "direction": "SW",
+          "phase": 0,
+          "column": 2,
+          "row": 1,
+          "cell": [
+            627,
+            313,
+            940,
+            627
+          ],
+          "foregroundBounds": [
+            647,
+            354,
+            907,
+            599
+          ],
+          "foregroundSize": [
+            260,
+            245
+          ],
+          "gutter": [
+            20,
+            41,
+            33,
+            28
+          ],
+          "spriteBounds": [
+            647,
+            354,
+            907,
+            599
+          ],
+          "recommendedSourceRect": [
+            644,
+            351,
+            266,
+            251
+          ]
+        },
+        {
+          "index": 7,
+          "direction": "SW",
+          "phase": 1,
+          "column": 3,
+          "row": 1,
+          "cell": [
+            940,
+            313,
+            1254,
+            627
+          ],
+          "foregroundBounds": [
+            958,
+            354,
+            1219,
+            598
+          ],
+          "foregroundSize": [
+            261,
+            244
+          ],
+          "gutter": [
+            18,
+            41,
+            35,
+            29
+          ],
+          "spriteBounds": [
+            958,
+            354,
+            1219,
+            598
+          ],
+          "recommendedSourceRect": [
+            955,
+            351,
+            267,
+            250
+          ]
+        },
+        {
+          "index": 8,
+          "direction": "W",
+          "phase": 0,
+          "column": 0,
+          "row": 2,
+          "cell": [
+            0,
+            627,
+            313,
+            940
+          ],
+          "foregroundBounds": [
+            26,
+            652,
+            293,
+            940
+          ],
+          "foregroundSize": [
+            267,
+            288
+          ],
+          "gutter": [
+            26,
+            25,
+            20,
+            0
+          ],
+          "spriteBounds": [
+            26,
+            652,
+            293,
+            883
+          ],
+          "recommendedSourceRect": [
+            23,
+            649,
+            273,
+            237
+          ]
+        },
+        {
+          "index": 9,
+          "direction": "W",
+          "phase": 1,
+          "column": 1,
+          "row": 2,
+          "cell": [
+            313,
+            627,
+            627,
+            940
+          ],
+          "foregroundBounds": [
+            336,
+            652,
+            603,
+            940
+          ],
+          "foregroundSize": [
+            267,
+            288
+          ],
+          "gutter": [
+            23,
+            25,
+            24,
+            0
+          ],
+          "spriteBounds": [
+            336,
+            652,
+            603,
+            883
+          ],
+          "recommendedSourceRect": [
+            333,
+            649,
+            273,
+            237
+          ]
+        },
+        {
+          "index": 10,
+          "direction": "NW",
+          "phase": 0,
+          "column": 2,
+          "row": 2,
+          "cell": [
+            627,
+            627,
+            940,
+            940
+          ],
+          "foregroundBounds": [
+            644,
+            663,
+            908,
+            898
+          ],
+          "foregroundSize": [
+            264,
+            235
+          ],
+          "gutter": [
+            17,
+            36,
+            32,
+            42
+          ],
+          "spriteBounds": [
+            644,
+            663,
+            908,
+            898
+          ],
+          "recommendedSourceRect": [
+            641,
+            660,
+            270,
+            241
+          ]
+        },
+        {
+          "index": 11,
+          "direction": "NW",
+          "phase": 1,
+          "column": 3,
+          "row": 2,
+          "cell": [
+            940,
+            627,
+            1254,
+            940
+          ],
+          "foregroundBounds": [
+            957,
+            663,
+            1220,
+            898
+          ],
+          "foregroundSize": [
+            263,
+            235
+          ],
+          "gutter": [
+            17,
+            36,
+            34,
+            42
+          ],
+          "spriteBounds": [
+            957,
+            663,
+            1220,
+            898
+          ],
+          "recommendedSourceRect": [
+            954,
+            660,
+            269,
+            241
+          ]
+        },
+        {
+          "index": 12,
+          "direction": "N",
+          "phase": 0,
+          "column": 0,
+          "row": 3,
+          "cell": [
+            0,
+            940,
+            313,
+            1254
+          ],
+          "foregroundBounds": [
+            43,
+            940,
+            274,
+            1173
+          ],
+          "foregroundSize": [
+            231,
+            233
+          ],
+          "gutter": [
+            43,
+            0,
+            39,
+            81
+          ],
+          "spriteBounds": [
+            43,
+            932,
+            274,
+            1173
+          ],
+          "recommendedSourceRect": [
+            40,
+            929,
+            237,
+            247
+          ]
+        },
+        {
+          "index": 13,
+          "direction": "N",
+          "phase": 1,
+          "column": 1,
+          "row": 3,
+          "cell": [
+            313,
+            940,
+            627,
+            1254
+          ],
+          "foregroundBounds": [
+            352,
+            940,
+            584,
+            1173
+          ],
+          "foregroundSize": [
+            232,
+            233
+          ],
+          "gutter": [
+            39,
+            0,
+            43,
+            81
+          ],
+          "spriteBounds": [
+            352,
+            932,
+            584,
+            1173
+          ],
+          "recommendedSourceRect": [
+            349,
+            929,
+            238,
+            247
+          ]
+        },
+        {
+          "index": 14,
+          "direction": "NE",
+          "phase": 0,
+          "column": 2,
+          "row": 3,
+          "cell": [
+            627,
+            940,
+            940,
+            1254
+          ],
+          "foregroundBounds": [
+            650,
+            953,
+            905,
+            1191
+          ],
+          "foregroundSize": [
+            255,
+            238
+          ],
+          "gutter": [
+            23,
+            13,
+            35,
+            63
+          ],
+          "spriteBounds": [
+            650,
+            953,
+            905,
+            1191
+          ],
+          "recommendedSourceRect": [
+            647,
+            950,
+            261,
+            244
+          ]
+        },
+        {
+          "index": 15,
+          "direction": "NE",
+          "phase": 1,
+          "column": 3,
+          "row": 3,
+          "cell": [
+            940,
+            940,
+            1254,
+            1254
+          ],
+          "foregroundBounds": [
+            961,
+            953,
+            1216,
+            1191
+          ],
+          "foregroundSize": [
+            255,
+            238
+          ],
+          "gutter": [
+            21,
+            13,
+            38,
+            63
+          ],
+          "spriteBounds": [
+            961,
+            953,
+            1216,
+            1191
+          ],
+          "recommendedSourceRect": [
+            958,
+            950,
+            261,
+            244
+          ]
+        }
+      ]
+    },
+    {
+      "name": "airplane",
+      "path": "assets/motion-plane.png",
+      "width": 1254,
+      "height": 1254,
+      "mode": "RGB",
+      "cellWidth": 313.5,
+      "cellHeight": 313.5,
+      "cornerRGB": [
+        233,
+        14,
+        240
+      ],
+      "exactMagentaFraction": 1.907770731744542e-06,
+      "frames": [
+        {
+          "index": 0,
+          "direction": "E",
+          "phase": 0,
+          "column": 0,
+          "row": 0,
+          "cell": [
+            0,
+            0,
+            313,
+            313
+          ],
+          "foregroundBounds": [
+            31,
+            47,
+            286,
+            277
+          ],
+          "foregroundSize": [
+            255,
+            230
+          ],
+          "gutter": [
+            31,
+            47,
+            27,
+            36
+          ],
+          "spriteBounds": [
+            31,
+            47,
+            286,
+            277
+          ],
+          "recommendedSourceRect": [
+            28,
+            44,
+            261,
+            236
+          ]
+        },
+        {
+          "index": 1,
+          "direction": "E",
+          "phase": 1,
+          "column": 1,
+          "row": 0,
+          "cell": [
+            313,
+            0,
+            627,
+            313
+          ],
+          "foregroundBounds": [
+            333,
+            46,
+            595,
+            277
+          ],
+          "foregroundSize": [
+            262,
+            231
+          ],
+          "gutter": [
+            20,
+            46,
+            32,
+            36
+          ],
+          "spriteBounds": [
+            333,
+            46,
+            595,
+            277
+          ],
+          "recommendedSourceRect": [
+            330,
+            43,
+            268,
+            237
+          ]
+        },
+        {
+          "index": 2,
+          "direction": "SE",
+          "phase": 0,
+          "column": 2,
+          "row": 0,
+          "cell": [
+            627,
+            0,
+            940,
+            313
+          ],
+          "foregroundBounds": [
+            649,
+            50,
+            909,
+            286
+          ],
+          "foregroundSize": [
+            260,
+            236
+          ],
+          "gutter": [
+            22,
+            50,
+            31,
+            27
+          ],
+          "spriteBounds": [
+            649,
+            50,
+            909,
+            286
+          ],
+          "recommendedSourceRect": [
+            646,
+            47,
+            266,
+            242
+          ]
+        },
+        {
+          "index": 3,
+          "direction": "SE",
+          "phase": 1,
+          "column": 3,
+          "row": 0,
+          "cell": [
+            940,
+            0,
+            1254,
+            313
+          ],
+          "foregroundBounds": [
+            965,
+            50,
+            1220,
+            283
+          ],
+          "foregroundSize": [
+            255,
+            233
+          ],
+          "gutter": [
+            25,
+            50,
+            34,
+            30
+          ],
+          "spriteBounds": [
+            965,
+            50,
+            1220,
+            283
+          ],
+          "recommendedSourceRect": [
+            962,
+            47,
+            261,
+            239
+          ]
+        },
+        {
+          "index": 4,
+          "direction": "S",
+          "phase": 0,
+          "column": 0,
+          "row": 1,
+          "cell": [
+            0,
+            313,
+            313,
+            627
+          ],
+          "foregroundBounds": [
+            20,
+            358,
+            303,
+            602
+          ],
+          "foregroundSize": [
+            283,
+            244
+          ],
+          "gutter": [
+            20,
+            45,
+            10,
+            25
+          ],
+          "spriteBounds": [
+            20,
+            358,
+            303,
+            602
+          ],
+          "recommendedSourceRect": [
+            17,
+            355,
+            289,
+            250
+          ]
+        },
+        {
+          "index": 5,
+          "direction": "S",
+          "phase": 1,
+          "column": 1,
+          "row": 1,
+          "cell": [
+            313,
+            313,
+            627,
+            627
+          ],
+          "foregroundBounds": [
+            324,
+            358,
+            607,
+            575
+          ],
+          "foregroundSize": [
+            283,
+            217
+          ],
+          "gutter": [
+            11,
+            45,
+            20,
+            52
+          ],
+          "spriteBounds": [
+            324,
+            358,
+            607,
+            575
+          ],
+          "recommendedSourceRect": [
+            321,
+            355,
+            289,
+            223
+          ]
+        },
+        {
+          "index": 6,
+          "direction": "SW",
+          "phase": 0,
+          "column": 2,
+          "row": 1,
+          "cell": [
+            627,
+            313,
+            940,
+            627
+          ],
+          "foregroundBounds": [
+            649,
+            358,
+            898,
+            593
+          ],
+          "foregroundSize": [
+            249,
+            235
+          ],
+          "gutter": [
+            22,
+            45,
+            42,
+            34
+          ],
+          "spriteBounds": [
+            649,
+            358,
+            898,
+            593
+          ],
+          "recommendedSourceRect": [
+            646,
+            355,
+            255,
+            241
+          ]
+        },
+        {
+          "index": 7,
+          "direction": "SW",
+          "phase": 1,
+          "column": 3,
+          "row": 1,
+          "cell": [
+            940,
+            313,
+            1254,
+            627
+          ],
+          "foregroundBounds": [
+            963,
+            358,
+            1212,
+            593
+          ],
+          "foregroundSize": [
+            249,
+            235
+          ],
+          "gutter": [
+            23,
+            45,
+            42,
+            34
+          ],
+          "spriteBounds": [
+            963,
+            358,
+            1212,
+            593
+          ],
+          "recommendedSourceRect": [
+            960,
+            355,
+            255,
+            241
+          ]
+        },
+        {
+          "index": 8,
+          "direction": "W",
+          "phase": 0,
+          "column": 0,
+          "row": 2,
+          "cell": [
+            0,
+            627,
+            313,
+            940
+          ],
+          "foregroundBounds": [
+            35,
+            666,
+            293,
+            889
+          ],
+          "foregroundSize": [
+            258,
+            223
+          ],
+          "gutter": [
+            35,
+            39,
+            20,
+            51
+          ],
+          "spriteBounds": [
+            35,
+            666,
+            293,
+            889
+          ],
+          "recommendedSourceRect": [
+            32,
+            663,
+            264,
+            229
+          ]
+        },
+        {
+          "index": 9,
+          "direction": "W",
+          "phase": 1,
+          "column": 1,
+          "row": 2,
+          "cell": [
+            313,
+            627,
+            627,
+            940
+          ],
+          "foregroundBounds": [
+            337,
+            666,
+            598,
+            889
+          ],
+          "foregroundSize": [
+            261,
+            223
+          ],
+          "gutter": [
+            24,
+            39,
+            29,
+            51
+          ],
+          "spriteBounds": [
+            337,
+            666,
+            598,
+            889
+          ],
+          "recommendedSourceRect": [
+            334,
+            663,
+            267,
+            229
+          ]
+        },
+        {
+          "index": 10,
+          "direction": "NW",
+          "phase": 0,
+          "column": 2,
+          "row": 2,
+          "cell": [
+            627,
+            627,
+            940,
+            940
+          ],
+          "foregroundBounds": [
+            650,
+            677,
+            909,
+            887
+          ],
+          "foregroundSize": [
+            259,
+            210
+          ],
+          "gutter": [
+            23,
+            50,
+            31,
+            53
+          ],
+          "spriteBounds": [
+            650,
+            677,
+            909,
+            887
+          ],
+          "recommendedSourceRect": [
+            647,
+            674,
+            265,
+            216
+          ]
+        },
+        {
+          "index": 11,
+          "direction": "NW",
+          "phase": 1,
+          "column": 3,
+          "row": 2,
+          "cell": [
+            940,
+            627,
+            1254,
+            940
+          ],
+          "foregroundBounds": [
+            964,
+            676,
+            1223,
+            887
+          ],
+          "foregroundSize": [
+            259,
+            211
+          ],
+          "gutter": [
+            24,
+            49,
+            31,
+            53
+          ],
+          "spriteBounds": [
+            964,
+            676,
+            1223,
+            887
+          ],
+          "recommendedSourceRect": [
+            961,
+            673,
+            265,
+            217
+          ]
+        },
+        {
+          "index": 12,
+          "direction": "N",
+          "phase": 0,
+          "column": 0,
+          "row": 3,
+          "cell": [
+            0,
+            940,
+            313,
+            1254
+          ],
+          "foregroundBounds": [
+            20,
+            951,
+            303,
+            1206
+          ],
+          "foregroundSize": [
+            283,
+            255
+          ],
+          "gutter": [
+            20,
+            11,
+            10,
+            48
+          ],
+          "spriteBounds": [
+            20,
+            951,
+            303,
+            1206
+          ],
+          "recommendedSourceRect": [
+            17,
+            948,
+            289,
+            261
+          ]
+        },
+        {
+          "index": 13,
+          "direction": "N",
+          "phase": 1,
+          "column": 1,
+          "row": 3,
+          "cell": [
+            313,
+            940,
+            627,
+            1254
+          ],
+          "foregroundBounds": [
+            324,
+            979,
+            607,
+            1206
+          ],
+          "foregroundSize": [
+            283,
+            227
+          ],
+          "gutter": [
+            11,
+            39,
+            20,
+            48
+          ],
+          "spriteBounds": [
+            324,
+            979,
+            607,
+            1206
+          ],
+          "recommendedSourceRect": [
+            321,
+            976,
+            289,
+            233
+          ]
+        },
+        {
+          "index": 14,
+          "direction": "NE",
+          "phase": 0,
+          "column": 2,
+          "row": 3,
+          "cell": [
+            627,
+            940,
+            940,
+            1254
+          ],
+          "foregroundBounds": [
+            647,
+            969,
+            915,
+            1187
+          ],
+          "foregroundSize": [
+            268,
+            218
+          ],
+          "gutter": [
+            20,
+            29,
+            25,
+            67
+          ],
+          "spriteBounds": [
+            647,
+            969,
+            915,
+            1187
+          ],
+          "recommendedSourceRect": [
+            644,
+            966,
+            274,
+            224
+          ]
+        },
+        {
+          "index": 15,
+          "direction": "NE",
+          "phase": 1,
+          "column": 3,
+          "row": 3,
+          "cell": [
+            940,
+            940,
+            1254,
+            1254
+          ],
+          "foregroundBounds": [
+            961,
+            969,
+            1228,
+            1187
+          ],
+          "foregroundSize": [
+            267,
+            218
+          ],
+          "gutter": [
+            21,
+            29,
+            26,
+            67
+          ],
+          "spriteBounds": [
+            961,
+            969,
+            1228,
+            1187
+          ],
+          "recommendedSourceRect": [
+            958,
+            966,
+            273,
+            224
+          ]
+        }
+      ]
+    },
+    {
+      "name": "ferry",
+      "path": "assets/motion-boat.png",
+      "width": 1254,
+      "height": 1254,
+      "mode": "RGB",
+      "cellWidth": 313.5,
+      "cellHeight": 313.5,
+      "cornerRGB": [
+        236,
+        13,
+        239
+      ],
+      "exactMagentaFraction": 4.451465040737264e-06,
+      "frames": [
+        {
+          "index": 0,
+          "direction": "E",
+          "phase": 0,
+          "column": 0,
+          "row": 0,
+          "cell": [
+            0,
+            0,
+            313,
+            313
+          ],
+          "foregroundBounds": [
+            25,
+            48,
+            304,
+            242
+          ],
+          "foregroundSize": [
+            279,
+            194
+          ],
+          "gutter": [
+            25,
+            48,
+            9,
+            71
+          ],
+          "spriteBounds": [
+            25,
+            48,
+            304,
+            242
+          ],
+          "recommendedSourceRect": [
+            22,
+            45,
+            285,
+            200
+          ]
+        },
+        {
+          "index": 1,
+          "direction": "E",
+          "phase": 1,
+          "column": 1,
+          "row": 0,
+          "cell": [
+            313,
+            0,
+            627,
+            313
+          ],
+          "foregroundBounds": [
+            327,
+            49,
+            615,
+            242
+          ],
+          "foregroundSize": [
+            288,
+            193
+          ],
+          "gutter": [
+            14,
+            49,
+            12,
+            71
+          ],
+          "spriteBounds": [
+            327,
+            49,
+            615,
+            242
+          ],
+          "recommendedSourceRect": [
+            324,
+            46,
+            294,
+            199
+          ]
+        },
+        {
+          "index": 2,
+          "direction": "SE",
+          "phase": 0,
+          "column": 2,
+          "row": 0,
+          "cell": [
+            627,
+            0,
+            940,
+            313
+          ],
+          "foregroundBounds": [
+            669,
+            48,
+            909,
+            267
+          ],
+          "foregroundSize": [
+            240,
+            219
+          ],
+          "gutter": [
+            42,
+            48,
+            31,
+            46
+          ],
+          "spriteBounds": [
+            669,
+            48,
+            909,
+            267
+          ],
+          "recommendedSourceRect": [
+            666,
+            45,
+            246,
+            225
+          ]
+        },
+        {
+          "index": 3,
+          "direction": "SE",
+          "phase": 1,
+          "column": 3,
+          "row": 0,
+          "cell": [
+            940,
+            0,
+            1254,
+            313
+          ],
+          "foregroundBounds": [
+            980,
+            49,
+            1218,
+            267
+          ],
+          "foregroundSize": [
+            238,
+            218
+          ],
+          "gutter": [
+            40,
+            49,
+            36,
+            46
+          ],
+          "spriteBounds": [
+            980,
+            49,
+            1218,
+            267
+          ],
+          "recommendedSourceRect": [
+            977,
+            46,
+            244,
+            224
+          ]
+        },
+        {
+          "index": 4,
+          "direction": "S",
+          "phase": 0,
+          "column": 0,
+          "row": 1,
+          "cell": [
+            0,
+            313,
+            313,
+            627
+          ],
+          "foregroundBounds": [
+            55,
+            341,
+            259,
+            577
+          ],
+          "foregroundSize": [
+            204,
+            236
+          ],
+          "gutter": [
+            55,
+            28,
+            54,
+            50
+          ],
+          "spriteBounds": [
+            55,
+            341,
+            259,
+            577
+          ],
+          "recommendedSourceRect": [
+            52,
+            338,
+            210,
+            242
+          ]
+        },
+        {
+          "index": 5,
+          "direction": "S",
+          "phase": 1,
+          "column": 1,
+          "row": 1,
+          "cell": [
+            313,
+            313,
+            627,
+            627
+          ],
+          "foregroundBounds": [
+            369,
+            341,
+            571,
+            577
+          ],
+          "foregroundSize": [
+            202,
+            236
+          ],
+          "gutter": [
+            56,
+            28,
+            56,
+            50
+          ],
+          "spriteBounds": [
+            369,
+            341,
+            571,
+            577
+          ],
+          "recommendedSourceRect": [
+            366,
+            338,
+            208,
+            242
+          ]
+        },
+        {
+          "index": 6,
+          "direction": "SW",
+          "phase": 0,
+          "column": 2,
+          "row": 1,
+          "cell": [
+            627,
+            313,
+            940,
+            627
+          ],
+          "foregroundBounds": [
+            653,
+            352,
+            904,
+            576
+          ],
+          "foregroundSize": [
+            251,
+            224
+          ],
+          "gutter": [
+            26,
+            39,
+            36,
+            51
+          ],
+          "spriteBounds": [
+            653,
+            352,
+            904,
+            576
+          ],
+          "recommendedSourceRect": [
+            650,
+            349,
+            257,
+            230
+          ]
+        },
+        {
+          "index": 7,
+          "direction": "SW",
+          "phase": 1,
+          "column": 3,
+          "row": 1,
+          "cell": [
+            940,
+            313,
+            1254,
+            627
+          ],
+          "foregroundBounds": [
+            963,
+            352,
+            1217,
+            574
+          ],
+          "foregroundSize": [
+            254,
+            222
+          ],
+          "gutter": [
+            23,
+            39,
+            37,
+            53
+          ],
+          "spriteBounds": [
+            963,
+            352,
+            1217,
+            574
+          ],
+          "recommendedSourceRect": [
+            960,
+            349,
+            260,
+            228
+          ]
+        },
+        {
+          "index": 8,
+          "direction": "W",
+          "phase": 0,
+          "column": 0,
+          "row": 2,
+          "cell": [
+            0,
+            627,
+            313,
+            940
+          ],
+          "foregroundBounds": [
+            24,
+            673,
+            301,
+            865
+          ],
+          "foregroundSize": [
+            277,
+            192
+          ],
+          "gutter": [
+            24,
+            46,
+            12,
+            75
+          ],
+          "spriteBounds": [
+            24,
+            673,
+            301,
+            865
+          ],
+          "recommendedSourceRect": [
+            21,
+            670,
+            283,
+            198
+          ]
+        },
+        {
+          "index": 9,
+          "direction": "W",
+          "phase": 1,
+          "column": 1,
+          "row": 2,
+          "cell": [
+            313,
+            627,
+            627,
+            940
+          ],
+          "foregroundBounds": [
+            335,
+            673,
+            614,
+            865
+          ],
+          "foregroundSize": [
+            279,
+            192
+          ],
+          "gutter": [
+            22,
+            46,
+            13,
+            75
+          ],
+          "spriteBounds": [
+            335,
+            673,
+            614,
+            865
+          ],
+          "recommendedSourceRect": [
+            332,
+            670,
+            285,
+            198
+          ]
+        },
+        {
+          "index": 10,
+          "direction": "NW",
+          "phase": 0,
+          "column": 2,
+          "row": 2,
+          "cell": [
+            627,
+            627,
+            940,
+            940
+          ],
+          "foregroundBounds": [
+            674,
+            658,
+            912,
+            894
+          ],
+          "foregroundSize": [
+            238,
+            236
+          ],
+          "gutter": [
+            47,
+            31,
+            28,
+            46
+          ],
+          "spriteBounds": [
+            674,
+            658,
+            912,
+            894
+          ],
+          "recommendedSourceRect": [
+            671,
+            655,
+            244,
+            242
+          ]
+        },
+        {
+          "index": 11,
+          "direction": "NW",
+          "phase": 1,
+          "column": 3,
+          "row": 2,
+          "cell": [
+            940,
+            627,
+            1254,
+            940
+          ],
+          "foregroundBounds": [
+            985,
+            658,
+            1217,
+            893
+          ],
+          "foregroundSize": [
+            232,
+            235
+          ],
+          "gutter": [
+            45,
+            31,
+            37,
+            47
+          ],
+          "spriteBounds": [
+            985,
+            658,
+            1217,
+            893
+          ],
+          "recommendedSourceRect": [
+            982,
+            655,
+            238,
+            241
+          ]
+        },
+        {
+          "index": 12,
+          "direction": "N",
+          "phase": 0,
+          "column": 0,
+          "row": 3,
+          "cell": [
+            0,
+            940,
+            313,
+            1254
+          ],
+          "foregroundBounds": [
+            75,
+            940,
+            250,
+            1191
+          ],
+          "foregroundSize": [
+            175,
+            251
+          ],
+          "gutter": [
+            75,
+            0,
+            63,
+            63
+          ],
+          "spriteBounds": [
+            75,
+            940,
+            250,
+            1191
+          ],
+          "recommendedSourceRect": [
+            72,
+            937,
+            181,
+            257
+          ]
+        },
+        {
+          "index": 13,
+          "direction": "N",
+          "phase": 1,
+          "column": 1,
+          "row": 3,
+          "cell": [
+            313,
+            940,
+            627,
+            1254
+          ],
+          "foregroundBounds": [
+            381,
+            940,
+            557,
+            1195
+          ],
+          "foregroundSize": [
+            176,
+            255
+          ],
+          "gutter": [
+            68,
+            0,
+            70,
+            59
+          ],
+          "spriteBounds": [
+            381,
+            940,
+            557,
+            1195
+          ],
+          "recommendedSourceRect": [
+            378,
+            937,
+            182,
+            261
+          ]
+        },
+        {
+          "index": 14,
+          "direction": "NE",
+          "phase": 0,
+          "column": 2,
+          "row": 3,
+          "cell": [
+            627,
+            940,
+            940,
+            1254
+          ],
+          "foregroundBounds": [
+            659,
+            957,
+            876,
+            1196
+          ],
+          "foregroundSize": [
+            217,
+            239
+          ],
+          "gutter": [
+            32,
+            17,
+            64,
+            58
+          ],
+          "spriteBounds": [
+            659,
+            957,
+            876,
+            1196
+          ],
+          "recommendedSourceRect": [
+            656,
+            954,
+            223,
+            245
+          ]
+        },
+        {
+          "index": 15,
+          "direction": "NE",
+          "phase": 1,
+          "column": 3,
+          "row": 3,
+          "cell": [
+            940,
+            940,
+            1254,
+            1254
+          ],
+          "foregroundBounds": [
+            959,
+            957,
+            1190,
+            1198
+          ],
+          "foregroundSize": [
+            231,
+            241
+          ],
+          "gutter": [
+            19,
+            17,
+            64,
+            56
+          ],
+          "spriteBounds": [
+            959,
+            957,
+            1190,
+            1198
+          ],
+          "recommendedSourceRect": [
+            956,
+            954,
+            237,
+            247
+          ]
+        }
+      ]
+    }
+  ],
+  "recommendedKeyPredicate": "r > 120 && b > 120 && g < r * 0.60 && g < b * 0.60; account for antialiased edges",
+  "foregroundBoundsNote": "Read-only approximate foreground bounds exclude near-magenta and isolated components smaller than 24 pixels.",
+  "recommendedCropNote": "Generated atlas placement is approximate. Use spriteBounds over full cell when extracting, because a few sprites extend 1–8 pixels beyond a nominal row/cell boundary; maintain per-mode scale and normalize anchors. Bounds include assigned wake components, exclusive right/bottom."
+}

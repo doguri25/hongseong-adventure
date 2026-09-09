@@ -1,0 +1,210 @@
+{
+  "retrieved": "2026-09-09",
+  "railwaySource": "OpenStreetMap contributors, ODbL 1.0; actual rail ways, no invented track geometry",
+  "places": [
+    {
+      "id": "new-namsan",
+      "name": "남산산림욕장",
+      "lon": 126.6527329,
+      "lat": 36.5767448,
+      "area": "홍성군 홍성읍",
+      "address": "홍성군 홍성읍 충서로 1121-74",
+      "source": "https://www.chungnam.go.kr/cnportal/media/article/view.do?articleNo=MD0003296731&menuNo=500166",
+      "locationSource": "https://findby.co.kr/details/32244-448003252053-st-652c0c55f27008be2c55e097",
+      "locationNote": "출처에 공개된 시설 또는 주소 좌표. 건물 출입구와는 차이가 있을 수 있음."
+    },
+    {
+      "id": "new-oseo-forest",
+      "name": "국립오서산자연휴양림",
+      "lon": 126.673416,
+      "lat": 36.45275,
+      "area": "보령시 청라면",
+      "address": "보령시 청라면 오서산길 531",
+      "source": "https://www.foresttrip.go.kr/indvz/main.do?hmpgId=0191",
+      "locationSource": "https://www.openstreetmap.org/node/368975319",
+      "locationNote": "출처에 공개된 시설 또는 주소 좌표. 건물 출입구와는 차이가 있을 수 있음."
+    },
+    {
+      "id": "new-hongseong-station",
+      "name": "홍성역",
+      "lon": 126.6812157,
+      "lat": 36.5993365,
+      "area": "홍성군 홍성읍",
+      "address": "홍성군 홍성읍 조양로 272",
+      "source": "https://www.openstreetmap.org/node/8664401956",
+      "locationSource": "https://www.openstreetmap.org/node/8664401956",
+      "locationNote": "출처에 공개된 시설 또는 주소 좌표. 건물 출입구와는 차이가 있을 수 있음."
+    },
+    {
+      "id": "new-gwangcheon-station",
+      "name": "광천역",
+      "lon": 126.622414,
+      "lat": 36.50176,
+      "area": "홍성군 광천읍",
+      "address": "홍성군 광천읍 광천로273번길 85",
+      "source": "https://www.openstreetmap.org/node/368636861",
+      "locationSource": "https://www.openstreetmap.org/node/368636861",
+      "locationNote": "출처에 공개된 시설 또는 주소 좌표. 건물 출입구와는 차이가 있을 수 있음."
+    },
+    {
+      "id": "new-hongseong-terminal",
+      "name": "홍성종합터미널",
+      "lon": 126.67633015,
+      "lat": 36.6010884,
+      "area": "홍성군 홍성읍",
+      "address": "홍성군 홍성읍 조양로247번길 9",
+      "source": "https://www.openstreetmap.org/way/503299104",
+      "locationSource": "https://www.openstreetmap.org/way/503299104",
+      "locationNote": "출처에 공개된 시설 또는 주소 좌표. 건물 출입구와는 차이가 있을 수 있음."
+    },
+    {
+      "id": "new-naepo-bus",
+      "name": "내포신도시 고속시외버스정류소",
+      "lon": 126.67058315,
+      "lat": 36.6593529,
+      "area": "예산군 삽교읍",
+      "address": "예산군 삽교읍 도청대로 600 부근",
+      "source": "https://www.openstreetmap.org/way/890918469",
+      "locationSource": "https://www.openstreetmap.org/way/890918469",
+      "locationNote": "출처에 공개된 시설 또는 주소 좌표. 건물 출입구와는 차이가 있을 수 있음."
+    },
+    {
+      "id": "new-naedang",
+      "name": "내당0우",
+      "lon": 126.6637373,
+      "lat": 36.6002987,
+      "area": "홍성군 홍성읍",
+      "address": "홍성군 홍성읍 아문길52번길 6",
+      "source": "https://korean.visitkorea.or.kr/detail/ms_detail.do?cotid=dfa3f591-426f-4e70-9e68-5c117b143552",
+      "locationSource": "https://kr.maptons.com/p/8796442381",
+      "locationNote": "출처에 공개된 시설 또는 주소 좌표. 건물 출입구와는 차이가 있을 수 있음.",
+      "originalName": "내당한우"
+    },
+    {
+      "id": "new-gyeolnoodle",
+      "name": "결성0국수",
+      "lon": 126.5480551,
+      "lat": 36.5272492,
+      "area": "홍성군 결성면",
+      "address": "홍성군 결성면 구성남로 31",
+      "source": "https://korean.visitkorea.or.kr/detail/ms_detail.do?cotid=579fb01a-e4ca-4cd0-b8cc-e99cf5458a1e",
+      "locationSource": "https://www.diningcode.com/profile.php?rid=XgXqsEZIgPxY",
+      "locationNote": "출처에 공개된 시설 또는 주소 좌표. 건물 출입구와는 차이가 있을 수 있음.",
+      "originalName": "결성칼국수"
+    },
+    {
+      "id": "new-hanbat",
+      "name": "한밭0당",
+      "lon": 126.6259877,
+      "lat": 36.501127,
+      "area": "홍성군 광천읍",
+      "address": "홍성군 광천읍 광천로299번길 6-1",
+      "source": "https://www.diningcode.com/profile.php?rid=G0HqCB8wmJxe",
+      "locationSource": "https://www.diningcode.com/profile.php?rid=G0HqCB8wmJxe",
+      "locationNote": "출처에 공개된 시설 또는 주소 좌표. 건물 출입구와는 차이가 있을 수 있음.",
+      "originalName": "한밭식당"
+    },
+    {
+      "id": "new-gukbap",
+      "name": "70년소0리국밥",
+      "lon": 126.6683608,
+      "lat": 36.6014306,
+      "area": "홍성군 홍성읍",
+      "address": "홍성군 홍성읍 의사로43번길 27-9",
+      "source": "https://www.diningcode.com/profile.php?rid=UjoZtlJbWFKm",
+      "locationSource": "https://www.diningcode.com/profile.php?rid=UjoZtlJbWFKm",
+      "locationNote": "출처에 공개된 시설 또는 주소 좌표. 건물 출입구와는 차이가 있을 수 있음.",
+      "originalName": "70년소머리국밥"
+    },
+    {
+      "id": "new-seafood",
+      "name": "내포0물촌",
+      "lon": 126.6783715,
+      "lat": 36.5928727,
+      "area": "홍성군 홍성읍",
+      "address": "홍성군 홍성읍 조양로246번길 80",
+      "source": "https://www.diningcode.com/profile.php?rid=z0X2UzPOBwbm",
+      "locationSource": "https://www.diningcode.com/profile.php?rid=z0X2UzPOBwbm",
+      "locationNote": "출처에 공개된 시설 또는 주소 좌표. 건물 출입구와는 차이가 있을 수 있음.",
+      "originalName": "내포해물촌"
+    },
+    {
+      "id": "new-mido",
+      "name": "미도0당",
+      "lon": 126.6263879,
+      "lat": 36.5007641,
+      "area": "홍성군 광천읍",
+      "address": "홍성군 광천읍 광천로 300-1",
+      "source": "https://www.diningcode.com/profile.php?rid=5XveFn1v5GNu",
+      "locationSource": "https://www.diningcode.com/profile.php?rid=5XveFn1v5GNu",
+      "locationNote": "출처에 공개된 시설 또는 주소 좌표. 건물 출입구와는 차이가 있을 수 있음.",
+      "originalName": "미도식당"
+    },
+    {
+      "id": "new-bandabi",
+      "name": "홍성반다비수영장",
+      "lon": 126.6463146,
+      "lat": 36.6066535,
+      "area": "홍성군 홍성읍",
+      "address": "홍성군 홍성읍 홍덕서로 78-9",
+      "source": "https://hsbandabi.co.kr/_NBoard/content.php?co_id=cont0102",
+      "locationSource": "https://findby.co.kr/details/32216-448003262035-st-6936f8663be63ba92f012a1c",
+      "locationNote": "출처에 공개된 시설 또는 주소 좌표. 건물 출입구와는 차이가 있을 수 있음."
+    },
+    {
+      "id": "new-namjang-splash",
+      "name": "남장골 어린이공원 물놀이장",
+      "lon": 126.664107,
+      "lat": 36.587287,
+      "area": "홍성군 홍성읍",
+      "address": "홍성군 홍성읍 남장리 528",
+      "source": "https://www.ccnnews.co.kr/news/articleView.html?idxno=378450",
+      "locationSource": "https://ger.clubrichtour.co.kr/bbs/board.php?bo_table=public_cty_park_info&wr_id=1253",
+      "locationNote": "도시공원 표준자료의 공원 좌표. 물놀이 시설 출입구가 아닌 공원 대표 지점."
+    },
+    {
+      "id": "new-sinri-splash",
+      "name": "신리천공원 물놀이장",
+      "lon": 126.67239045,
+      "lat": 36.65064295,
+      "area": "홍성군 홍북읍",
+      "address": "홍성군 홍북읍 신경리 1367",
+      "source": "https://www.cica.go.kr/bbs/BBSMSTR_000000000023/list.do",
+      "locationSource": "https://www.openstreetmap.org/way/660157106",
+      "locationNote": "OSM 공원 대표 좌표에 둔 학습 지점. 물놀이시설 출입구의 정밀 좌표는 아님."
+    },
+    {
+      "id": "new-play-472303190",
+      "name": "홍성읍 놀이터 1",
+      "lon": 126.64970675,
+      "lat": 36.601962900000004,
+      "area": "홍성군 홍성읍",
+      "address": "홍성군 홍성읍 (지도 위치 참고)",
+      "source": "https://www.openstreetmap.org/way/472303190",
+      "locationSource": "https://www.openstreetmap.org/way/472303190",
+      "locationNote": "OSM에 이름 없이 등록된 놀이시설. 게임에서 구별하기 위한 설명 이름."
+    },
+    {
+      "id": "new-play-475573875",
+      "name": "홍성읍 놀이터 2",
+      "lon": 126.6501007,
+      "lat": 36.602740999999995,
+      "area": "홍성군 홍성읍",
+      "address": "홍성군 홍성읍 (지도 위치 참고)",
+      "source": "https://www.openstreetmap.org/way/475573875",
+      "locationSource": "https://www.openstreetmap.org/way/475573875",
+      "locationNote": "OSM에 이름 없이 등록된 놀이시설. 게임에서 구별하기 위한 설명 이름."
+    },
+    {
+      "id": "new-terrain-play",
+      "name": "지형놀이공원",
+      "lon": 126.676651,
+      "lat": 36.645698,
+      "area": "홍성군 홍북읍",
+      "address": "홍성군 홍북읍 신경리 1371",
+      "source": "https://www.chungnam.go.kr/naepo/main/contents.do?menuNo=3100005",
+      "locationSource": "https://kor.clubrichtour.co.kr/bbs/board.php?bo_table=public_cty_park_info&wr_id=1610",
+      "locationNote": "도시공원 표준자료의 공원 대표 좌표. 출입구 정밀 좌표는 아님."
+    }
+  ]
+}

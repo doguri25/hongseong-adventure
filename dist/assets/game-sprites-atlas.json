@@ -1,0 +1,459 @@
+{
+  "path": "assets/game-sprites-chroma-atlas.png",
+  "generation_method": "built-in image_gen background/layout edit, one correction call",
+  "dimensions": [
+    1254,
+    1254
+  ],
+  "mode": "RGB",
+  "has_alpha": false,
+  "grid": [
+    4,
+    4
+  ],
+  "nominal_cell_dimensions": [
+    313.5,
+    313.5
+  ],
+  "background": {
+    "requested_rgb": [
+      255,
+      0,
+      255
+    ],
+    "actual": "Near-magenta with small RGB variation, no checkerboard. Use tolerant chroma-keying, not exact equality.",
+    "dominant_rgb": [
+      251,
+      3,
+      251
+    ],
+    "corner_rgb": [
+      [
+        236,
+        13,
+        237
+      ],
+      [
+        245,
+        16,
+        242
+      ],
+      [
+        236,
+        36,
+        235
+      ],
+      [
+        241,
+        31,
+        237
+      ]
+    ],
+    "suggested_runtime_key": "r > 160 && b > 160 && g < 120 && r - g > 80 && b - g > 80"
+  },
+  "inspection": "All fourteen subjects present in requested order. Some artwork crosses nominal equal cell boundaries; prefer padded sourceRect crop metadata to retain bicycle wheels and tree branches. No raster pixels altered after generation.",
+  "cells": [
+    {
+      "name": "bicycle-front",
+      "row": 0,
+      "column": 0,
+      "gridRect": [
+        0.0,
+        0.0,
+        313.5,
+        313.5
+      ],
+      "foregroundBounds": [
+        67,
+        18,
+        184,
+        308
+      ],
+      "sourceRect": [
+        63,
+        14,
+        192,
+        316
+      ],
+      "anchor": [
+        0.5,
+        1
+      ]
+    },
+    {
+      "name": "bicycle-back",
+      "row": 0,
+      "column": 1,
+      "gridRect": [
+        313.5,
+        0.0,
+        313.5,
+        313.5
+      ],
+      "foregroundBounds": [
+        379,
+        17,
+        183,
+        309
+      ],
+      "sourceRect": [
+        375,
+        13,
+        191,
+        317
+      ],
+      "anchor": [
+        0.5,
+        1
+      ]
+    },
+    {
+      "name": "compact-car-front",
+      "row": 0,
+      "column": 2,
+      "gridRect": [
+        627.0,
+        0.0,
+        313.5,
+        313.5
+      ],
+      "foregroundBounds": [
+        647,
+        18,
+        263,
+        303
+      ],
+      "sourceRect": [
+        643,
+        14,
+        271,
+        311
+      ],
+      "anchor": [
+        0.5,
+        1
+      ]
+    },
+    {
+      "name": "compact-car-back",
+      "row": 0,
+      "column": 3,
+      "gridRect": [
+        940.5,
+        0.0,
+        313.5,
+        313.5
+      ],
+      "foregroundBounds": [
+        968,
+        18,
+        259,
+        302
+      ],
+      "sourceRect": [
+        964,
+        14,
+        267,
+        310
+      ],
+      "anchor": [
+        0.5,
+        1
+      ]
+    },
+    {
+      "name": "supercar-front",
+      "row": 1,
+      "column": 0,
+      "gridRect": [
+        0.0,
+        313.5,
+        313.5,
+        313.5
+      ],
+      "foregroundBounds": [
+        12,
+        349,
+        290,
+        275
+      ],
+      "sourceRect": [
+        8,
+        345,
+        298,
+        283
+      ],
+      "anchor": [
+        0.5,
+        1
+      ]
+    },
+    {
+      "name": "supercar-back",
+      "row": 1,
+      "column": 1,
+      "gridRect": [
+        313.5,
+        313.5,
+        313.5,
+        313.5
+      ],
+      "foregroundBounds": [
+        326,
+        349,
+        289,
+        272
+      ],
+      "sourceRect": [
+        322,
+        345,
+        297,
+        280
+      ],
+      "anchor": [
+        0.5,
+        1
+      ]
+    },
+    {
+      "name": "local-guide",
+      "row": 1,
+      "column": 2,
+      "gridRect": [
+        627.0,
+        313.5,
+        313.5,
+        313.5
+      ],
+      "foregroundBounds": [
+        665,
+        339,
+        222,
+        283
+      ],
+      "sourceRect": [
+        661,
+        335,
+        230,
+        291
+      ],
+      "anchor": [
+        0.5,
+        1
+      ]
+    },
+    {
+      "name": "museum-guide",
+      "row": 1,
+      "column": 3,
+      "gridRect": [
+        940.5,
+        313.5,
+        313.5,
+        313.5
+      ],
+      "foregroundBounds": [
+        1000,
+        334,
+        197,
+        290
+      ],
+      "sourceRect": [
+        996,
+        330,
+        205,
+        298
+      ],
+      "anchor": [
+        0.5,
+        1
+      ]
+    },
+    {
+      "name": "farmer",
+      "row": 2,
+      "column": 0,
+      "gridRect": [
+        0.0,
+        627.0,
+        313.5,
+        313.5
+      ],
+      "foregroundBounds": [
+        30,
+        636,
+        261,
+        302
+      ],
+      "sourceRect": [
+        26,
+        632,
+        269,
+        310
+      ],
+      "anchor": [
+        0.5,
+        1
+      ]
+    },
+    {
+      "name": "harbor-worker",
+      "row": 2,
+      "column": 1,
+      "gridRect": [
+        313.5,
+        627.0,
+        313.5,
+        313.5
+      ],
+      "foregroundBounds": [
+        359,
+        635,
+        203,
+        304
+      ],
+      "sourceRect": [
+        355,
+        631,
+        211,
+        312
+      ],
+      "anchor": [
+        0.5,
+        1
+      ]
+    },
+    {
+      "name": "tree-cluster",
+      "row": 2,
+      "column": 2,
+      "gridRect": [
+        627.0,
+        627.0,
+        313.5,
+        313.5
+      ],
+      "foregroundBounds": [
+        621,
+        635,
+        297,
+        298
+      ],
+      "sourceRect": [
+        617,
+        631,
+        305,
+        306
+      ],
+      "anchor": [
+        0.5,
+        1
+      ]
+    },
+    {
+      "name": "flowers",
+      "row": 2,
+      "column": 3,
+      "gridRect": [
+        940.5,
+        627.0,
+        313.5,
+        313.5
+      ],
+      "foregroundBounds": [
+        945,
+        677,
+        295,
+        229
+      ],
+      "sourceRect": [
+        941,
+        673,
+        303,
+        237
+      ],
+      "anchor": [
+        0.5,
+        1
+      ]
+    },
+    {
+      "name": "pennant",
+      "row": 3,
+      "column": 0,
+      "gridRect": [
+        0.0,
+        940.5,
+        313.5,
+        313.5
+      ],
+      "foregroundBounds": [
+        61,
+        948,
+        207,
+        276
+      ],
+      "sourceRect": [
+        57,
+        944,
+        215,
+        284
+      ],
+      "anchor": [
+        0.5,
+        1
+      ]
+    },
+    {
+      "name": "bench",
+      "row": 3,
+      "column": 1,
+      "gridRect": [
+        313.5,
+        940.5,
+        313.5,
+        313.5
+      ],
+      "foregroundBounds": [
+        328,
+        955,
+        266,
+        264
+      ],
+      "sourceRect": [
+        324,
+        951,
+        274,
+        272
+      ],
+      "anchor": [
+        0.5,
+        1
+      ]
+    },
+    {
+      "name": "empty-1",
+      "row": 3,
+      "column": 2,
+      "gridRect": [
+        627.0,
+        940.5,
+        313.5,
+        313.5
+      ],
+      "foregroundBounds": null
+    },
+    {
+      "name": "empty-2",
+      "row": 3,
+      "column": 3,
+      "gridRect": [
+        940.5,
+        940.5,
+        313.5,
+        313.5
+      ],
+      "foregroundBounds": null
+    }
+  ]
+}

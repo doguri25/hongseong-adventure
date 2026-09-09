@@ -1,0 +1,10 @@
+Use case: stylized-concept.
+Asset type: hand-painted material texture atlas for a top-down JRPG game.
+Primary request: Create ONE square 2048 x 2048 texture atlas containing EXACTLY four equal 1024 x 1024 square quadrants in a precise 2-column by 2-row layout, with four flat material textures meeting directly at the horizontal and vertical center. Each quadrant is a separate repeatable low-contrast material, filled edge-to-edge.
+TOP LEFT: clear clean turquoise seawater with very small, subtle horizontal water ripples; no boats, islands, large foam clusters, rocks or objects.
+TOP RIGHT: green meadow material with very tiny soft grass texture; no trees, flowers, large grass clumps or objects.
+BOTTOM LEFT: warm golden agricultural earth material for rice fields/farmland, with fine subtle soil texture only; no large furrows, field lines, crops, plants or objects.
+BOTTOM RIGHT: bright pale blue-gray stone courtyard material with very subtle fine granules; no large checkerboard lines, tile grids, paving outlines or objects.
+Style/medium: soft hand-painted JRPG game material textures, gentle fine organic brushwork. All four materials must be LOW CONTRAST and visually quiet so map markers and chibi characters will remain clearly readable when placed above them.
+Composition/framing: exact orthographic top view, flat homogeneous materials only. Each quadrant uses completely uniform illumination and consistent texture density from edge to edge; make each quadrant as seamless and repeatable as possible. Do not depict a map, environment, scenery, landscape, scene, terrain landmass, shoreline, land-water transitions, perspective, horizon, vignette, large gradients, cast shadows, or lighting hotspots.
+Constraints: four material swatches only, precise equal quadrants, crisp direct meeting edges without frames, gutter, outlines or decorative boundary lines. Fully opaque image. No characters, labels, letters, text, numbers, icons or symbols.

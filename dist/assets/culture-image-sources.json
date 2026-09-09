@@ -1,0 +1,167 @@
+{
+  "verifiedDate": "2026-09-09",
+  "photos": [
+    {
+      "id": "kim-jwajin-birthplace",
+      "place": "김좌진장군 생가지",
+      "localPath": "assets/kim-jwajin-birthplace.webp",
+      "kind": "actual-venue-photo",
+      "actualVenuePhoto": true,
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:Birthplace_of_Kim_Chwa-chin.jpg",
+      "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/2/2b/Birthplace_of_Kim_Chwa-chin.jpg",
+      "author": "Trainholic",
+      "license": "CC BY 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+      "captureDate": "2023-10-14",
+      "caption": "복원된 김좌진장군 생가지 전경",
+      "attribution": "사진: Trainholic · CC BY 4.0 · 크기 축소 및 WebP 변환",
+      "changes": "Resized to 1280x853 and converted to WebP; no crop",
+      "sourceCoordinates": {
+        "latitude": 36.597309,
+        "longitude": 126.547251,
+        "meaning": "camera viewpoint, not authoritative venue entrance"
+      }
+    },
+    {
+      "id": "hongju-uisachong",
+      "place": "홍주의사총",
+      "localPath": "assets/hongju-uisachong.webp",
+      "kind": "actual-venue-photo",
+      "actualVenuePhoto": true,
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:홍성-홍주의사총-Hongju-Uisachong-Shrine-in-Hongseong-8.jpg",
+      "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/5/5a/%ED%99%8D%EC%84%B1-%ED%99%8D%EC%A3%BC%EC%9D%98%EC%82%AC%EC%B4%9D-Hongju-Uisachong-Shrine-in-Hongseong-8.jpg",
+      "author": "Korearoadtour",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "captureDate": "2017-09-11",
+      "caption": "홍주의사총 경내 창의사 건물",
+      "attribution": "사진: Korearoadtour · CC BY-SA 4.0 · 크기 축소 및 WebP 변환",
+      "changes": "Resized to 1280x719 and converted to WebP; no crop",
+      "notes": "Photo depicts the shrine building, not the tomb mound. Keep this WebP derivative under CC BY-SA 4.0."
+    }
+  ],
+  "genericIllustrations": [
+    {
+      "id": "museum",
+      "localPath": "assets/museum-generic-illustration.webp",
+      "dimensions": [
+        619,
+        410
+      ],
+      "kind": "generic-educational-illustration",
+      "actualVenuePhoto": false,
+      "attribution": "AI로 만든 일반 교육용 삽화 · 실제 장소 사진 아님",
+      "source": "image_gen built-in tool, single 3x2 sheet",
+      "changes": "Cropped panel from generated sheet; WebP conversion"
+    },
+    {
+      "id": "festival",
+      "localPath": "assets/festival-generic-illustration.webp",
+      "dimensions": [
+        619,
+        410
+      ],
+      "kind": "generic-educational-illustration",
+      "actualVenuePhoto": false,
+      "attribution": "AI로 만든 일반 교육용 삽화 · 실제 장소 사진 아님",
+      "source": "image_gen built-in tool, single 3x2 sheet",
+      "changes": "Cropped panel from generated sheet; WebP conversion"
+    },
+    {
+      "id": "market",
+      "localPath": "assets/market-generic-illustration.webp",
+      "dimensions": [
+        619,
+        410
+      ],
+      "kind": "generic-educational-illustration",
+      "actualVenuePhoto": false,
+      "attribution": "AI로 만든 일반 교육용 삽화 · 실제 장소 사진 아님",
+      "source": "image_gen built-in tool, single 3x2 sheet",
+      "changes": "Cropped panel from generated sheet; WebP conversion"
+    },
+    {
+      "id": "specialty",
+      "localPath": "assets/specialty-generic-illustration.webp",
+      "dimensions": [
+        619,
+        410
+      ],
+      "kind": "generic-educational-illustration",
+      "actualVenuePhoto": false,
+      "attribution": "AI로 만든 일반 교육용 삽화 · 실제 장소 사진 아님",
+      "source": "image_gen built-in tool, single 3x2 sheet",
+      "changes": "Cropped panel from generated sheet; WebP conversion"
+    },
+    {
+      "id": "forest",
+      "localPath": "assets/forest-generic-illustration.webp",
+      "dimensions": [
+        619,
+        410
+      ],
+      "kind": "generic-educational-illustration",
+      "actualVenuePhoto": false,
+      "attribution": "AI로 만든 일반 교육용 삽화 · 실제 장소 사진 아님",
+      "source": "image_gen built-in tool, single 3x2 sheet",
+      "changes": "Cropped panel from generated sheet; WebP conversion"
+    },
+    {
+      "id": "cafe",
+      "localPath": "assets/cafe-generic-illustration.webp",
+      "dimensions": [
+        619,
+        410
+      ],
+      "kind": "generic-educational-illustration",
+      "actualVenuePhoto": false,
+      "attribution": "AI로 만든 일반 교육용 삽화 · 실제 장소 사진 아님",
+      "source": "image_gen built-in tool, single 3x2 sheet",
+      "changes": "Cropped panel from generated sheet; WebP conversion"
+    }
+  ],
+  "photoGaps": [
+    {
+      "place": "홍주성역사관",
+      "status": "not-downloaded-for-production",
+      "sourcePage": "https://www.chungnam.go.kr/cnportal/media/article/view.do?articleNo=MD0003278432&menuNo=500168",
+      "candidateImageUrl": "https://www.chungnam.go.kr/cross/20251115/IM0003278433.JPG",
+      "license": "공공누리 제4유형: 출처표시 + 상업적 이용금지 + 변경금지",
+      "licenseUrl": "https://www.kogl.or.kr/info/licenseType4.do",
+      "reason": "Restrictive noncommercial/no-derivatives source. Generic illustration supplied instead; do not imply it depicts this actual venue."
+    },
+    {
+      "place": "고암이응노생가기념관",
+      "status": "not-downloaded-for-production",
+      "sourcePage": "https://www.chungnam.go.kr/cnportal/media/article/view.do?articleNo=MD0003349073&menuNo=500168",
+      "candidateImageUrl": "https://www.chungnam.go.kr/cross/20260309/IM0003349083.JPG",
+      "license": "공공누리 제4유형: 출처표시 + 상업적 이용금지 + 변경금지",
+      "licenseUrl": "https://www.kogl.or.kr/info/licenseType4.do",
+      "reason": "Restrictive noncommercial/no-derivatives source. Generic illustration supplied instead; do not imply it depicts this actual venue."
+    },
+    {
+      "place": "한용운선생 생가지",
+      "status": "not-downloaded-for-production",
+      "sourcePage": "https://www.chungnam.go.kr/cnportal/media/article/view.do?articleNo=MD0003164322&menuNo=500168",
+      "candidateImageUrl": "https://www.chungnam.go.kr/cross/20250602/IM0003164344.JPG",
+      "license": "공공누리 제4유형: 출처표시 + 상업적 이용금지 + 변경금지",
+      "licenseUrl": "https://www.kogl.or.kr/info/licenseType4.do",
+      "reason": "Restrictive noncommercial/no-derivatives source. Generic illustration supplied instead; do not imply it depicts this actual venue."
+    },
+    {
+      "place": "광천전통시장 새우젓상점",
+      "status": "not-downloaded-for-production",
+      "sourcePage": "https://www.chungnam.go.kr/cnportal/media/article/view.do?articleNo=MD0003318918&menuNo=500168",
+      "candidateImageUrl": "https://www.chungnam.go.kr/cross/20260120/IM0003318949.jpg",
+      "license": "공공누리 제4유형: 출처표시 + 상업적 이용금지 + 변경금지",
+      "licenseUrl": "https://www.kogl.or.kr/info/licenseType4.do",
+      "reason": "Restrictive noncommercial/no-derivatives source. Generic illustration supplied instead; do not imply it depicts this actual venue."
+    }
+  ],
+  "implementationNotes": [
+    "Display author/source/license link and changes for photographs.",
+    "CC BY-SA 4.0 applies to the Hongju Uisachong photo and its resized derivative.",
+    "All six generated images are generic category scenes and must not be described as actual venue photos.",
+    "No existing dist photo matches the six requested specific culture targets. Existing Hongju Joyangmun photo is the fortress east gate, not Hongjuseong History Museum."
+  ]
+}

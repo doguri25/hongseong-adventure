@@ -1,0 +1,48 @@
+/* Story order: guide, lesson, photograph. The reading order matches the DOM. */
+body #place-dialog[data-view=story] #place-content{grid-template-columns:minmax(0,65%) minmax(0,35%)}
+body #place-dialog[data-view=story] .dialogue-area{grid-column:1;grid-row:1;grid-template-columns:clamp(120px,16vw,190px) minmax(0,1fr);padding-right:20px}
+body #place-dialog[data-view=story] .place-hero{grid-column:2;grid-row:1}
+body #place-dialog[data-view=story] .teacher-stage{grid-column:1}
+body #place-dialog[data-view=story] .speaker-heading,body #place-dialog[data-view=story] .speech,body #place-dialog[data-view=story] .reward-label,body #place-dialog[data-view=story] .dialogue-controls,body #place-dialog[data-view=story] .story-tools{grid-column:2}
+body[data-orientation=portrait] #place-dialog[data-view=story] #place-content{grid-template-columns:1fr;grid-template-rows:minmax(0,1fr) 26%}
+body[data-orientation=portrait] #place-dialog[data-view=story] .dialogue-area{grid-column:1;grid-row:1;grid-template-columns:clamp(120px,23vw,185px) minmax(0,1fr);padding-top:38px}
+body[data-orientation=portrait] #place-dialog[data-view=story] .place-hero{grid-column:1;grid-row:2}
+@media(max-width:540px){body[data-orientation=portrait] #place-dialog[data-view=story] .dialogue-area{grid-template-columns:105px minmax(0,1fr);padding-top:38px!important}}
+
+/* Catalog and county map are single surfaces, without CSS column pagination. */
+#panel-dialog[data-layout=scroll] #panel-content,#panel-dialog[data-layout=catalog] #panel-content{column-count:auto;column-width:auto;column-gap:0;flex:1;min-height:0;min-width:0;scroll-behavior:auto;padding-bottom:18px}
+#panel-dialog[data-layout=scroll] #panel-content{display:block;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;scrollbar-gutter:stable}
+#panel-dialog[data-layout=catalog] #panel-content{display:flex;flex-direction:column;overflow:hidden;padding-bottom:18px}
+#panel-dialog .modal-pagination[hidden]{display:none}
+.shop-categories{display:flex;flex-wrap:wrap;gap:8px;padding:4px 0 16px;flex:none}
+.shop-category{background:#e9eedb;border:1px solid #9daf93;color:#2b513d;padding:10px 16px;border-radius:10px;font-size:16px;min-height:44px;font-weight:800}
+.shop-category[aria-pressed=true]{background:#295940;color:#fffbe8;border-color:#295940;box-shadow:inset 0 -3px #ddbc69}
+#panel-content .shop-intro{font-size:17px;margin:2px 0 10px;flex:none}
+#panel-content .shop-catalog{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));grid-auto-rows:minmax(0,1fr);flex:1;min-height:0;gap:12px}
+#panel-content .shop-product{background:#f0f2e6;border:1px solid #b8c5a7;border-radius:12px;padding:12px;display:flex;flex-direction:column;align-items:center;min-height:0;text-align:center;gap:7px}
+#panel-content .shop-product .item-swatch{height:34px;width:34px;min-height:28px;font-size:25px;line-height:1;display:grid;place-items:center;border-radius:9px;flex:none}
+#panel-content .shop-product h3{font-size:18px;line-height:1.35;margin:0;flex:none}
+#panel-content .shop-product p{font-size:15px;line-height:1.5;margin:0;flex:1;min-height:0}
+#panel-content .shop-product button{width:100%;font-size:16px;min-height:42px;padding:7px 8px;margin-top:auto;flex:none}
+#panel-dialog[data-layout=catalog] .character-choices{flex:1;min-height:0;margin:8px 0;align-items:center}
+#panel-dialog[data-layout=catalog] .character-choice{max-height:100%;display:flex;flex-direction:column;align-items:center}
+#panel-dialog[data-layout=catalog] .character-choice canvas{min-height:0;width:100%;height:clamp(80px,23vh,180px)}
+@media(max-width:650px){#panel-content .shop-catalog{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.shop-category{padding:8px 12px;flex:1 0 28%;font-size:15px}.shop-categories{gap:6px;padding-bottom:10px}#panel-content .shop-product{padding:9px;gap:5px}#panel-content .shop-product h3{font-size:16px}#panel-content .shop-product .item-swatch{height:28px;width:28px}#panel-content .shop-product p{font-size:14px}}
+body[data-compact=true] #panel-content .shop-product .item-swatch{display:none}
+body[data-compact=true] #panel-content .shop-product{gap:5px;padding:9px}
+body[data-compact=true] #panel-content .shop-product p{font-size:14px;line-height:1.35}
+body[data-compact=true] #panel-content .shop-product button{min-height:38px}
+body[data-compact=true] #panel-dialog[data-layout=catalog] .character-choice canvas{height:100px}
+
+.travel-layout{display:grid;grid-template-columns:minmax(0,1fr);gap:12px;min-width:0}
+.travel-map,.travel-regions{min-width:0}.travel-regions h3{font-size:20px;margin:14px 0}
+body #panel-dialog[data-layout=scroll] .county-overview{height:clamp(260px,43vh,430px);margin:0;overflow:hidden}
+.travel-regions .county-districts{display:grid;grid-template-columns:minmax(0,1fr);gap:8px;margin:12px 0}
+.travel-regions .county-districts button{min-width:0;width:100%;min-height:48px;padding:12px 16px;font-size:16px;text-align:left;white-space:normal;overflow-wrap:anywhere}
+.county-results h3{font-size:20px;margin:18px 0 12px}
+#panel-content #county-place-results{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.county-place-choice{display:flex;align-items:center;gap:12px;padding:12px;text-align:left;background:#f0f2e6;color:#2a513b;border:1px solid #bbc9ac;border-radius:10px;min-width:0;min-height:65px}
+.county-place-choice>svg{width:25px;height:25px;flex:none}.county-place-choice>span:nth-child(2){flex:1;min-width:0}
+.county-place-choice strong{display:block;font-size:17px;line-height:1.45;overflow-wrap:anywhere}.county-place-choice small{display:block;font-size:14px;line-height:1.4;margin-top:4px;color:#5c715d}
+.county-legend,.county-stories{margin:18px 0}.county-legend summary,.county-stories summary{font-size:18px;font-weight:800;cursor:pointer;min-height:44px;padding:8px 0}
+@media(max-width:720px){.travel-layout{gap:6px}#panel-content #county-place-results{grid-template-columns:minmax(0,1fr)}}
