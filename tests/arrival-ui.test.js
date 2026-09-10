@@ -46,10 +46,10 @@ test('all referenced place photos, illustrations and maps still exist',()=>{
 });
 test('the new dialog stylesheet loads last and changed entry modules have fresh cache keys',()=>{
  const html=readFileSync(new URL('../dist/index.html',import.meta.url),'utf8');
- assert(html.indexOf('arrival-ui.css?v=1.3.5')>html.indexOf('mobile-ui.css'));
- assert.match(html,/game\.js\?v=1\.3\.5/);assert.match(html,/release\.css\?v=1\.3\.5/);
+ assert(html.indexOf('arrival-ui.css?v=1.3.6')>html.indexOf('mobile-ui.css'));
+ assert.match(html,/game\.js\?v=1\.3\.6/);assert.match(html,/release\.css\?v=1\.3\.6/);
  const game=readFileSync(new URL('../dist/game.js',import.meta.url),'utf8');
- assert.match(game,/layout\.js\?v=1\.3\.5/);assert.match(game,/release\.js\?v=1\.3\.5/);
+ assert.match(game,/layout\.js\?v=1\.3\.6/);assert.match(game,/release\.js\?v=1\.3\.6/);
 });
 
 test('only explanatory text is reduced by one pixel; quiz, title and button sizes are preserved',()=>{

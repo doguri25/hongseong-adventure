@@ -1,3 +1,4 @@
+import {setupTouchGuard} from './touch-ui.js?v=1.3.6';
 // Responsive HUD layout only. Game progress stays under its existing storage key.
 export const HUD_STORAGE_KEY='hongseong-hud-v1';
 export function mobileLayout(width,height){
@@ -15,6 +16,8 @@ export function readHudPreferences(storage){
 }
 export function setupResponsiveHud({onLayout=()=>{},stopInput=()=>{}}={}){
  const $=s=>document.querySelector(s),hud=$('#mobile-hud'),locationBar=$('.mobile-location-bar'),card=$('.quest-card'),toggle=$('#quest-toggle'),content=$('#quest-content'),movementToggle=$('#movement-toggle'),settings=$('#mobile-travel-settings');
+ const topbar=$('.topbar'),hudOrigin=document.createComment('mobile-hud-home');hud.before(hudOrigin);
+ const removeTouchGuard=setupTouchGuard(document);
  let storage;try{storage=window.localStorage;}catch{/* Private/blocked storage still supports controls. */}
  const prefs=readHudPreferences(storage),elements=[card,$('.district-label'),$('.region-controls'),$('.speed-menu'),$('.movement-menu'),$('#sound-button')];
  const origins=new Map(elements.map(el=>{const mark=document.createComment('responsive-hud-origin');el.before(mark);return [el,mark];}));
@@ -22,8 +25,10 @@ export function setupResponsiveHud({onLayout=()=>{},stopInput=()=>{}}={}){
  const schedule=()=>{cancelAnimationFrame(frame);frame=requestAnimationFrame(()=>onLayout());};
  const modeKey=()=>mode?.mobile?mode.orientation:'desktop';
  function setSettings(open){
-  settingsOpen=Boolean(open&&mode?.mobile);settings.hidden=!settingsOpen;
-  movementToggle.setAttribute('aria-expanded',String(settingsOpen));movementToggle.setAttribute('aria-label','이동 설정 '+(settingsOpen?'접기':'펼치기'));
+  settingsOpen=Boolean(open&&mode?.mobile);
+  if(!settingsOpen&&settings.contains(document.activeElement))movementToggle.focus({preventScroll:true});
+  settings.hidden=!settingsOpen;
+  movementToggle.setAttribute('aria-expanded',String(settingsOpen));movementToggle.setAttribute('aria-label',(mode?.orientation==='landscape'?'이동·지도 메뉴 ':'이동 설정 ')+(settingsOpen?'접기':'펼치기'));
   movementToggle.querySelector('span').textContent=settingsOpen?'▴':'▾';
   if(settingsOpen&&expanded)setExpanded(false,false);
   schedule();
@@ -53,11 +58,17 @@ export function setupResponsiveHud({onLayout=()=>{},stopInput=()=>{}}={}){
   stopInput();mode=next;document.body.dataset.mobileUi=String(mode.mobile);document.body.dataset.hudOrientation=mode.orientation;
   if(mode.mobile){
    hud.hidden=false;movementToggle.hidden=false;
-   locationBar.append($('.district-label'),$('.region-controls'));hud.append(card);
+   const landscape=mode.orientation==='landscape';
+   // Move the original controls, not copies: live address updates and listeners survive rotation.
+   if(landscape)topbar.insertBefore(hud,settings);else hudOrigin.after(hud);
+   locationBar.append($('.district-label'));hud.append(card);
+   (landscape?settings:locationBar).append($('.region-controls'));
    settings.append($('.speed-menu'),$('.movement-menu'),$('#sound-button'));
+   movementToggle.firstChild.nodeValue=landscape?'메뉴 ':'이동 ';
+   settings.setAttribute('aria-label',landscape?'이동·지도·소리 설정':'이동과 소리 설정');
   }else{
    for(const el of elements)origins.get(el).after(el);
-   hud.hidden=true;movementToggle.hidden=true;
+   hudOrigin.after(hud);hud.hidden=true;movementToggle.hidden=true;
   }
   $('#search-button').textContent=mode.mobile?'검색':'⌕ 장소 검색';
   $('#nearby-button').textContent=mode.mobile?'주변 찾기':'주변 장소 찾기';
@@ -66,5 +77,5 @@ export function setupResponsiveHud({onLayout=()=>{},stopInput=()=>{}}={}){
  // Opening or closing the reserved HUD changes canvas height without a window resize.
  const observer=new ResizeObserver(schedule);observer.observe(hud);observer.observe($('.topbar'));
  refresh();
- return {refresh,collapse:()=>setExpanded(false),destroy:()=>{observer.disconnect();cancelAnimationFrame(frame);}};
+ return {refresh,collapse:()=>setExpanded(false),destroy:()=>{observer.disconnect();cancelAnimationFrame(frame);removeTouchGuard();}};
 }

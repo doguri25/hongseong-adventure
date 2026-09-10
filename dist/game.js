@@ -6,9 +6,9 @@ import {setupPlaceSearch} from './search.js';
 import {World} from './world.js';
 import {Narrator,GameAudio,koreanVoices} from './audio.js';
 import {canVisit} from './geography.js';
-import {RELEASE} from './release.js?v=1.3.5';
-import {DialogPages,setupViewport,fitPlaceDialog} from './layout.js?v=1.3.5';
-import {setupResponsiveHud} from './mobile-ui.js';
+import {RELEASE} from './release.js?v=1.3.6';
+import {DialogPages,setupViewport,fitPlaceDialog} from './layout.js?v=1.3.6';
+import {setupResponsiveHud} from './mobile-ui.js?v=1.3.6';
 import {ensureQuests,activeQuest,selectQuest,recordQuestVisit,questCompleted,DIRECT_BONUS,dayKey} from './quests.js';
 import {SYMBOLS,symbolHtml,symbolKey} from './place-icons.js';
 
