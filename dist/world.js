@@ -1,3 +1,4 @@
+import {mapViewportFrame} from './mobile-ui.js';
 import {SpatialIndex} from './geography.js';
 import {flightLift,measureSpriteCells,groundedRect} from './sprite-ground.js';
 import {TRAILS,RINGS} from './wardrobe.js';
@@ -29,11 +30,11 @@ export class World {
  makeBase(){this.cartography.clearTiles();this.cartography.overviews.clear();}
  geoPosition(){return[this.origin[0]+this.position[0]/this.mLon,this.origin[1]-this.position[1]/this.mLat];}
  project(p){return[(p[0]-this.origin[0])*this.mLon,(this.origin[1]-p[1])*this.mLat];}
- resize(){const r=this.canvas.getBoundingClientRect();this.width=r.width;this.height=r.height;this.canvas.width=Math.round(r.width*this.dpr);this.canvas.height=Math.round(r.height*this.dpr);const mini=document.querySelector('#minimap');if(mini){mini.width=Math.round(mini.clientWidth);mini.height=Math.round(mini.clientHeight);}this.lastMini=0;this.cartography.overviews.clear();this.draw();}
- screen(p){return[(p[0]-this.camera[0])*this.zoom+this.width*.53,(p[1]-this.camera[1])*this.zoom+this.height*.57];}
- fromScreen(x,y){return[(x-this.width*.53)/this.zoom+this.camera[0],(y-this.height*.57)/this.zoom+this.camera[1]];}
+ resize(){const r=this.canvas.getBoundingClientRect();this.width=r.width;this.height=r.height;this.viewportFrame=mapViewportFrame(r.width,r.height,document.body?.dataset.mobileUi==='true');this.canvas.width=Math.round(r.width*this.dpr);this.canvas.height=Math.round(r.height*this.dpr);const mini=document.querySelector('#minimap');if(mini){mini.width=Math.round(mini.clientWidth);mini.height=Math.round(mini.clientHeight);}this.lastMini=0;this.cartography.overviews.clear();this.draw();}
+ screen(p){return[(p[0]-this.camera[0])*this.zoom+(this.viewportFrame?.x??this.width*.53),(p[1]-this.camera[1])*this.zoom+(this.viewportFrame?.y??this.height*.57)];}
+ fromScreen(x,y){return[(x-(this.viewportFrame?.x??this.width*.53))/this.zoom+this.camera[0],(y-(this.viewportFrame?.y??this.height*.57))/this.zoom+this.camera[1]];}
  roundRect(g,x,y,w,h,r){g.beginPath();g.roundRect(x,y,w,h,r);}
- drawOverview(canvas,large=false){this.cartography.drawOverview(canvas,large);}
+ drawOverview(canvas,large=false){if(!canvas?.width||!canvas?.height)return;this.cartography.drawOverview(canvas,large);}
  updateLocation(){const now=performance.now();if(this.lastAddressPoint&&distance(this.position,this.lastAddressPoint)<20&&now-(this.lastAddressTime||0)<250)return;this.lastAddressPoint=[...this.position];this.lastAddressTime=now;const d=districtAt(this.geoPosition(),this.data.districts);this.district=d;const label=d?d.county+' '+d.name:'천수만 · 바다';if(label===this.address)return;this.address=label;const el=document.querySelector('#current-address');if(el)el.textContent=label;document.querySelector('.district-label')?.classList.toggle('yesan',d&&d.county!=='홍성군');}
  drawNpc(g,sprite,x,y,size){return sprite.startsWith('resident-')?this.residents.draw(g,sprite,x,y,size):this.atlas.draw(g,sprite,x,y,size);}
  focusMap(){this.canvas.focus({preventScroll:true});}
@@ -57,7 +58,7 @@ export class World {
   this.drawnNpcs=[];if(this.zoom>=.45)for(const npc of this.npcs||[]){const[x,y]=this.screen(npc.point);if(x< -80||x>this.width+80||y< -100||y>this.height+100)continue;const near=npc.id===this.nearNpc?.id;this.drawNpc(g,npc.sprite,x,y,near?98:84);g.fillStyle=near?'#ffdf83':'#fff6da';this.roundRect(g,x-19,y-97,38,26,8);g.fill();g.font='800 16px NanumRound,sans-serif';g.textAlign='center';g.textBaseline='middle';g.fillStyle='#426247';g.fillText('···',x,y-86);if(near){g.font='700 14px NanumRound,sans-serif';g.fillText(npc.name,x,y+14);}this.drawnNpcs.push({npc,x,y});}
   const [x,y]=this.screen(this.position),lift=flightLift(this.voyage?'boat':this.state.travelSpeed,now,this.state.motion);g.fillStyle='#24482d37';g.beginPath();g.ellipse(x,y+1,20,7,0,0,Math.PI*2);g.fill();g.beginPath();g.ellipse(x,y+1,26,10,0,0,Math.PI*2);g.strokeStyle=RINGS[this.state.equipped.ring]||'#fffbe7b0';g.lineWidth=RINGS[this.state.equipped.ring]?3:1.5;g.stroke();
   const vehicle=this.voyage?{label:'여객선',factor:1}:VEHICLES[this.state.travelSpeed]||VEHICLES.walk,asset=vehicle.asset==='car'?'compact-car':vehicle.asset;
-  const motionDrawn=this.motionSprites.draw(g,motionMode(this.state.travelSpeed,this.state.character,!!this.voyage),this.heading,this.walkPhase,this.moving&&this.state.motion,x,y-lift,this.voyage?116:this.state.travelSpeed==='plane'?130:110,this.state.equipped.outfit);
+  const motionDrawn=this.motionSprites.draw(g,motionMode(this.state.travelSpeed,this.state.character,!!this.voyage),this.heading,this.walkPhase,this.moving&&this.state.motion,x,y-lift,(this.voyage?116:this.state.travelSpeed==='plane'?130:110)*(this.viewportFrame?.spriteScale??1),this.state.equipped.outfit);
   if(motionDrawn){}else if(asset&&this.atlas.ready){this.atlas.draw(g,asset+'-'+this.direction,x,y-lift,asset==='bicycle'?85:90,this.facing);}
   else{const sprite=this.sprites[(this.state.equipped.outfit==='gold'?'gold':'green')+'-'+this.direction];if(sprite.groundFrame){g.save();g.translate(x,y-lift);g.scale(this.facing,1);g.drawImage(sprite,...sprite.groundFrame.rect,...groundedRect(sprite.groundFrame,0,0,90));g.restore();}}
   g.font='700 13px NanumRound,sans-serif';g.textAlign='center';g.fillStyle='#fffbe4';const name=vehicle.label+' ×'+vehicle.factor;this.roundRect(g,x-47,y+15,94,24,8);g.fillStyle='#244d3be8';g.fill();g.fillStyle='#fff3cf';g.fillText(name,x,y+28);

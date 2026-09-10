@@ -20,9 +20,25 @@ export class DialogPages{
  go(page,announce=true){this.page=Math.max(0,Math.min(this.total-1,page));this.content.scrollLeft=this.page*(this.content.clientWidth+28);this.previous.disabled=this.page===0;this.next.disabled=this.page===this.total-1;this.footer.querySelector('span').textContent=`${this.page+1} / ${this.total} 쪽`;if(announce)this.onPage?.();}
 }
 export function setupViewport(onResize){
- const sync=()=>{const h=window.visualViewport?.height||innerHeight;document.documentElement.style.setProperty('--screen-height',h+'px');document.body.dataset.orientation=layoutMode(innerWidth,innerHeight);document.body.dataset.compact=String(h<620);onResize?.();};
+ const sync=()=>{const viewport=window.visualViewport,scale=viewport?.scale||1,h=(viewport?.height||innerHeight)*scale,w=(viewport?.width||innerWidth)*scale;document.documentElement.style.setProperty('--screen-height',h+'px');document.documentElement.style.setProperty('--screen-width',w+'px');document.body.dataset.orientation=layoutMode(w,h);document.body.dataset.compact=String(h<620);onResize?.();};
  window.addEventListener('resize',sync);window.visualViewport?.addEventListener('resize',sync);screen.orientation?.addEventListener('change',sync);sync();return sync;
 }
 
-// Keep the teacher prominent while reducing story type only as much as needed.
-export function fitPlaceDialog(dialog){if(!dialog.open)return;const speech=dialog.querySelector('.speech');if(speech){speech.style.fontSize='21px';speech.style.lineHeight='1.65';for(let size=21;size>=16;size-=.5){speech.style.fontSize=size+'px';speech.style.setProperty('--story-font',size+'px');if(speech.scrollHeight<=speech.clientHeight+1)break;}}const quiz=dialog.querySelector('.quiz-wrap');if(quiz){for(let size=19;size>=16;size-=.5){quiz.style.setProperty('--quiz-font',size+'px');if(quiz.scrollHeight<=quiz.clientHeight+1)break;}}}
+// Smaller, readable dialogue text. When the minimum size is reached, CSS allows
+// the explanation to scroll instead of clipping it or hiding the photograph.
+export function fitPlaceDialog(dialog){
+ if(!dialog.open)return;
+ const mobile=dialog.ownerDocument?.body?.dataset.mobileUi==='true';
+ const base=mobile?15:17;
+ const speech=dialog.querySelector('.speech');
+ if(speech){
+  speech.style.lineHeight='1.6';
+  for(let size=base;size>=15;size-=.5){
+   speech.style.fontSize=size+'px';
+   speech.style.setProperty('--story-font',size+'px');
+   if(speech.scrollHeight<=speech.clientHeight+1)break;
+  }
+ }
+ const quiz=dialog.querySelector('.quiz-wrap');
+ if(quiz)quiz.style.setProperty('--quiz-font',(mobile?16:18)+'px');
+}
