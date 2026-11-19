@@ -146,7 +146,7 @@ export class Props {
   // cam: render-space camera position, [X, Y, Z] or {x, z}; budget: QUALITY[*].props (optional, keeps the current);
   // focus: render-space point the lamps gather around (the camera target; defaults to cam)
   update(cam, budget, focus) {
-    if (budget && typeof budget === 'object') this.setBudget(budget);
+    if (budget && typeof budget === 'object' && budget !== this._budgetRef) { this._budgetRef = budget; this.setBudget(budget); }
     const B = this.budget;
     const gx = (cam.x ?? cam[0]) + CX, gy = (cam.z ?? cam[2]) + CY;
     const f = focus || cam, fx = (f.x ?? f[0]) + CX, fy = (f.z ?? f[2]) + CY, L = this.lamps;
