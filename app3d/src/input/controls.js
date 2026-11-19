@@ -10,8 +10,10 @@ export function createControls(target, { onTap, onAction, onStick } = {}, env = 
   const view = { userYaw: 0, pitchAdj: 0, zoom: 1 };
   const keys = new Set();
   const pointers = new Map();
-  // sx, sy, t, moved: where and when the stick touch began, so a short still touch there still counts as a tap
-  const stick = { id: null, ox: 0, oy: 0, x: 0, y: 0, sx: 0, sy: 0, t: 0, moved: false };
+  // sx, sy, t, moved: where and when the stick touch began, so a short still touch there still counts as a tap.
+  // multi (on the stick and on each pointer): another finger shared the screen with it while it was still (a pinch or
+  // a two-finger press), so lifting it is no tap; a quick touch while the stick is already walking still taps
+  const stick = { id: null, ox: 0, oy: 0, x: 0, y: 0, sx: 0, sy: 0, t: 0, moved: false, multi: false };
   let pinchDist = 0;
 
   const zoomBy = k => { view.zoom = clamp(view.zoom * k, 0.2, 4); };
@@ -33,10 +35,13 @@ export function createControls(target, { onTap, onAction, onStick } = {}, env = 
     const leftSide = e.clientX < (env.innerWidth || 0) * 0.42 && e.pointerType !== 'mouse';
     if (leftSide && stick.id === null) {
       stick.id = e.pointerId; stick.ox = stick.sx = e.clientX; stick.oy = stick.sy = e.clientY; stick.x = stick.y = 0;
-      stick.t = now(); stick.moved = false;
+      stick.t = now(); stick.moved = false; stick.multi = pointers.size > 0;
+      for (const p of pointers.values()) p.multi = true;
       emitStick(true); return;
     }
-    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY, t: now(), moved: false });
+    const multi = pointers.size > 0 || (stick.id !== null && !stick.moved);
+    if (multi) { for (const p of pointers.values()) p.multi = true; if (stick.id !== null) stick.multi = true; }
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY, t: now(), moved: false, multi });
     if (pointers.size === 2) { const [a, b] = [...pointers.values()]; pinchDist = Math.hypot(a.x - b.x, a.y - b.y); }
   }
 
@@ -68,14 +73,14 @@ export function createControls(target, { onTap, onAction, onStick } = {}, env = 
   function up(e) {
     if (e.pointerId === stick.id) {
       // a short, still touch in the stick zone is a tap (pins and NPCs on the left half must be tappable too)
-      const tap = e.type === 'pointerup' && !stick.moved && pointers.size === 0 && now() - stick.t < TAP_MS
+      const tap = e.type === 'pointerup' && !stick.moved && !stick.multi && pointers.size === 0 && now() - stick.t < TAP_MS
         && Math.hypot(e.clientX - stick.sx, e.clientY - stick.sy) <= TAP_MOVE;
       endStick();
       if (tap) onTap?.(e.clientX, e.clientY);
       return;
     }
     const p = pointers.get(e.pointerId); pointers.delete(e.pointerId); if (!p) return;
-    if (e.type === 'pointerup' && !p.moved && pointers.size === 0 && now() - p.t < TAP_MS) onTap?.(e.clientX, e.clientY);
+    if (e.type === 'pointerup' && !p.moved && !p.multi && pointers.size === 0 && now() - p.t < TAP_MS) onTap?.(e.clientX, e.clientY);
   }
 
   const lost = e => { // cancelled or lost capture: drop that pointer without a tap

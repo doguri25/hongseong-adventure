@@ -28,6 +28,13 @@
 // from the mainland heads for 남당항 with the 2D hint and a place in reach opens as a visit; each 설정 row opens its
 // dialog (help tabs, the downloads resolve, the photo credits, the RELEASE facts, the QR picture and the copy button);
 // 효과음 / 배경음 / 소리 크기 take effect at once with no errors, and walking plays footsteps.
+// Task 9 at all four viewports (checkWardrobeFx): only the chosen character's walking sheet loads at boot, the others
+// on first use; every 꾸미기 category passes the sizes, fonts and layout; 하트 발자국 and 바다 위치 고리 show live on
+// the walker, the bike and the car and come off live; a car turn button clears a stale tap target ring; the street
+// lamps are drawn and lit at night in town (info().lampsShown / lampsLit); a two-finger still touch and a tap during
+// the voyage set no target. Every screen is checked at all four viewports: the loading screen, each menu tab and the
+// reset step (checkMenuLayout), the HUD in play (checkHudLayout: start, mission card, vehicle picker, car turns,
+// voyage, 죽도) and the context-lost screen, besides the dialogs above.
 // Screenshots go to OUT (SMOKE_OUT, default a folder in the system temp directory; SMOKE_ONLY=tablet,phone,landscape
 // runs only those passes).
 import http from 'node:http';
@@ -37,7 +44,7 @@ import path from 'node:path';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { PLACES } from '#game/content.js';
-import { STAMPS, JOURNALS } from '#game/wardrobe.js';
+import { STAMPS, JOURNALS, TRAILS, RINGS } from '#game/wardrobe.js';
 import { symbolKey } from '#game/place-icons.js';
 import { freshState } from '#game/core.js';
 import { RELEASE } from '#game/release.js';
@@ -181,6 +188,7 @@ async function checkMenu(page, name, spec, shot) {
     }
     await sleep(300);
     await checkUi(page, name, `menu ${tab}`, touch);
+    await checkMenuLayout(page, name, tab);
     await shot(`menu-${tab}`);
   }
   // 탈것: a card switches the mode (or says why not)
@@ -225,6 +233,7 @@ async function checkMenu(page, name, spec, shot) {
   const reset = await page.evaluate(() => { document.getElementById('reset-progress').click(); const box = document.getElementById('reset-confirm'); return { shown: !box.hidden, focus: document.activeElement?.id }; });
   await sleep(300);
   await checkUi(page, name, 'menu reset confirm', touch);
+  await checkMenuLayout(page, name, 'reset confirm');
   await shot('menu-reset-confirm');
   const cancelled = await page.evaluate(() => { document.getElementById('cancel-reset').click(); return { hidden: document.getElementById('reset-confirm').hidden, coins: window.__hs3d.world.state.coins }; });
   check(reset.shown && reset.focus === 'backup-first' && cancelled.hidden && cancelled.coins === 50, `${name}: 기록 초기화 asks again in the page (focus on 파일 저장) and 취소 keeps the progress`);
@@ -480,12 +489,14 @@ async function checkHud(page, name, spec, shot) {
     const card = await page.evaluate(() => ({ title: document.getElementById('mission-title').textContent, body: !document.getElementById('mission-body').hidden, go: !document.getElementById('mission-go').hidden }));
     check(card.title.length > 0 && card.body === open, `${name}: mission card ${open ? 'opens' : 'folds'} ("${card.title}")`);
     await checkUi(page, name, `mission card ${open ? 'open' : 'folded'}`, touch);
+    await checkHudLayout(page, name, `mission card ${open ? 'open' : 'folded'}`);
     if (open) await shot('hud-mission-open'); else await shot('hud-mission-folded');
   }
   const pick = await page.evaluate(() => { document.getElementById('vehicle-btn').click(); const t = document.getElementById('travel'); return { open: !t.hidden, expanded: document.getElementById('vehicle-btn').getAttribute('aria-expanded') }; });
   check(pick.open && pick.expanded === 'true', `${name}: the 탈것 button opens the vehicle picker`);
   await sleep(300);
   await checkUi(page, name, 'vehicle picker open', touch);
+  await checkHudLayout(page, name, 'vehicle picker open');
   await shot('hud-vehicle-picker');
   const chose = await page.evaluate(() => { document.querySelector('#travel [data-mode="bike"]').click(); return { mode: window.__hs3d.player.mode, closed: document.getElementById('travel').hidden, toast: document.getElementById('toast').textContent }; });
   check(chose.closed && (chose.mode === 'bike' || chose.toast.length > 0), `${name}: choosing 자전거 in the picker -> mode ${chose.mode}, picker closed`);
@@ -1311,6 +1322,15 @@ async function checkTalk(page, name, spec, shot) {
   check(!sail.paused && sail.voyage && sail.mode === 'boat' && sail.chip === '배를 타고 죽도로 가는 중…' && sail.chipLater === sail.chip && sail.button && sail.sounds.includes('move') && sail.elapsed > 0 && sail.steps === 0,
     `${name}: 남당항으로 가서 배 타기 sails with the voyage chip "${sail.chip}", no footsteps at sea (${JSON.stringify(sail)})`);
   await checkUi(page, name, 'voyage', touch);
+  await checkHudLayout(page, name, 'voyage');
+  // a tap on the map during the voyage is ignored: no target at sea, nothing opens (phase-1 follow-up)
+  const seaTap = await page.evaluate(() => {
+    const W = window.__hs3d.world, c = document.getElementById('c'), r = c.getBoundingClientRect(), x = Math.round(r.left + r.width * 0.7), y = Math.round(r.top + r.height * 0.4);
+    W.target = null;
+    for (const type of ['pointerdown', 'pointerup']) c.dispatchEvent(new PointerEvent(type, { pointerId: 81, pointerType: 'mouse', isPrimary: true, button: 0, clientX: x, clientY: y, bubbles: true, cancelable: true }));
+    return { voyage: !!W.voyage, target: !!W.target, ring: !!W.tapRing?.visible, paused: W.ctl.paused() };
+  });
+  check(seaTap.voyage && !seaTap.target && !seaTap.ring && !seaTap.paused, `${name}: a tap on the map during the voyage is ignored (${JSON.stringify(seaTap)})`);
   await sleep(400);
   await shot('t8-voyage');
   const land = await page.evaluate(async () => {
@@ -1332,6 +1352,7 @@ async function checkTalk(page, name, spec, shot) {
   });
   check(island.shown && island.text === '죽도에서 돌아가기' && !island.paused, `${name}: on 죽도 the button reads "${island.text}"`);
   await checkUi(page, name, 'on 죽도', touch);
+  await checkHudLayout(page, name, 'on 죽도');
   await sleep(400);
   await shot('t8-jukdo');
   const ret = await page.evaluate(async () => {
@@ -1366,6 +1387,226 @@ async function checkTalk(page, name, spec, shot) {
   await back();
 }
 
+// The menu's layout in its current tab (Task 4 panes, the 꾸미기 categories, the reset step): the panel inside the
+// screen; its brand, tab row, tabs and scroll box, and in the open pane every block, card and the parts of each card
+// (each clipped to the scroll box, so what is scrolled away does not count) inside the panel and clear of one
+// another (overlaps() as ui/dom.js; parts nested in one another do not count); no button label wider than its button.
+async function checkMenuLayout(page, name, where) {
+  const r = await page.evaluate(() => {
+    const panel = document.querySelector('#menu .menu'), P = panel.getBoundingClientRect(), bad = [], out = [], wide = [];
+    const overlaps = (a, b) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
+    const inside = (q, o) => q.left >= o.left - 0.5 && q.right <= o.right + 0.5 && q.top >= o.top - 0.5 && q.bottom <= o.bottom + 0.5;
+    const label = (e) => e.id || e.dataset.cat || e.dataset.mode || e.dataset.mission || e.dataset.buy || e.dataset.character || e.dataset.setting || String(e.className).split(' ')[0] || e.tagName;
+    const shown = (e) => { const cs = getComputedStyle(e); return e.closest('[hidden]') === null && cs.display !== 'none' && cs.visibility !== 'hidden'; };
+    const scroll = document.getElementById('menu-scroll'), S = scroll.getBoundingClientRect();
+    const clip = (e) => {
+      const q = e.getBoundingClientRect();
+      if (!scroll.contains(e) || e === scroll) return q.width > 0 && q.height > 0 ? q : null;
+      const c = { left: Math.max(q.left, S.left), top: Math.max(q.top, S.top), right: Math.min(q.right, S.right), bottom: Math.min(q.bottom, S.bottom) };
+      return c.right - c.left > 0.5 && c.bottom - c.top > 0.5 ? c : null;
+    };
+    const pane = [...panel.querySelectorAll('.pane')].find(shown);
+    const parts = [...panel.querySelectorAll(':scope > *, .tabs > [role="tab"]'), ...(pane ? pane.querySelectorAll(':scope > *, :scope > * > *, .product > *, .card > *, .mis-card > *, .opt-row > *, .seg > button') : [])]
+      .filter(shown).map((e) => [e, clip(e)]).filter(([, q]) => q);
+    for (let i = 0; i < parts.length; i++) for (let j = i + 1; j < parts.length; j++) {
+      const [a, ra] = parts[i], [b, rb] = parts[j];
+      if (!a.contains(b) && !b.contains(a) && overlaps(ra, rb)) bad.push(`${label(a)} / ${label(b)}`);
+    }
+    if (!inside(P, { left: 0, top: 0, right: innerWidth, bottom: innerHeight })) out.push('panel');
+    for (const [e, q] of parts) if (!inside(q, P)) out.push(label(e));
+    for (const b of panel.querySelectorAll('button')) if (shown(b) && b.clientWidth && b.scrollWidth > b.clientWidth + 1) wide.push(label(b) + '("' + b.textContent.slice(0, 12) + '")');
+    return { pane: pane?.id, parts: parts.length, bad: bad.slice(0, 6), nBad: bad.length, out: out.slice(0, 6), wide: wide.slice(0, 6) };
+  });
+  check(r.parts > 0 && r.nBad === 0 && r.out.length === 0 && r.wide.length === 0, `${name} menu layout ${where} (${r.pane}): ${r.parts} parts inside the panel and screen, none overlapping, labels fit${r.nBad ? ' — overlap: ' + r.bad.join(', ') : ''}${r.out.length ? ' — outside: ' + r.out.join(', ') : ''}${r.wide.length ? ' — too wide: ' + r.wide.join(', ') : ''}`);
+}
+
+// The HUD in play (Task 3): its pieces — home, where, coins, the discovery chip, the mission card, the minimap, the
+// camera pad, the credit and hint, the bottom-right action row and its extras (car turns, ferry, turn hint, voyage
+// chip), the vehicle picker when open — each inside the screen and clear of one another (overlaps() as ui/dom.js;
+// edges that only touch do not count; nested parts do not count).
+const HUD_PARTS = ['#home-btn', '.where-chip', '.coin-chip', '#found-btn', '#mission', '#minimap', '.cam-pad', '#credit-dock > *', '.corner > .hint', '.corner > .credit', '.acts-extra > *', '.acts > *', '#travel'];
+async function checkHudLayout(page, name, where) {
+  const r = await page.evaluate((SEL) => {
+    const overlaps = (a, b) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
+    const shown = (e) => { const q = e.getBoundingClientRect(), cs = getComputedStyle(e); return q.width > 0 && q.height > 0 && cs.visibility !== 'hidden' && cs.display !== 'none' && e.closest('[hidden]') === null ? q : null; };
+    const parts = SEL.flatMap((s) => [...document.querySelectorAll(s)].map((e) => [e.id || s, e, shown(e)])).filter(([, , q]) => q);
+    const bad = [], out = [];
+    for (let i = 0; i < parts.length; i++) for (let j = i + 1; j < parts.length; j++) {
+      const [la, a, ra] = parts[i], [lb, b, rb] = parts[j];
+      if (!a.contains(b) && !b.contains(a) && overlaps(ra, rb)) bad.push(`${la} / ${lb}`);
+    }
+    for (const [l, , q] of parts) if (q.left < -0.5 || q.top < -0.5 || q.right > innerWidth + 0.5 || q.bottom > innerHeight + 0.5) out.push(l);
+    return { parts: parts.length, bad, out };
+  }, HUD_PARTS);
+  check(r.parts >= 8 && r.bad.length === 0 && r.out.length === 0, `${name} HUD layout ${where}: ${r.parts} pieces inside the screen, none overlapping${r.bad.length ? ' — overlap: ' + r.bad.join(', ') : ''}${r.out.length ? ' — outside: ' + r.out.join(', ') : ''}`);
+}
+
+// A short touch (or two) on the canvas at a screen point, dispatched back to back (a SwiftShader frame can outlast the
+// 400 ms tap window): ids and points are [id, x, y]; all go down, then all come up.
+async function touchAt(page, points, pointerType = 'touch') {
+  await page.evaluate(([pts, kind]) => {
+    const c = document.getElementById('c');
+    const ev = (type, [id, x, y]) => c.dispatchEvent(new PointerEvent(type, { pointerId: id, pointerType: kind, isPrimary: id === pts[0][0], button: 0, clientX: x, clientY: y, bubbles: true, cancelable: true }));
+    for (const p of pts) ev('pointerdown', p);
+    for (const p of pts) ev('pointerup', p);
+  }, [points, pointerType]);
+}
+
+// 꾸미기's 발자국 and 위치 고리 in 3D and the phase-1 follow-ups (Task 9) at this viewport. Only the chosen character's
+// walking sheet was fetched at boot; the 꾸미기 pictures brought the other two on first use and all three character
+// cards show their picture. Every 꾸미기 category passes the sizes, fonts and layout. 하트 발자국 and 바다 위치 고리,
+// bought with seeded coins, show at once: walking and biking leave fading hearts behind the explorer (a drop every
+// 130 ms, gone after 1.5 s) and the ring sits under the walker, the bike and the car (which leaves no trail). With the
+// car, a tap target's ring goes away when a turn button takes over. At night in town the street lamps near the camera
+// are drawn and lit (info().lampsShown / lampsLit). On touch screens a two-finger still touch sets no target. Taken off
+// again in 꾸미기, both are gone at once. The HUD's layout is checked on the way (walking, mission card open, car).
+async function checkWardrobeFx(page, name, spec, shot, sheets) {
+  const touch = !!spec.touch;
+  const boot = sheets.filter((r) => r.boot).map((r) => r.file);
+  check(boot.length === 1 && /^walk-cycle-explorer/.test(boot[0]), `${name}: only the chosen character's walking sheet loads at boot (${boot.join(', ') || 'none'})`);
+  await page.evaluate(() => { for (let i = 0; i < 4 && window.__hs3d.ctl.paused(); i++) window.__hs3d.closeDialogs(); window.__hs3d.setMode('walk'); document.getElementById('home-btn').click(); document.getElementById('tab-wardrobe').click(); document.querySelector('[data-cat="character"]').click(); });
+  await page.waitForFunction(() => [...document.querySelectorAll('#pane-wardrobe .card.char canvas')].every((c) => { const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; let n = 0; for (let i = 3; i < d.length; i += 64) if (d[i]) n++; return n > 0; }), null, { timeout: 60000, polling: 300 }).catch(() => {});
+  const lazy = await page.evaluate(() => ({
+    walkers: Object.keys(window.__hs3d.world.actors.walkers).sort().join(','),
+    pics: [...document.querySelectorAll('#pane-wardrobe .card.char canvas')].map((c) => {
+      const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data, colours = new Set();
+      for (let i = 0; i < d.length; i += 16) colours.add((d[i] >> 4) << 8 | (d[i + 1] >> 4) << 4 | d[i + 2] >> 4);
+      return colours.size;
+    }),
+  }));
+  const later = sheets.filter((r) => !r.boot).map((r) => r.file.split('-')[2]);
+  check(lazy.walkers === 'boy,raccoon,walk' && later.includes('boy') && later.includes('raccoon') && lazy.pics.length === 3 && lazy.pics.every((n) => n > 12), `${name}: the other two walking sheets load on first use and the three character cards show their pictures (walkers ${lazy.walkers}, fetched later ${later.join('/')}, colours ${lazy.pics.join(', ')})`);
+  for (const cat of ['character', 'outfit', 'journal', 'stamp', 'trail', 'ring']) {
+    await page.evaluate((c) => document.querySelector(`#pane-wardrobe [data-cat="${c}"]`).click(), cat);
+    await sleep(300);
+    await checkUi(page, name, `menu wardrobe ${cat}`, touch);
+    await checkMenuLayout(page, name, `wardrobe ${cat}`);
+    if (cat === 'trail' || cat === 'ring') await shot(`menu-wardrobe-${cat}`);
+  }
+  // put on 하트 발자국 and 바다 위치 고리 (bought with seeded coins, or worn when this save already owns them)
+  const wear = (ids) => page.evaluate((list) => {
+    const W = window.__hs3d.world, S = W.state;
+    S.coins = Math.max(S.coins, 500); window.__hs3d.menu.refresh();
+    for (const [cat, id, on] of list) {
+      document.querySelector(`#pane-wardrobe [data-cat="${cat}"]`).click();
+      const b = document.querySelector(`#pane-wardrobe [data-buy="${id}"]`);
+      if ((b.textContent === '착용 해제') !== on) b.click();
+    }
+    const saved = JSON.parse(localStorage.getItem('hongseong-adventure-v1')).equipped, A = W.actors;
+    return { trail: S.equipped.trail, ring: S.equipped.ring, saved: [saved.trail, saved.ring], glyph: A.fx.trail?.glyph || null, fxRing: A.fx.ring, ringColour: '#' + A.ring.material.color.getHexString() };
+  }, ids);
+  const on = await wear([['trail', 'trail-heart', true], ['ring', 'ring-sea', true]]);
+  check(on.trail === 'heart' && on.ring === 'sea' && on.saved.join() === 'heart,sea' && on.glyph === TRAILS.heart.glyph && on.fxRing === RINGS.sea && on.ringColour === RINGS.sea,
+    `${name}: 하트 발자국 and 바다 위치 고리 put on in 꾸미기 reach the explorer at once and are saved (${JSON.stringify(on)})`);
+  await page.evaluate(() => document.getElementById('menu-go').click());
+  // a long road at least 500 m from every place (no arrival dialog on the way): walk, ride and drive along it
+  const road = await page.evaluate(() => {
+    const W = window.__hs3d.world, far = (q) => W.places.every((p) => Math.hypot(p.point[0] - q[0], p.point[1] - q[1]) > 500);
+    for (const e of W.graph.edges) {
+      if (e.len < 600) continue;
+      const a = W.graph.at(e, 40), m = W.graph.at(e, e.len / 2), b = W.graph.at(e, e.len - 40);
+      if (!far(a) || !far(m) || !far(b) || W.waterGuard.blocked(a) || W.waterGuard.blocked(b)) continue;
+      if (!window.__hs3d.teleport(a[0], a[1])) continue;
+      return { from: a, to: b, len: Math.round(e.len) };
+    }
+    return null;
+  });
+  check(!!road, `${name}: a road away from every place to walk along (${road ? road.len + ' m' : 'none'})`);
+  if (!road) return;
+  const fxState = (where) => page.evaluate((w) => {
+    const W = window.__hs3d.world, A = W.actors, p = W.player;
+    const lit = A.trail.meshes.filter((m) => m.visible);
+    return {
+      where: w, mode: p.mode, moving: p.moving, drops: lit.length, colours: [...new Set(lit.map((m) => '#' + m.material.color.getHexString()))],
+      fading: lit.length > 1 ? Math.min(...lit.map((m) => m.material.opacity)) < Math.max(...lit.map((m) => m.material.opacity)) : null,
+      maxAlpha: lit.length ? Math.max(...lit.map((m) => m.material.opacity)) : 0, glyph: A.fx.trail?.glyph || null,
+      ring: A.ring.visible, ringColour: '#' + A.ring.material.color.getHexString(), ringSize: Math.round(A.ring.scale.x * 112 / 128), ringUnder: Math.hypot(A.ring.position.x - A.shadow.position.x, A.ring.position.z - A.shadow.position.z) < 0.01,
+    };
+  }, where);
+  // set off along the road and sample the marks every 300 ms for 2.4 s (a SwiftShader frame can take a second): the
+  // sample with the most drops is kept, and the screenshot is taken at it
+  const ride = async (mode, file) => {
+    await page.evaluate(([m, r]) => { window.__hs3d.teleport(r.from[0], r.from[1]); window.__hs3d.setMode(m); }, [mode, road]);
+    await sleep(1800);   // the mode toast
+    await page.evaluate((r) => { const W = window.__hs3d.world; W.target = [r.to[0], r.to[1]]; }, road);
+    let best = null;
+    for (let i = 0; i < 8; i++) {
+      await sleep(300);
+      const st = await fxState(mode);
+      if (!best || st.drops > best.drops) { best = st; await shot(file); }
+    }
+    return best;
+  };
+  const walked = await ride('walk', 'fx-walk-trail-ring');
+  check(walked.mode === 'walk' && walked.drops >= 2 && walked.colours.join() === TRAILS.heart.color && walked.fading && walked.maxAlpha <= 0.8 + 1e-6 && walked.ring && walked.ringColour === RINGS.sea && walked.ringUnder,
+    `${name}: walking leaves fading ${walked.glyph} drops in ${walked.colours.join()} behind the explorer, the ${walked.ringColour} ring under it (${JSON.stringify(walked)})`);
+  await checkHudLayout(page, name, 'walking');
+  await checkUi(page, name, 'walking with the trail', touch);
+  const biked = await ride('bike', 'fx-bike-trail-ring');
+  check(biked.mode !== 'bike' || (biked.drops >= 2 && biked.colours.join() === TRAILS.heart.color && biked.ring && biked.ringSize > walked.ringSize), `${name}: biking leaves the trail too, a wider ring under the bike (${JSON.stringify(biked)})`);
+  await ride('car', 'fx-car-ring');
+  await sleep(1600);   // the walk's last drops run out
+  const car = await fxState('car');
+  check(car.mode !== 'car' || (car.drops === 0 && car.ring && car.ringSize > biked.ringSize), `${name}: the car leaves no trail but keeps the ring, wider still (${JSON.stringify(car)})`);
+  // the car turn button takes over from a tap target: its target ring goes away (phase-1 follow-up)
+  if (car.mode === 'car') {
+    await page.evaluate((r) => { const W = window.__hs3d.world; W.target = null; W.player.route = null; window.__hs3d.teleport(r.from[0], r.from[1]); window.__hs3d.setMode('car'); }, road);
+    await sleep(1500);
+    for (const [fx, fy] of [[0.7, 0.45], [0.62, 0.62], [0.78, 0.3], [0.55, 0.38]]) {   // the ground, not a pin
+      await touchAt(page, [[61, Math.round(spec.viewport.width * fx), Math.round(spec.viewport.height * fy)]], touch ? 'touch' : 'mouse');
+      await sleep(600);
+      if (await page.evaluate(() => { const W = window.__hs3d.world; if (W.target) return true; for (let i = 0; i < 4 && W.ctl.paused(); i++) window.__hs3d.closeDialogs(); return false; })) break;
+    }
+    const turn = await page.evaluate(() => {
+      const W = window.__hs3d.world, b = document.getElementById('turn-left');
+      const before = { target: !!W.target, ring: !!W.tapRing?.visible, button: !b.hidden };
+      b.click();
+      return { before, after: { target: !!W.target, ring: !!W.tapRing?.visible, turn: W.turn || W.player.car?.intent || null } };
+    });
+    check(turn.before.target && turn.before.ring && turn.before.button && !turn.after.target && !turn.after.ring, `${name}: a car turn button clears the tap target and its ring (${JSON.stringify(turn)})`);
+    await checkHudLayout(page, name, 'car with turn buttons');
+  }
+  await page.evaluate(() => { const W = window.__hs3d.world; W.target = null; W.player.route = null; window.__hs3d.setMode('walk'); });
+  // the mission card open over play: still clear of every other HUD piece
+  const openCard = await page.evaluate(() => { const t = document.getElementById('mission-toggle'), was = t.getAttribute('aria-expanded') === 'true'; if (!was) t.click(); return was; });
+  await sleep(400);
+  await checkHudLayout(page, name, 'mission card open');
+  if (!openCard) await page.evaluate(() => document.getElementById('mission-toggle').click());
+  // night in 홍성읍 (by 홍주읍성): the lamps near the camera are drawn and lit; the ring under the explorer at night
+  await page.evaluate(() => { const W = window.__hs3d.world, p = W.byId.get('hongju').point; window.__hs3d.teleport(p[0], p[1] + 150); window.__hs3d.applyTime('night'); });
+  await sleep(3500);
+  await page.evaluate(() => { const W = window.__hs3d.world; for (let i = 0; i < 4 && W.ctl.paused(); i++) window.__hs3d.closeDialogs(); });
+  await sleep(1000);
+  const night = await page.evaluate(() => { const i = window.__hs3d.info(), W = window.__hs3d.world; return { lamps: i.lamps, shown: i.lampsShown, lit: i.lampsLit, time: W.timeKey, ring: W.actors.ring.visible }; });
+  await shot('fx-night-town');
+  check(night.time === 'night' && night.shown > 0 && night.lit === night.shown && night.shown <= night.lamps && night.ring, `${name}: at night in town ${night.lit} street lamps are drawn and lit near the camera (of ${night.lamps}), the ring still shows (${JSON.stringify(night)})`);
+  await page.evaluate(() => window.__hs3d.applyTime('day'));
+  const day = await page.evaluate(() => window.__hs3d.info().lampsLit);
+  check(day === 0, `${name}: by day no lamp is lit (${day})`);
+  // a two-finger still touch on the map is no tap (phase-1 follow-up)
+  if (touch) {
+    await page.evaluate(() => { window.__hs3d.world.target = null; });
+    const w = spec.viewport.width, h = spec.viewport.height;
+    await touchAt(page, [[71, Math.round(w * 0.6), Math.round(h * 0.4)], [72, Math.round(w * 0.8), Math.round(h * 0.45)]]);
+    await touchAt(page, [[73, Math.round(w * 0.2), Math.round(h * 0.7)], [74, Math.round(w * 0.75), Math.round(h * 0.4)]]);
+    await sleep(300);
+    const two = await page.evaluate(() => ({ target: !!window.__hs3d.world.target, dialog: window.__hs3d.ctl.paused() }));
+    check(!two.target && !two.dialog, `${name}: two-finger still touches (both on the map, one in the stick zone) set no target and open nothing (${JSON.stringify(two)})`);
+    await page.evaluate(() => { for (let i = 0; i < 4 && window.__hs3d.ctl.paused(); i++) window.__hs3d.closeDialogs(); });
+  }
+  // taken off again in 꾸미기: gone at once, and nothing is left behind while walking on
+  await page.evaluate(() => { document.getElementById('home-btn').click(); document.getElementById('tab-wardrobe').click(); });
+  const off = await wear([['trail', 'trail-heart', false], ['ring', 'ring-sea', false]]);
+  const gone = await page.evaluate(() => { const A = window.__hs3d.world.actors; return { drops: A.trail.meshes.filter((m) => m.visible).length, ring: A.ring.visible }; });
+  check(off.trail === 'default' && off.ring === 'default' && off.saved.join() === 'default,default' && !off.glyph && !off.fxRing && gone.drops === 0 && !gone.ring, `${name}: taken off in 꾸미기, the trail and ring are gone at once (${JSON.stringify({ ...off, ...gone })})`);
+  await page.evaluate(() => document.getElementById('menu-go').click());
+  await page.evaluate((r) => { window.__hs3d.teleport(r.from[0], r.from[1]); window.__hs3d.world.target = [r.to[0], r.to[1]]; }, road);
+  await sleep(1800);
+  const bare = await fxState('bare');
+  check(bare.drops === 0 && !bare.ring, `${name}: walking on leaves no trail and shows no ring (${JSON.stringify(bare)})`);
+  await page.evaluate(() => { const W = window.__hs3d.world; W.target = null; W.player.route = null; });
+}
+
 async function run(browser, base, spec) {
   const { name, viewport, touch } = spec;
   const ctx = await browser.newContext({ viewport, hasTouch: touch, isMobile: touch, deviceScaleFactor: touch ? 2 : 1, locale: 'ko-KR' });
@@ -1374,6 +1615,10 @@ async function run(browser, base, spec) {
   page.on('pageerror', (e) => errors.push(String(e && e.stack || e)));
   page.on('console', (m) => { if (m.type() === 'error') console.log(`  [${name} console.error] ${m.text().slice(0, 300)}`); });
   const shot = (file) => page.screenshot({ path: path.join(OUT, `${name}-${file}.png`) });
+  // the walking sheets fetched, and whether before the game was first ready (Task 9: the others load on first use)
+  const sheets = [];
+  let booted = false;
+  page.on('request', (r) => { const file = r.url().split('/').pop(); if (/^walk-cycle-/.test(file)) sheets.push({ file, boot: !booted }); });
 
   if (spec.keysWhileLoading) {
     // M5: action keys (quality, time, camera) pressed while the world is still loading must be ignored, not throw
@@ -1392,8 +1637,12 @@ async function run(browser, base, spec) {
   }
   const t0 = Date.now();
   await page.goto(base + '/index.html', { waitUntil: 'load' });
+  // the loading screen (sizes and fonts) while the world is being built
+  const loading = await page.evaluate(() => { const l = document.getElementById('loading'); return !!l && !l.hidden && getComputedStyle(l).display !== 'none' && !window.__hs3d; });
+  if (loading) { await checkUi(page, name, 'loading screen', touch); await shot('0-loading'); } else console.log(`  ${name}: the loading screen was gone before it could be measured`);
   let ready = false;
   try { await page.waitForFunction(() => window.__hs3d && window.__hs3d.ready === true, null, { timeout: READY_MS, polling: 500 }); ready = true; } catch {}
+  booted = true;
   check(ready, `${name}: __hs3d.ready within ${READY_MS / 1000} s (${((Date.now() - t0) / 1000).toFixed(1)} s)`);
   if (!ready) {
     await shot('not-ready').catch(() => {});
@@ -1419,6 +1668,7 @@ async function run(browser, base, spec) {
   if (!await checkJournal(page, name, spec, shot)) { check(errors.length === 0, `${name}: no pageerror (${errors.join(' | ').slice(0, 400)})`); await ctx.close(); return; }
   await checkMap(page, name, spec, shot);
   await checkTalk(page, name, spec, shot);
+  await checkWardrobeFx(page, name, spec, shot, sheets);
   await shot('1-start');
   if (spec.quick) {
     // touch tablet: the credit stays a collapsed toggle, and a short still touch in the stick zone taps the map
@@ -1434,6 +1684,7 @@ async function run(browser, base, spec) {
     check(tapped.target || tapped.dialog, `${name}: a short touch in the stick zone reached the map (${tapped.target ? 'walk target set' : tapped.dialog ? 'place opened' : 'nothing'})`);
     await page.evaluate(() => { window.__hs3d.world.target = null; window.__hs3d.closeDialogs(); });   // stop the tap's walk
     await checkUi(page, name, 'start', spec.touch);
+    await checkHudLayout(page, name, 'start');
     await checkHud(page, name, spec, shot);
     const car = await page.evaluate(() => window.__hs3d.setMode('car').ok);
     await sleep(2500);
@@ -1441,10 +1692,25 @@ async function run(browser, base, spec) {
     await driveArrival(page, name, shot, spec.touch);
     await page.evaluate(() => { window.__hs3d.closeDialogs(); window.__hs3d.setMode('walk'); });
     check(errors.length === 0, `${name}: no pageerror${errors.length ? ' — ' + errors.join(' | ').slice(0, 600) : ''}`);
+    // the context-lost screen at this viewport too (sizes and fonts). It covers the whole screen in place of play, so
+    // there is no stick under it: like the desktop and phone check below, the stick-zone rule does not apply
+    const gone = await page.evaluate(async () => {
+      const gl = document.getElementById('c').getContext('webgl2') || document.getElementById('c').getContext('webgl'), ext = gl && gl.getExtension('WEBGL_lose_context');
+      if (!ext) return { ext: false };
+      ext.loseContext();
+      await new Promise((r) => setTimeout(r, 1500));
+      const el = document.getElementById('lost');
+      return { ext: true, visible: !el.hidden && getComputedStyle(el).display !== 'none', paused: window.__hs3d.info().running === false };
+    });
+    check(gone.ext && gone.visible && gone.paused, `${name}: #lost visible and the loop paused after WEBGL_lose_context (${JSON.stringify(gone)})`);
+    await shot('6-context-lost');
+    await checkUi(page, name, 'context lost');
+    check(errors.length === 0, `${name}: still no pageerror after context loss${errors.length ? ' — ' + errors.join(' | ').slice(0, 600) : ''}`);
     await ctx.close();
     return;
   }
   await checkUi(page, name, 'start', spec.touch);
+  await checkHudLayout(page, name, 'start');
   if (spec.touch) { await page.evaluate(() => { document.getElementById('credit').open = true; }); await sleep(300); await checkUi(page, name, 'credit open', spec.touch); await shot('1b-credit-open'); await page.evaluate(() => { document.getElementById('credit').open = false; }); }
 
   // floating stick (walking)
@@ -1530,6 +1796,7 @@ async function run(browser, base, spec) {
     await sleep(1500);
     await shot('7-west-coast-namdang');
     await checkUi(page, name, 'ferry and talk buttons', spec.touch);
+    await checkHudLayout(page, name, 'ferry and talk buttons');
     await page.evaluate(() => { const W = window.__hs3d.world, p = W.byId.get('hongju').point; window.__hs3d.teleport(p[0], p[1] + 150); W.view.zoom = 3.2; W.view.pitchAdj = -8; });
     await sleep(10000);
     await page.evaluate(() => window.__hs3d.closeDialogs());

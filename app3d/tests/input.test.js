@@ -99,3 +99,31 @@ test('a short still touch in the stick zone is forwarded as a tap; held, dragged
   assert.equal(calls.taps.length, 1);
   assert.equal(c.read().x, 0); assert.equal(c.read().y, 0);
 });
+
+// phase-1 follow-up: two fingers pressed together and lifted without moving (a pinch that never moved) are no tap
+test('a two-finger still touch is not a tap, on the right side or with one finger in the stick zone', () => {
+  const { target, env, fire, calls } = setup();
+  let t = 1000; env.performance = { now: () => t };
+  fire(target, 'pointerdown', touch(1, 700, 300)); fire(target, 'pointerdown', touch(2, 800, 320));
+  t += 80; fire(target, 'pointerup', touch(1, 700, 300)); t += 20; fire(target, 'pointerup', touch(2, 800, 320));
+  assert.deepEqual(calls.taps, [], 'two still fingers on the right');
+  fire(target, 'pointerdown', touch(3, 100, 300)); fire(target, 'pointerdown', touch(4, 800, 300));   // stick zone + right
+  t += 80; fire(target, 'pointerup', touch(4, 800, 300)); t += 20; fire(target, 'pointerup', touch(3, 100, 300));
+  assert.deepEqual(calls.taps, [], 'one still finger in the stick zone, one on the right');
+  fire(target, 'pointerdown', touch(5, 800, 300)); fire(target, 'pointerdown', touch(6, 100, 300));   // right first, then the stick zone
+  t += 80; fire(target, 'pointerup', touch(6, 100, 300)); t += 20; fire(target, 'pointerup', touch(5, 800, 300));
+  assert.deepEqual(calls.taps, [], 'right first, then the stick zone');
+  // a single quick touch afterwards still taps
+  fire(target, 'pointerdown', touch(7, 700, 300)); t += 60; fire(target, 'pointerup', touch(7, 700, 300));
+  assert.deepEqual(calls.taps, [[700, 300]]);
+});
+
+test('walking with the stick, a quick touch on the right still taps', () => {
+  const { target, env, fire, calls } = setup();
+  let t = 1000; env.performance = { now: () => t };
+  fire(target, 'pointerdown', touch(1, 100, 300)); fire(target, 'pointermove', touch(1, 100, 250));   // the stick is moving
+  fire(target, 'pointerdown', touch(2, 800, 300)); t += 80; fire(target, 'pointerup', touch(2, 800, 300));
+  assert.deepEqual(calls.taps, [[800, 300]]);
+  t += 600; fire(target, 'pointerup', touch(1, 100, 250));
+  assert.equal(calls.taps.length, 1);
+});

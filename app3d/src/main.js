@@ -23,7 +23,7 @@ import { createLighting } from './render/lighting.js';
 import { createPost } from './render/post.js';
 import { QUALITY, nextQuality, qualityState, autoStartKey, pixelRatio, watchContextLoss, rememberQuality } from './render/quality.js';
 import { buildRoadGraph } from './sim/roadgraph.js';
-import { createPlayer, stepPlayer, setMode as setPlayerMode, speedMax, TOAST } from './sim/player.js';
+import { createPlayer, stepPlayer, setMode as setPlayerMode, speedMax, waterSurface, TOAST } from './sim/player.js';
 import { createCamera, stepCamera } from './sim/camera.js';
 import { arrivals, nearestVisitable, CAR_REACH, CONTACT } from './sim/arrival.js';
 import { haltCar } from './sim/car.js';
@@ -92,7 +92,7 @@ const hud = createHud(document, {
   onCompass: () => { if (!live()) return; G.view.userYaw = 0; G.view.pitchAdj = 0; if (G.cam.mode === 'follow') toggleCamera(); },
   onZoom: (k) => { if (live()) G.view.zoom = clamp(G.view.zoom * k, 0.2, 4); },
   onTilt: (d) => { if (live()) G.view.pitchAdj = clamp(G.view.pitchAdj + d, -70, 70); },
-  onTurn: (side) => { if (live() && isCar(G.player.mode)) G.turn = side; },
+  onTurn: (side) => { if (live() && isCar(G.player.mode)) { clearTarget(); G.ferryPending = false; G.turn = side; } },   // as the stick: no stale target
   onTalk: () => talk(), onFerry: () => ferry(), onVisit: () => visit(),
   onMap: () => { if (live() && !G.ctl.paused()) G.ctl.open('map'); },   // the minimap: 홍성군 전체 지도
   onHome: () => { if (live() && !G.ctl.paused()) G.ctl.open('menu'); },
@@ -215,15 +215,15 @@ async function boot() {
   const navigator = new RoadNavigator(features);
   await step('물길을 살피는 중');
   const waterGuard = new WaterGuard(features);
-  const services = { field, navigator, water: waterGuard, graph, collider, bounds: MOVE_BOUNDS };
+  const services = { field, navigator, water: waterGuard, waterY: waterSurface(waterGuard, lakeLevels), graph, collider, bounds: MOVE_BOUNDS };
 
   await step('나무와 가로등을 심는 중');
   const props = new Props(scene, field, features, collider, graph, QUALITY[qstate.props].props);
 
   await step('탐험가와 탈것을 준비하는 중');
   const reduced = REDUCED || state.motion === false;
-  const assets = await loadActorAssets();
-  const actors = new Actors(scene, assets, { character: state.character, outfit: state.equipped?.outfit, reduced });
+  const assets = await loadActorAssets({ character: state.character });   // the other characters' sheets on first use
+  const actors = new Actors(scene, assets, { character: state.character, outfit: state.equipped?.outfit, equipped: state.equipped, reduced, waterY: services.waterY });
   const npcLayer = new NpcLayer(scene, buildNpcs(places, navigator), assets, field, { reduced });
 
   await step('이어서 할 곳을 찾는 중');
@@ -669,8 +669,8 @@ function applySetting(key, value) {
   save();
   return true;
 }
-// a character chosen or an outfit put on in 꾸미기: the explorer changes at once
-function dress() { G.actors.setCharacter(G.state.character); G.actors.setOutfit(G.state.equipped.outfit || 'default'); }
+// a character chosen or an outfit, 발자국 or 위치 고리 put on or taken off in 꾸미기: the explorer changes at once
+function dress() { const a = G.actors, s = G.state; a.setCharacter(s.character); a.setOutfit(s.equipped.outfit || 'default'); a.setEffects(s.equipped); }
 // 기록 지우고 처음부터 (2D reset): a fresh save keeping the 3D view settings, then a reload; nothing saves the old state after
 function resetProgress() {
   G.resetting = true;
@@ -713,7 +713,7 @@ function autoQuality() {
 // ---------- input
 const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
 function tap(cx, cy) {
-  if (!live() || G.ctl.paused()) return;
+  if (!live() || G.ctl.paused() || G.voyage) return;   // the ferry sails on its own: no target to set at sea
   const rect = G.renderer.domElement.getBoundingClientRect();
   ndc.set(((cx - rect.left) / rect.width) * 2 - 1, -((cy - rect.top) / rect.height) * 2 + 1);
   ray.setFromCamera(ndc, G.camera);
@@ -847,6 +847,8 @@ function ready() {
       buildings: G.buildings.rings.length,
       realBuildings: G.buildings.realCount,
       lamps: G.props.lamps.count,
+      lampsShown: G.props.lamps.shown,   // instanced near the camera now; lampsLit: those lit (night or dusk)
+      lampsLit: G.props.headMat.emissiveIntensity > 0 ? G.props.lamps.shown : 0,
       places: G.places.length,
       npcs: G.npcLayer.items.length,
       trees: [...G.props.chunks.values()].reduce((s, c) => s + c.count, 0),

@@ -3,7 +3,8 @@
 // Lazy: nothing is drawn until a card asks (the first time 탈것 or 꾸미기 opens), then one picture per animation frame,
 // each cached. After every picture the renderer gets its own render target, clear colour, auto-clear and exposure back,
 // and the sprite sheet's cell offset is restored, so the game's next frame sees no difference. Models are clones that
-// share the game's geometry and materials (nothing here is disposed). A picture that fails stays a blank card.
+// share the game's geometry and materials (nothing here is disposed). A picture that fails stays a blank card. A
+// character whose walking sheet is not loaded yet (world/actor-assets.js loads them on first use) waits for it.
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { CHARACTERS, OUTFIT_FILTERS } from '#game/wardrobe.js';
@@ -84,8 +85,8 @@ export function createThumbs(renderer, actors, { raf = (f) => requestAnimationFr
 
   function stage(spec) {
     if (spec.kind === 'character' || spec.mode === 'walk') {
-      const id = spec.kind === 'character' ? spec.id : spec.character, look = CHARACTERS[id] || CHARACTERS.explorer;
-      const w = actors.walkers[look.mode] || actors.walkers.walk;
+      const w = actors.walkers[sheetKey(spec)];
+      if (!w) return null;   // its sheet could not load: a blank card
       return stageSprite(w.sheet, SE * 4 + 1, EXPLORER_HEIGHT, OUTFIT_FILTERS[spec.outfit] || 'none', spec.kind !== 'character');
     }
     if (spec.mode === 'bike') return stageSprite(actors.bike.sheet, SE * 2, BIKE_HEIGHT, 'none', true);
@@ -118,11 +119,24 @@ export function createThumbs(renderer, actors, { raf = (f) => requestAnimationFr
 
   const draw = (canvas, src) => { if (src) canvas.getContext('2d')?.drawImage(src, 0, 0, canvas.width, canvas.height); };
 
+  // the walking sheet a picture shows (CHARACTERS[*].mode), or null for the other vehicles
+  function sheetKey(spec) {
+    if (spec.kind !== 'character' && spec.mode !== 'walk') return null;
+    return (CHARACTERS[spec.kind === 'character' ? spec.id : spec.character] || CHARACTERS.explorer).mode;
+  }
+
   function step() {
     scheduled = false;
     if (renderer.getContext().isContextLost?.()) return;   // tried again when a card next asks
-    const [key, job] = waiting.entries().next().value || [];
+    const [key, job] = [...waiting].find(([, j]) => !j.loading) || [];
     if (!key) return;
+    const need = sheetKey(job.spec);
+    if (need && !actors.walkers[need] && !job.asked) {   // its sheet first (loaded once), then the picture
+      job.loading = job.asked = true;
+      actors.loadWalker(need).then(() => { job.loading = false; schedule(); });
+      schedule();
+      return;
+    }
     waiting.delete(key);
     let pic = null;
     try { pic = render(job.spec); } catch (e) { console.warn('thumbnail', key, e); }
@@ -130,7 +144,7 @@ export function createThumbs(renderer, actors, { raf = (f) => requestAnimationFr
     for (const c of job.canvases) draw(c, pic);
     schedule();
   }
-  function schedule() { if (!scheduled && waiting.size) { scheduled = true; raf(step); } }
+  function schedule() { if (!scheduled && [...waiting.values()].some((j) => !j.loading)) { scheduled = true; raf(step); } }
 
   return {
     /** Draw the picture for `spec` into `canvas`: now when it is cached, else once it has been rendered. */

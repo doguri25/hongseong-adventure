@@ -5,7 +5,7 @@ import { createCollider } from '../src/sim/collider.js';
 import { buildRoadGraph } from '../src/sim/roadgraph.js';
 import { WaterGuard } from '#game/water.js';
 import { RoadNavigator } from '#game/navigation.js';
-import { createPlayer, stepPlayer, setMode, TOAST } from '../src/sim/player.js';
+import { createPlayer, stepPlayer, setMode, waterSurface, TOAST } from '../src/sim/player.js';
 
 const DT = 1 / 30;
 const ring = (x0, y0, x1, y1) => [[x0, y0], [x1, y0], [x1, y1], [x0, y1]];
@@ -221,4 +221,50 @@ test('a walker standing on water walks toward land instead of freezing, never fu
     run(p, north, s, 90);                                                          // north: toward the shore
     assert.ok(!s.water.blocked([p.x, p.y]) && p.y < 300, `${movementMode} reached land: ${p.x},${p.y}`);
   }
+});
+
+// phase-1 follow-up: the sea floor is carved under the water plane (render Y = 0), so a landing that descends over the
+// sea must stop at the water, not at the sea floor, before it is called off
+const carvedSea = (depth = -5) => {
+  const s = seaWorld(), { w, h, cell, data } = s.field;
+  for (let j = 0; j < h; j++) if (j * cell > 1000) for (let i = 0; i < w; i++) data[j * w + i] = depth;
+  return s;
+};
+const lowestOverWater = (p, s, input, max = 1200) => {
+  const out = { events: [], low: Infinity };
+  for (let i = 0; i < max && p.pending; i++) {
+    out.events.push(...stepPlayer(p, input, s, DT).events);
+    if (s.water.waterAt([p.x, p.y])) out.low = Math.min(out.low, p.h);
+  }
+  return out;
+};
+
+test('a landing called off over the sea never dips under the water plane (floor = max(ground, water level))', () => {
+  const s = carvedSea(), p = flyingSouth(s, 'slowplane', -1000, 900);
+  assert.ok(s.field.renderY(-1000, 2000) < -5, 'the sea floor lies under the water plane');
+  assert.ok(setMode(p, 'walk', s).ok);
+  const r = lowestOverWater(p, s, { x: 0, y: 1, camYaw: Math.PI, camMode: 'follow', target: null });
+  assert.ok(r.events.includes('landing-cancelled') && !r.events.includes('landed'), r.events.join(','));
+  assert.ok(r.low >= 0 && r.low < 3, `lowest over the sea ${r.low.toFixed(2)} m (water plane at 0)`);
+  assert.equal(p.mode, 'slowplane'); assert.equal(p.pending, null);
+});
+
+test('waterSurface: the sea plane at 0, a lake at its carved shore level, null on dry land', () => {
+  const s = seaWorld(), pond = s.water.waters.find((f) => f.tags.water === 'reservoir');
+  const waterY = waterSurface(s.water, [{ feature: pond, level: 10 }]);
+  assert.ok(Math.abs(waterY(0, 500) - (10 * 1.2 - 0.2)) < 1e-9, `pond ${waterY(0, 500)}`);
+  assert.equal(waterY(0, 2000), 0);
+  assert.equal(waterY(-1000, -500), null);
+  assert.equal(waterSurface(s.water)(0, 500), 0, 'a water body without a carved level sits at the sea plane');
+});
+
+test('over a lake the descent floor is its water surface (services.waterY)', () => {
+  const s = world(), pond = s.water.waters.find((f) => f.tags.water === 'reservoir'), { w, h, cell, data } = s.field;
+  for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) if (s.water.waterAt([i * cell, j * cell])) data[j * w + i] = 8.4;   // the carve: shore 10 - 1.6
+  s.waterY = waterSurface(s.water, [{ feature: pond, level: 10 }]);
+  const p = createPlayer({ x: 200, y: 500, mode: 'slowplane', movementMode: 'free' });
+  p.alt = 60; p.speed = 20; p.pending = 'walk';   // a landing that drifted out over the pond
+  const r = lowestOverWater(p, s, still);
+  assert.ok(r.events.includes('landing-cancelled'), r.events.join(','));
+  assert.ok(r.low >= 11.8 - 1e-6, `lowest over the pond ${r.low.toFixed(2)} (surface 11.8, floor ${s.field.renderY(200, 500).toFixed(2)})`);
 });

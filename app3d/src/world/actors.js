@@ -1,9 +1,11 @@
-// The player's body: exactly one of walk sprite (character sheet), bike sprite, car/supercar GLB, slow plane, jet or boat.
-// Render space comes from toRender; heading 0 = north, clockwise; vehicle models point down -Z (rotation.y = -heading).
+// The player's body: exactly one of walk sprite (character sheet), bike sprite, car/supercar GLB, slow plane, jet or boat,
+// with the 꾸미기 effects as marks on the ground: the 발자국 trail behind a walker or rider and the 위치 고리 under every
+// body (2D world.js). Render space comes from toRender; heading 0 = north, clockwise; vehicle models point down -Z
+// (rotation.y = -heading).
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { toRender } from '../frame.js';
-import { CHARACTERS, OUTFIT_FILTERS } from '#game/wardrobe.js';
+import { CHARACTERS, OUTFIT_FILTERS, TRAILS, RINGS } from '#game/wardrobe.js';
 import { outfitMatrix, applyOutfit } from './outfit.js';
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -27,6 +29,61 @@ export function showCell(sprite, texture, size, cell, heightMetres) {
   texture.repeat.set(w / size[0], h / size[1]);
   sprite.scale.set((w / cell.cellHeight) * heightMetres, (h / cell.cellHeight) * heightMetres, 1);
   sprite.center.set((cell.pivot[0] - x) / w, (y + h - cell.pivot[1]) / h);
+}
+
+/* ---- 꾸미기 effects (2D world.js): the 발자국 trail and the 위치 고리, drawn as marks lying on the ground ---- */
+export const TRAIL_EVERY = 0.13, TRAIL_LIFE = 1.5;   // 2D: a drop every 130 ms while moving, gone after 1.5 s
+const TRAIL_ALPHA = 0.8;                             // 2D globalAlpha a * .8
+const TRAIL_SIZE = { walk: 12, bike: 14 };           // metres across one glyph (the explorer is 24 m tall)
+const RING_RADIUS = { walk: 9, bike: 11, car: 24, supercar: 25, slowplane: 62, plane: 72, boat: 34 };
+const RING_BAND = 112 / 128;                         // the ring texture's band radius, as a share of the half-size
+
+/** The equipped effects: {trail: {glyph, color} | null, ring: colour | null}; 'default', unknown or missing -> null. */
+export function wardrobeFx(equipped) {
+  const t = TRAILS[equipped?.trail], r = RINGS[equipped?.ring];
+  return { trail: t ? { glyph: t.glyph, color: t.color } : null, ring: r || null };
+}
+
+/**
+ * One step of the trail (oldest drop first): while `dropping` a drop is left at `at` = [x, y, h, yaw, size] once more
+ * than TRAIL_EVERY has passed since the last one; drops older than TRAIL_LIFE are let go. t in seconds.
+ */
+export function stepTrail(drops, t, at, dropping) {
+  if (dropping && (!drops.length || t - drops[drops.length - 1].t > TRAIL_EVERY)) {
+    drops.push({ x: at[0], y: at[1], h: at[2], yaw: at[3] || 0, size: at[4] || 0, t });
+  }
+  while (drops.length && t - drops[0].t >= TRAIL_LIFE) drops.shift();
+  return drops;
+}
+export const trailAlpha = (drop, t) => clamp(1 - (t - drop.t) / TRAIL_LIFE, 0, 1) * TRAIL_ALPHA;
+
+// white marks with a dark edge, tinted by the material colour (the edge stays dark, so it reads on any ground)
+function ringTexture() {
+  const c = document.createElement('canvas'); c.width = c.height = 256;
+  const g = c.getContext('2d');
+  g.beginPath(); g.arc(128, 128, 112, 0, Math.PI * 2);
+  g.lineWidth = 26; g.strokeStyle = 'rgba(10,14,26,.42)'; g.stroke();
+  g.lineWidth = 13; g.strokeStyle = '#ffffff'; g.stroke();
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+function glyphTexture(glyph) {
+  const c = document.createElement('canvas'); c.width = c.height = 128;
+  const g = c.getContext('2d');
+  g.font = 'bold 100px serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.lineJoin = 'round'; g.lineWidth = 11; g.strokeStyle = 'rgba(10,14,26,.55)'; g.strokeText(glyph, 64, 68);
+  g.fillStyle = '#ffffff'; g.fillText(glyph, 64, 68);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+const markMaterial = (map, color) => new THREE.MeshBasicMaterial({ map, color, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -6, polygonOffsetUnits: -6 });
+// a mark's orientation: turned so its top faces up the screen (camera yaw), tilted to the slope unless on water
+const UP = new THREE.Vector3(0, 1, 0), slopeN = new THREE.Vector3(), turnQ = new THREE.Quaternion();
+function lieOnGround(q, field, x, y, flat, yaw) {
+  turnQ.setFromAxisAngle(UP, -yaw);
+  if (flat) return q.copy(turnQ);
+  const d = 6, hx = (field.renderY(x + d, y) - field.renderY(x - d, y)) / (2 * d), hz = (field.renderY(x, y + d) - field.renderY(x, y - d)) / (2 * d);
+  return q.setFromUnitVectors(UP, slopeN.set(-hx, 1, -hz).normalize()).multiply(turnQ);
 }
 
 /* ---- primitive vehicles (ported from spike/3d-naepo) ---- */
@@ -116,19 +173,20 @@ function fitModel(src, length, color) {
   return wrap;
 }
 
+// assets: world/actor-assets.js loadActorAssets (walk holds the walking sheets loaded so far; loadWalk(key) brings the
+// others on first use). equipped: state.equipped (trail, ring); waterY(x, y): the water surface or null
+// (sim/player.js waterSurface), so the ring floats on water under the boat.
 export class Actors {
-  constructor(scene, assets, { character = 'explorer', outfit = 'default', reduced = false } = {}) {
+  constructor(scene, assets, { character = 'explorer', outfit = 'default', equipped = null, reduced = false, waterY = null } = {}) {
     this.reduced = reduced;
+    this.assets = assets; this.waterY = waterY;
     this.group = new THREE.Group(); this.group.name = 'actors'; scene.add(this.group);
     this.outfit = new THREE.Matrix3();
     this.dir = 's';
     this.character = 'explorer';
     this.walkers = {};
-    for (const [mode, sheet] of Object.entries(assets.walk)) {
-      const mat = applyOutfit(new THREE.SpriteMaterial({ map: sheet.texture, alphaTest: 0.45, fog: true }), this.outfit);
-      const sprite = new THREE.Sprite(mat); sprite.renderOrder = 3; sprite.visible = false;
-      this.walkers[mode] = { sprite, sheet }; this.group.add(sprite);
-    }
+    this.shownWalker = null;   // the walker on screen: kept while the chosen character's sheet is still loading
+    for (const [mode, sheet] of Object.entries(assets.walk)) this._addWalker(mode, sheet);
     const bikeMat = new THREE.SpriteMaterial({ map: assets.bike.texture, alphaTest: 0.45, fog: true });
     this.bike = { sprite: new THREE.Sprite(bikeMat), sheet: assets.bike }; this.bike.sprite.renderOrder = 3; this.bike.sprite.visible = false;
     this.group.add(this.bike.sprite);
@@ -145,11 +203,40 @@ export class Actors {
     const tex = radialTexture('rgba(20,30,20,.55)', 'rgba(20,30,20,0)');
     this.shadow = new THREE.Mesh(new THREE.CircleGeometry(1, 24).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4 }));
     this.shadow.visible = false; this.group.add(this.shadow);
-    this.setCharacter(character); this.setOutfit(outfit);
+
+    this.ring = new THREE.Mesh(new THREE.PlaneGeometry(2, 2).rotateX(-Math.PI / 2), markMaterial(ringTexture(), 0xffffff));
+    this.ring.renderOrder = 2; this.ring.visible = false; this.group.add(this.ring);
+    this.trail = { drops: [], meshes: [], geo: new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), glyphs: new Map(), key: '' };
+    this.setCharacter(character); this.setOutfit(outfit); this.setEffects(equipped);
   }
 
-  setCharacter(id) { this.character = CHARACTERS[id] ? id : 'explorer'; }
+  _addWalker(mode, sheet) {
+    const mat = applyOutfit(new THREE.SpriteMaterial({ map: sheet.texture, alphaTest: 0.45, fog: true }), this.outfit);
+    const sprite = new THREE.Sprite(mat); sprite.renderOrder = 3; sprite.visible = false;
+    this.group.add(sprite);
+    return (this.walkers[mode] = { sprite, sheet });
+  }
+  /** The walker for a sheet key (CHARACTERS[*].mode), loading its sheet on first use; resolves null if it cannot load. */
+  loadWalker(key) {
+    if (this.walkers[key]) return Promise.resolve(this.walkers[key]);
+    if (!this.assets.loadWalk) return Promise.resolve(null);
+    return this.assets.loadWalk(key).then((sheet) => (sheet ? this.walkers[key] || this._addWalker(key, sheet) : null), () => null);
+  }
+
+  // a character whose sheet is not in yet shows once it has loaded; until then the explorer keeps its old look
+  setCharacter(id) { this.character = CHARACTERS[id] ? id : 'explorer'; this.loadWalker(CHARACTERS[this.character].mode); }
   setOutfit(id) { this.outfit.set(...outfitMatrix(OUTFIT_FILTERS[id] || 'none')); this.outfitId = id; }
+  /** Put on or take off the trail and ring (state.equipped): live, from the next frame. */
+  setEffects(equipped) {
+    const fx = this.fx = wardrobeFx(equipped), tr = this.trail, key = fx.trail ? fx.trail.glyph + fx.trail.color : '';
+    if (fx.ring) this.ring.material.color.set(fx.ring); else this.ring.visible = false;
+    if (key === tr.key) return;
+    tr.key = key; tr.drops.length = 0;
+    for (const m of tr.meshes) m.visible = false;
+    if (!fx.trail) return;
+    tr.map = tr.glyphs.get(fx.trail.glyph) || tr.glyphs.set(fx.trail.glyph, glyphTexture(fx.trail.glyph)).get(fx.trail.glyph);
+    for (const m of tr.meshes) { m.material.map = tr.map; m.material.color.set(fx.trail.color); m.material.needsUpdate = true; }
+  }
 
   // the sheet direction follows how the motion looks on screen (camera yaw), as the 2D game picks it from the map
   pickDirection(player, yaw) {
@@ -169,7 +256,8 @@ export class Actors {
     if (walking || biking) {
       const dir = this.pickDirection(player, cam?.yaw || 0), moving = !!player.moving;
       if (walking) {
-        const w = this.walkers[CHARACTERS[this.character].mode] || this.walkers.walk, phase = ((player.phase % TAU) + TAU) % TAU;
+        const w = this.shownWalker = this.walkers[CHARACTERS[this.character].mode] || this.shownWalker || Object.values(this.walkers)[0];
+        const phase = ((player.phase % TAU) + TAU) % TAU;
         const frame = dir * 4 + (moving ? Math.floor(phase / (Math.PI / 2)) % 4 : 1);
         showCell(w.sprite, w.sheet.texture, w.sheet.size, w.sheet.cells[frame], EXPLORER_HEIGHT);
         w.sprite.position.set(X, groundY - 0.15, Z); w.sprite.visible = true;
@@ -206,5 +294,43 @@ export class Actors {
     this.shadow.visible = shadowSize > 0;
     this.shadow.material.opacity = shadowOpacity;
     this.shadow.position.set(X, groundY + 0.3, Z);
+    this.updateEffects(player, cam?.yaw || 0, t, field, groundY);
+  }
+
+  // the 위치 고리 under the body (on the water surface over water) and the 발자국 drops behind a walker or rider
+  updateEffects(player, yaw, t, field, groundY) {
+    const fx = this.fx, mode = player.mode;
+    if (!fx.ring && !fx.trail) return;   // nothing worn (setEffects has hidden the marks)
+    const wet = this.waterY ? this.waterY(player.x, player.y) : null;
+    const base = wet == null ? groundY : Math.max(groundY, wet), [X, Z] = toRender(player.x, player.y);
+    const radius = fx.ring && RING_RADIUS[mode];
+    this.ring.visible = !!radius;
+    if (radius) {
+      this.ring.scale.setScalar(radius / RING_BAND);
+      this.ring.position.set(X, base + 0.45, Z);
+      lieOnGround(this.ring.quaternion, field, player.x, player.y, wet != null && wet >= groundY, 0);
+    }
+    const tr = this.trail;
+    if (!fx.trail) return;
+    const size = TRAIL_SIZE[mode], last = tr.drops[tr.drops.length - 1];
+    // a frozen game (a dialog) keeps player.moving from its last step: only a real move leaves a drop
+    const moved = !last || Math.hypot(player.x - last.x, player.y - last.y) > 1;
+    stepTrail(tr.drops, t, [player.x, player.y, base, yaw, size], !!size && !!player.moving && moved);
+    while (tr.meshes.length < tr.drops.length) {
+      const m = new THREE.Mesh(tr.geo, markMaterial(tr.map, fx.trail.color));
+      m.renderOrder = 2; m.visible = false; this.group.add(m); tr.meshes.push(m);
+    }
+    tr.meshes.forEach((m, i) => {
+      const d = tr.drops[i];
+      m.visible = !!d;
+      if (!d) return;
+      if (!d.q) {   // placed once, where and how it was dropped
+        d.q = lieOnGround(new THREE.Quaternion(), field, d.x, d.y, false, d.yaw);
+        d.at = toRender(d.x, d.y);
+      }
+      m.quaternion.copy(d.q); m.scale.setScalar(d.size);
+      m.position.set(d.at[0], d.h + 0.35, d.at[1]);
+      m.material.opacity = trailAlpha(d, t);
+    });
   }
 }

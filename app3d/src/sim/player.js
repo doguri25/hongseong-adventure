@@ -1,6 +1,7 @@
 // Player movement for every travel mode (pure, game frame: x east, y south, metres; heading 0 = north, clockwise).
 // Ground modes sit on field.renderY; flying modes carry `alt` (render metres above sea level) and fly over everything.
 import { createCar, driveCar } from './car.js';
+import { VEX } from '../frame.js';
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const damp = (a, b, k, dt) => a + (b - a) * (1 - Math.exp(-k * dt));
@@ -34,6 +35,21 @@ export function createPlayer({ x, y, mode = 'walk', movementMode = 'roads', spee
 export const speedMax = p => 78 * p.speedSetting * (FACTOR[p.mode] || 1);
 
 function groundH(p, s) { return s.field.renderY(p.x, p.y); }
+
+// The water surface (render metres) under a game-frame point, or null on dry land: the sea plane at Y = 0 and each
+// carved lake at its shore level, as world/water.js draws it (level * VEX - 0.2). guard: WaterGuard (#game/water.js);
+// levels: heightfield.js carveWater's [{feature, level}] (the same feature objects the guard holds).
+export function waterSurface(guard, levels = []) {
+  const lakes = new Map(levels.map(({ feature, level }) => [feature, level * VEX - 0.2]));
+  return (x, y) => { const f = guard.waterAt([x, y]); return f ? lakes.get(f) ?? 0 : null; };
+}
+
+// A landing's descent floor: the ground, or the water surface over water (the sea floor is carved under the water
+// plane, so a landing called off out at sea would otherwise dip under it). Without services.waterY, water is the sea.
+function descentFloor(p, s, ground) {
+  const w = s.waterY ? s.waterY(p.x, p.y) : s.water.waterAt?.([p.x, p.y]) ? 0 : null;
+  return w == null ? ground : Math.max(ground, w);
+}
 
 // Roads mode keeps walkers on the walking graph: pull them onto the nearest road (as the 2D game does when switching).
 function snapToRoad(p, s) {
@@ -139,18 +155,20 @@ export function stepPlayer(p, input, s, dt) {
     p.vx = Math.sin(p.heading) * p.speed; p.vy = -Math.cos(p.heading) * p.speed;
     p.x += p.vx * dt; p.y += p.vy * dt; clampPos();
     p.hint = null;
-    // altitude: above the higher of here and just ahead, plus the cruising height; descends to the ground when landing
+    // altitude: above the higher of here and just ahead, plus the cruising height; a landing descends to the ground,
+    // or to the water surface over water (descentFloor)
     const ground = s.field.renderY(p.x, p.y), ahead = s.field.renderY(p.x + p.vx * 1.5, p.y + p.vy * 1.5);
-    const desired = p.pending ? ground : Math.max(ground, ahead) + V.altitude, prev = p.alt;
+    const floor = p.pending ? descentFloor(p, s, ground) : ground;
+    const desired = p.pending ? floor : Math.max(ground, ahead) + V.altitude, prev = p.alt;
     p.alt = damp(p.alt, desired, p.pending ? 1.4 : 0.9, dt);
-    p.alt = Math.max(p.alt, ground + (p.pending ? 0 : 3));
+    p.alt = Math.max(p.alt, floor + (p.pending ? 0 : 3));
     p.climb = (p.alt - prev) / dt;
     p.bank = damp(p.bank, clamp(-(p.turnRate || 0) * 0.55, -0.75, 0.75), 3, dt);
-    if (p.pending && p.alt - ground < 1.5 && s.water.blocked([p.x, p.y])) {
+    if (p.pending && p.alt - floor < 1.5 && s.water.blocked([p.x, p.y])) {
       // came down over water (the stick carried it out to sea): call the landing off and climb back
       p.pending = null; p.speed = Math.max(p.speed, vmax * 0.25);
       events.push('landing-cancelled'); toast = TOAST.water;
-    } else if (p.pending && p.alt - ground < 1.5) {
+    } else if (p.pending && p.alt - floor < 1.5) {   // touch-down (a bridge over water lands at the water surface)
       let m = p.pending; p.pending = null; p.speed *= 0.2;
       p.vx *= 0.2; p.vy *= 0.2; p.bank = 0; p.climb = 0; p.turnRate = 0;
       if (isCar(m)) {
