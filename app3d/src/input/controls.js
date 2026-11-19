@@ -72,17 +72,19 @@ export function createControls(target, { onTap, onAction, onStick } = {}, env = 
     if (p.moved) { view.userYaw += dx * 0.006; tiltBy(dy * 0.18); }
   }
 
+  const othersStill = () => [...pointers.values()].every((q) => !q.moved);   // a resting finger does not block a tap; a dragging one does
+
   function up(e) {
     if (e.pointerId === stick.id) {
       // a short, still touch in the stick zone is a tap (pins and NPCs on the left half must be tappable too)
-      const tap = e.type === 'pointerup' && !stick.moved && !stick.multi && pointers.size === 0 && now() - stick.t < TAP_MS
+      const tap = e.type === 'pointerup' && !stick.moved && !stick.multi && othersStill() && now() - stick.t < TAP_MS
         && Math.hypot(e.clientX - stick.sx, e.clientY - stick.sy) <= TAP_MOVE;
       endStick();
       if (tap) onTap?.(e.clientX, e.clientY);
       return;
     }
     const p = pointers.get(e.pointerId); pointers.delete(e.pointerId); if (!p) return;
-    if (e.type === 'pointerup' && !p.moved && !p.multi && [...pointers.values()].every((q) => !q.moved) && now() - p.t < TAP_MS) onTap?.(e.clientX, e.clientY);
+    if (e.type === 'pointerup' && !p.moved && !p.multi && othersStill() && now() - p.t < TAP_MS) onTap?.(e.clientX, e.clientY);
   }
 
   const lost = e => { // cancelled or lost capture: drop that pointer without a tap

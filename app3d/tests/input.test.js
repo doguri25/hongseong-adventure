@@ -164,3 +164,18 @@ test('a still finger resting on the right half does not turn the other hand\'s l
   t += 20; fire(target, 'pointerup', touch(3, 700, 300));
   assert.equal(calls.taps.length, 1, 'two fingers pressed together');
 });
+
+test('a resting right-half finger does not stop a left-zone tap; a moved remaining finger still does', () => {
+  const { target, env, fire, calls } = setup();
+  let t = 1000; env.performance = { now: () => t };
+  fire(target, 'pointerdown', touch(1, 800, 300));   // resting on the right
+  t += 1000;
+  fire(target, 'pointerdown', touch(2, 100, 300)); t += 80; fire(target, 'pointerup', touch(2, 100, 300));
+  assert.deepEqual(calls.taps, [[100, 300]], 'left-zone tap while the right finger rests');
+  fire(target, 'pointermove', touch(1, 900, 400));   // the right finger drags now
+  t += 300;
+  fire(target, 'pointerdown', touch(3, 100, 300)); t += 80; fire(target, 'pointerup', touch(3, 100, 300));
+  assert.equal(calls.taps.length, 1, 'a dragging finger suppresses the left tap');
+  fire(target, 'pointerdown', touch(4, 700, 200)); t += 80; fire(target, 'pointerup', touch(4, 700, 200));
+  assert.equal(calls.taps.length, 1, 'and the right one');
+});
