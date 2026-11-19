@@ -1,0 +1,13 @@
+{
+  "name": "hongseong-3d-spike",
+  "private": true,
+  "version": "0.0.1",
+  "description": "Throwaway 3D spike of Naepo for Hongseong Adventure",
+  "scripts": {
+    "prepare-data": "python3 tools/prepare.py",
+    "build": "node tools/build.mjs"
+  },
+  "dependencies": {
+    "three": "^0.170.0"
+  }
+}

@@ -1,0 +1,99 @@
+<title>홍성 탐험대 3D 내포</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* Layout: one full-screen 3D view with a thin journal-paper HUD on its edges (brand top-left, tools top-right, travel bottom-right, stick bottom-left).
+   Single deliberate look (the game's warm field-notebook palette over a live 3D map), so no theme switching. */
+@font-face{font-family:'NanumRound';src:url(/*FONT_R*/) format('woff2');font-weight:400;font-display:swap}
+@font-face{font-family:'NanumRound';src:url(/*FONT_B*/) format('woff2');font-weight:700;font-display:swap}
+:root{
+  --paper:#fbf6e6; --paper-strong:#fffaf0; --ink:#233629; --ink-soft:#56685a; --field:#2f6b4f; --sun:#e1702c; --line:#d9cfb2;
+  --display:'NanumRound','Apple SD Gothic Neo','Noto Sans KR',system-ui,sans-serif;
+  --body:'NanumRound','Apple SD Gothic Neo','Noto Sans KR',system-ui,sans-serif;
+  color-scheme:light;
+}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{background:#9fc0c6;color:var(--ink);font-family:var(--body);overflow:hidden;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:none}
+#app{position:fixed;inset:0;overflow:hidden}
+#c{position:absolute;inset:0;width:100%;height:100%;display:block;outline:none}
+.panel{background:color-mix(in srgb,var(--paper) 92%,transparent);border:1px solid var(--line);border-radius:14px;box-shadow:0 6px 18px #1d2b2133;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+button{font:inherit;color:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent}
+button:focus-visible{outline:3px solid var(--sun);outline-offset:2px}
+.hud-top{position:absolute;top:calc(10px + env(safe-area-inset-top,0px));left:max(12px,env(safe-area-inset-left,0px));right:max(12px,env(safe-area-inset-right,0px));display:flex;gap:10px;align-items:flex-start;pointer-events:none}
+.hud-top>*{pointer-events:auto}
+.brand{padding:8px 14px 9px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.brand b{font-family:var(--display);font-weight:700;font-size:17px;letter-spacing:-.01em;color:var(--field)}
+.brand span{font-size:12px;color:var(--ink-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.where{font-size:13px;color:var(--ink);padding:9px 12px;align-self:center;max-width:42vw;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tools{margin-left:auto;display:flex;gap:6px;padding:5px;flex-wrap:wrap;justify-content:flex-end}
+.tools button{border:0;background:transparent;border-radius:10px;padding:7px 10px;font-size:13px;display:flex;gap:6px;align-items:center;white-space:nowrap}
+.tools button:hover{background:#efe6cc}
+.tools button b{font-weight:700;color:var(--field)}
+#fps{font-size:11px;color:var(--ink-soft);align-self:center;padding:0 6px;font-variant-numeric:tabular-nums}
+.travel{position:absolute;right:max(12px,env(safe-area-inset-right,0px));bottom:calc(14px + env(safe-area-inset-bottom,0px));display:flex;gap:6px;padding:6px}
+.travel button{border:0;background:transparent;border-radius:11px;padding:7px 10px 6px;display:flex;flex-direction:column;align-items:center;gap:2px;min-width:62px}
+.travel button svg{width:26px;height:26px}
+.travel button span{font-size:12px;font-weight:700;white-space:nowrap}
+.travel button small{font-size:10px;color:var(--ink-soft);font-variant-numeric:tabular-nums}
+.travel button[aria-pressed="true"]{background:var(--field);color:var(--paper-strong)}
+.travel button[aria-pressed="true"] small{color:#d8ead9}
+#stick{position:absolute;width:132px;height:132px;margin:-66px 0 0 -66px;border-radius:50%;background:#fffaf033;border:2px solid #fffaf099;box-shadow:0 0 0 1px #23362922 inset;pointer-events:none}
+#knob{position:absolute;left:50%;top:50%;width:56px;height:56px;margin:-28px 0 0 -28px;border-radius:50%;background:var(--paper-strong);box-shadow:0 4px 12px #0004;border:2px solid var(--field)}
+.stick-hint{position:absolute;left:max(18px,env(safe-area-inset-left,0px));bottom:calc(22px + env(safe-area-inset-bottom,0px));font-size:12px;color:#fffaf0;text-shadow:0 1px 3px #000a;pointer-events:none;max-width:44vw}
+.compass{position:absolute;right:max(14px,env(safe-area-inset-right,0px));top:calc(70px + env(safe-area-inset-top,0px));width:46px;height:46px;border-radius:50%;display:grid;place-items:center;padding:0}
+.compass svg{width:34px;height:34px;transition:transform .08s linear}
+#toast{position:absolute;left:50%;top:calc(76px + env(safe-area-inset-top,0px));transform:translateX(-50%);padding:9px 16px;font-size:14px;opacity:0;transition:opacity .25s;pointer-events:none;max-width:min(520px,86vw);text-align:center}
+#toast.show{opacity:1}
+#arrive{position:absolute;left:50%;bottom:calc(98px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);padding:12px 18px;display:flex;flex-direction:column;align-items:center;gap:3px;max-width:min(460px,88vw);text-align:center}
+#arrive b{font-family:var(--display);font-size:18px;color:var(--field)}
+#arrive span{font-size:12px;color:var(--ink-soft)}
+#loading,#lost{position:absolute;inset:0;display:grid;place-items:center;background:#2c4636;color:var(--paper-strong);font-size:16px;z-index:5;text-align:center;padding-inline:max(16px,env(safe-area-inset-left,0px)) max(16px,env(safe-area-inset-right,0px))}
+#loading p,#lost p{margin:8px 0 0;font-size:13px;color:#cfe0d2}
+#lost button{margin-top:14px;border:0;border-radius:10px;padding:10px 16px;background:var(--paper);color:var(--ink);font-weight:700}
+.note{position:absolute;left:max(12px,env(safe-area-inset-left,0px));top:calc(76px + env(safe-area-inset-top,0px));font-size:11px;color:var(--ink-soft);padding:7px 10px;max-width:260px;line-height:1.45}
+@media (max-width:720px){
+  .where{display:none}
+  .brand b{font-size:15px}
+  .tools{flex-wrap:nowrap;gap:2px;padding:4px}
+  .tools button{padding:6px 7px;font-size:12px}
+  .tools .lbl,#fps{display:none}
+  .travel button span{font-size:11px}
+  .travel{left:50%;right:auto;transform:translateX(-50%)}
+  .travel button{min-width:56px;padding:6px 6px 5px}
+  .stick-hint{display:none}
+  .note{display:none}
+  #arrive{bottom:calc(104px + env(safe-area-inset-bottom,0px))}
+}
+@media (max-height:460px){.compass{top:calc(58px + env(safe-area-inset-top,0px))}.note{display:none}}
+@media (prefers-reduced-motion:reduce){#toast{transition:none}}
+</style>
+<div id="app">
+  <canvas id="c" tabindex="0" aria-label="내포 일대 3D 탐방 지도"></canvas>
+  <div id="stick" hidden><div id="knob"></div></div>
+  <div class="stick-hint">왼쪽 화면을 누른 채 움직이면 걸어요 · 키보드 WASD</div>
+  <header class="hud-top">
+    <div class="brand panel"><b>홍성 탐험대 3D</b><span>시험판 · 내포와 용봉산</span></div>
+    <div class="where panel" id="where">충청남도청 근처</div>
+    <div class="tools panel">
+      <button id="cam-btn" title="카메라 바꾸기 (C)"><span class="lbl">카메라</span> <b id="cam-label">비스듬히</b></button>
+      <button id="time-btn" title="시간 바꾸기 (T)"><span class="lbl">시간</span> <b id="time-label">낮</b></button>
+      <button id="q-btn" title="화질 바꾸기 (Q)"><span class="lbl">화질</span> <b id="q-label">자동</b></button>
+      <span id="fps"></span>
+    </div>
+  </header>
+  <button class="compass panel" id="compass" title="북쪽 보기"><svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="17" fill="none" stroke="#d9cfb2" stroke-width="1.5"/><path d="M20 5 25 20H15Z" fill="#e1702c"/><path d="M20 35 25 20H15Z" fill="#9aa79a"/><text x="20" y="13.5" font-size="7" text-anchor="middle" fill="#fffaf0" font-weight="700" font-family="sans-serif">N</text></svg></button>
+  <p class="note panel">실제 고도·도로·물길·장소 좌표 위에 만든 시험판이에요. 실제 자료가 없는 곳의 건물과 나무는 분위기를 위한 장식이에요.</p>
+  <nav class="travel panel" aria-label="이동 수단">
+    <button data-mode="walk" aria-pressed="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="13" cy="4.5" r="2"/><path d="m9 21 3-7 3 2 1 5M12 14l-1-5 4 1 2 3M11 9l-3 2-1 3"/></svg><span>걷기</span><small>×1</small></button>
+    <button data-mode="car" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 15v-3l2-5h11l3 5h2v3"/><path d="M3 15h18"/><circle cx="7" cy="16.5" r="2"/><circle cx="17" cy="16.5" r="2"/><path d="M6.5 11h12"/></svg><span>자동차</span><small>×4</small></button>
+    <button data-mode="slowplane" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M4 9h16M8 19h8"/><circle cx="12" cy="3" r="1"/></svg><span>느린 비행기</span><small>×4</small></button>
+    <button data-mode="plane" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2c1 1 1.4 3 1.4 5v3l7 4v2l-7-2v4l2.5 2v1.5L12 20.5 8.1 21.5V20l2.5-2v-4l-7 2v-2l7-4V7c0-2 .4-4 1.4-5Z"/></svg><span>비행기</span><small>×16</small></button>
+  </nav>
+  <div id="toast" class="panel" role="status"></div>
+  <div id="arrive" class="panel" hidden role="status"><b id="arrive-name"></b><span id="arrive-sub"></span></div>
+  <div id="loading"><div>3D 내포를 짓는 중이에요<p id="loading-step">지형을 올리는 중</p></div></div>
+  <div id="lost" hidden><div>그래픽이 잠시 멈췄어요<p>기기가 3D 화면을 쉬게 했어요. 다시 불러오면 화질을 낮춰서 시작해요.</p><button id="reload">다시 불러오기</button></div></div>
+</div>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"}}</script>
+<script>/*PAYLOAD*/</script>
+<script type="module">/*MAIN*/</script>
