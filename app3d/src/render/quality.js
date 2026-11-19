@@ -1,8 +1,13 @@
 // Quality presets and pure helpers (no Three.js). Pokju-style: resolution first, then bloom.
+// props: geometry budgets for world/props.js — trees per 2 km chunk and the radii (m) they stream in / drop out,
+// the radius (m) around the camera target that gets street lamps, and whether lamps cast shadows.
 export const QUALITY = {
-  high: { label: '높음', dpr: 2, cap: 2.6e6, shadow: 2048, bloom: true, msaa: 4 },
-  medium: { label: '보통', dpr: 1.5, cap: 1.8e6, shadow: 2048, bloom: true, msaa: 2 },
-  low: { label: '낮음', dpr: 1.25, cap: 1.2e6, shadow: 1024, bloom: false, msaa: 0 },
+  high: { label: '높음', dpr: 2, cap: 2.6e6, shadow: 2048, bloom: true, msaa: 4,
+    props: { treeCap: 1200, treeLoad: 4000, treeDrop: 5000, lampRadius: 2000, lampShadow: true } },
+  medium: { label: '보통', dpr: 1.5, cap: 1.8e6, shadow: 2048, bloom: true, msaa: 2,
+    props: { treeCap: 900, treeLoad: 3200, treeDrop: 4200, lampRadius: 1600, lampShadow: false } },
+  low: { label: '낮음', dpr: 1.25, cap: 1.2e6, shadow: 1024, bloom: false, msaa: 0,
+    props: { treeCap: 450, treeLoad: 2400, treeDrop: 3200, lampRadius: 1200, lampShadow: false } },
 };
 export const STORE_KEY = 'hongseong-3d-v1';
 const r2 = (v) => Math.round(v * 100) / 100;

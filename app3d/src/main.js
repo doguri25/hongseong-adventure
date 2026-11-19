@@ -183,7 +183,7 @@ async function boot() {
   const services = { field, navigator, water: waterGuard, graph, collider, bounds: MOVE_BOUNDS };
 
   await step('나무와 가로등을 심는 중');
-  const props = new Props(scene, field, features, collider, graph);
+  const props = new Props(scene, field, features, collider, graph, QUALITY[propsKey(qstate)].props);
 
   await step('탐험가와 탈것을 준비하는 중');
   const reduced = REDUCED || state.motion === false;
@@ -301,7 +301,7 @@ function tick(dt, t) {
   const [X, Z] = toRender(player.x, player.y);
   holePoint.set(X, player.h + (player.mode === 'walk' || player.mode === 'bike' ? 12 : 7), Z);
   G.buildings.setHole(camera.position, holePoint, HOLE[player.mode] || 62);
-  G.props.update(camera.position, propsQuality());
+  G.props.update(camera.position, QUALITY[propsKey(G.qstate)].props, focusPoint.set(cr.target[0], cr.target[1], cr.target[2]));
   G.lighting.follow([X, player.h, Z], G.flyH, G.cam.dist, G.Q.shadow);
   G.sky.update(camera.position, t);
   G.water.update(t);
@@ -313,7 +313,7 @@ function tick(dt, t) {
   if (t - G.hudAt > 0.25) { G.hudAt = t; refreshHud(); }
   if (G.player.moving || G.voyage) { if (t - G.saveAt > 2) { G.saveAt = t; save(); } }
 }
-const holePoint = new THREE.Vector3();
+const holePoint = new THREE.Vector3(), focusPoint = new THREE.Vector3();
 
 // ---------- simulation
 function simulate(dt) {
@@ -470,7 +470,7 @@ function applyTime(key) {
 function cycleTime() { if (!live()) return; applyTime(TIME_ORDER[(TIME_ORDER.indexOf(G.timeKey) + 1) % TIME_ORDER.length]); save(); }
 
 function qualityLabel() { return G.qstate.mode === 'auto' ? '자동' : QUALITY[G.qstate.mode].label; }
-function propsQuality() { return G.qstate.mode === 'auto' ? (G.qstate.bloom ? 'high' : 'low') : G.qstate.mode; }
+function propsKey(q) { return q.mode === 'auto' ? (q.bloom ? 'high' : 'low') : q.mode; }
 
 function cycleQuality() {
   if (!live()) return;
