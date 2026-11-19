@@ -7,13 +7,16 @@
 - 그래픽: Three.js r170, pokju-edu의 하늘 셰이더(`src/shaders/sky.frag`)와 색 보정(`src/shaders/grade.frag`), 빛 번짐, ACES 톤 매핑, 화질 자동 단계, WebGL 문맥 손실 안내.
 - 차량: pokju-edu의 실제 차량 모델(돌핀)을 GLB로 내보내 그대로 쓴다. 비행기 두 대(느린 비행기 ×4, 비행기 ×16)는 기본 도형으로 만들었다.
 - 탐험가: 게임의 8방향 × 4프레임 걷기 그림을 카메라를 향하는 판으로 세웠다.
-- 장식: 실제 건물 자료가 없는 주거·상업지의 아파트·집, 경사지와 공원의 나무, 큰길의 가로등은 분위기를 위한 장식이다.
+- 건물: 게임 지도의 건물 55채에 `data/naepo-buildings.geojson`(overpass-turbo에서 내보낸 OSM 건물, ODbL)의 423채를 더해 실제 건물 478채. 층수 자료가 없어 높이는 건물 종류별로 정했다.
+- 장식: 실제 건물이 거의 없는 주거·상업지의 아파트·집, 경사지와 공원의 나무, 큰길의 가로등은 분위기를 위한 장식이다.
+- 크기와 속도: 실제보다 크고 빠르다(탐험가 키 10 m, 걷기 초속 40 m, 자동차·느린 비행기 160 m, 비행기 640 m). 2D 게임의 배율(×1, ×4, ×16)은 그대로다.
+- 카메라: 화면을 끌면 돌리고 위아래로 기울이며, 두 손가락이나 휠로 확대·축소한다. 오른쪽 버튼(+, −, ∧, ∨)도 있다. 건물이 탐험가를 가리면 그 부분에 구멍이 뚫린다(게임처럼 건물을 통과할 수 있다).
 
 ## 다시 만들기
 
 ```bash
 npm install                      # three@0.170.0 (로컬 확인용)
-python3 tools/prepare.py         # build/data.json, 걷기 그림, 고도 타일 캐시
+python3 tools/prepare.py         # build/data.json(data/naepo-buildings.geojson 포함), 걷기 그림, 고도 타일 캐시
 node tools/build.mjs             # build/naepo-3d.html (아티팩트용 본문), build/local.html
 ```
 

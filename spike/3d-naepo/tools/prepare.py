@@ -28,13 +28,15 @@ for f in game['features']:
         continue
     if f['id'] == 'county-sea':
         continue
-    keep.append({'t': f['tags'], 'p': [project(p) for p in pts], 'h': [[project(p) for p in r] for r in f.get('holes', [])]})
+    item = {'t': f['tags'], 'p': [project(p) for p in pts], 'h': [[project(p) for p in r] for r in f.get('holes', [])]}
+    if 'building' in f['tags']: item['id'] = str(f['id'])
+    keep.append(item)
 print('features', len(keep))
 
 # ---------- extra OSM buildings (optional)
-osm_path = os.environ.get('OSM_BUILDINGS')
+osm_path = os.environ.get('OSM_BUILDINGS') or os.path.join(ROOT, 'spike', '3d-naepo', 'data', 'naepo-buildings.geojson')
 if osm_path and os.path.exists(osm_path):
-    seen = {json.dumps(k['p'][:2]) for k in keep if 'building' in k['t']}
+    seen = {k.get('id') for k in keep if 'building' in k['t']}
     n = 0
     src = json.load(open(osm_path))
     shapes = []
@@ -45,13 +47,15 @@ if osm_path and os.path.exists(osm_path):
             g = f.get('geometry') or {}
             rings = [g['coordinates'][0]] if g.get('type') == 'Polygon' else [p[0] for p in g['coordinates']] if g.get('type') == 'MultiPolygon' else []
             props = f.get('properties', {}); props = props.get('tags', props)
-            shapes += [(props, r) for r in rings]
+            shapes += [(dict(props, **{'@id': f.get('id') or props.get('@id', '')}), r) for r in rings]
+    if 'elements' in src: shapes = [(dict(t, **{'@id': 'way/%s' % e['id']}), r) for (t, r), e in zip(shapes, [e for e in src['elements'] if e.get('type') == 'way' and 'geometry' in e])]
     for tags0, ring in shapes:
         if 'building' not in tags0 or len(ring) < 4: continue
         pts = [project(p) for p in ring]
-        if json.dumps(pts[:2]) in seen: continue
+        wid = str(tags0.get('@id', '')).split('/')[-1]
+        if wid and wid in seen: continue
         tags = {k: v for k, v in tags0.items() if k in ('building', 'building:levels', 'height', 'name', 'amenity')}
-        keep.append({'t': tags, 'p': pts, 'h': []}); n += 1
+        keep.append({'t': tags, 'p': pts, 'h': [], 'id': wid}); seen.add(wid); n += 1
     print('osm buildings added', n)
 
 # ---------- DEM (Terrarium, same tiles family the game credits)

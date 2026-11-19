@@ -262,7 +262,7 @@ function addBuilding(out, ring, height, color, seed) {
   if (ringArea(r) < 0) r.reverse();   // wind the ring so (-dz, dx) of each edge points out of the building
   let base = Infinity; for (const p of r) base = Math.min(base, heightAt(p[0], p[1])); base -= 1.2;
   const top = base + 1.2 + height, BAY = 3.6 * 4, FLOOR = 3.1 * 4, pos = out.pos, uv = out.uv, col = out.col;
-  const wc = new THREE.Color(color), rc = wc.clone().multiplyScalar(.72);
+  const wc = new THREE.Color(color), rc = new THREE.Color(height < 12 ? ['#a8553f', '#4f6f8f', '#6f7f6a', '#8b5a44', '#5c6b78'][Math.floor(hash(seed * 2.3) * 5)] : ['#8d949a', '#9aa09a', '#7f8a86', '#a09a90'][Math.floor(hash(seed * 2.3) * 4)]);
   let acc = hash(seed) * BAY;
   for (let i = 0; i < r.length; i++) {
     const a = r[i], b = r[(i + 1) % r.length], len = Math.hypot(b[0] - a[0], b[1] - a[1]); if (len < .05) continue;
@@ -306,6 +306,7 @@ function fillerBuildings(roads, real) {
   for (const f of D.features) {
     const t = f.t; if (!closed(f) || !['residential', 'commercial', 'retail'].includes(t.landuse)) continue;
     const bb = bboxOf(f.p), area = Math.abs(ringArea(f.p)), urban = area > 40000 && t.landuse === 'residential', commercial = t.landuse !== 'residential';
+    if (realBoxes.filter(b => inRing((b[0] + b[2]) / 2, (b[1] + b[3]) / 2, f.p)).length >= 3) continue;   // the map already has this block's buildings
     const L = commercial ? 26 : urban ? 52 : 12, Wd = commercial ? 22 : urban ? 15 : 9, gxs = commercial ? 40 : urban ? 74 : 24, gzs = commercial ? 38 : urban ? 58 : 21;
     for (let z = bb[1] + gzs / 2; z < bb[3]; z += gzs) for (let x = bb[0] + gxs / 2; x < bb[2]; x += gxs) {
       const jx = x + (hash(x * .13 + z) - .5) * (urban ? 6 : 8), jz = z + (hash(z * .17 + x) - .5) * (urban ? 4 : 8);
@@ -335,6 +336,15 @@ function makeBuildings(facade) {
   g.setAttribute('position', new THREE.Float32BufferAttribute(geo.pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(geo.uv, 2)); g.setAttribute('color', new THREE.Float32BufferAttribute(geo.col, 3));
   g.computeVertexNormals();
   const m = new THREE.MeshStandardMaterial({map: facade.map, emissiveMap: facade.emissive, emissive: 0xffffff, emissiveIntensity: 0, vertexColors: true, roughness: .78, metalness: .02});
+  m.userData.hole = {cam: {value: new THREE.Vector3()}, player: {value: new THREE.Vector3()}, radius: {value: 20}};
+  m.onBeforeCompile = sh => {
+    Object.assign(sh.uniforms, {uHoleCam: m.userData.hole.cam, uHolePlayer: m.userData.hole.player, uHoleR: m.userData.hole.radius});
+    sh.vertexShader = 'varying vec3 vHoleW;\n' + sh.vertexShader.replace('#include <project_vertex>', '#include <project_vertex>\n  vHoleW = (modelMatrix * vec4(transformed, 1.0)).xyz;');
+    sh.fragmentShader = 'varying vec3 vHoleW; uniform vec3 uHoleCam; uniform vec3 uHolePlayer; uniform float uHoleR;\n' + sh.fragmentShader.replace('void main() {', `void main() {
+  { vec3 seg = uHolePlayer - uHoleCam; float L = length(seg); vec3 dir = seg / max(L, 1e-3); float t = dot(vHoleW - uHoleCam, dir);
+    if (t > 0.0 && t < L - 1.5) { float r = length(vHoleW - (uHoleCam + dir * t)), k = smoothstep(uHoleR, uHoleR * .55, r);
+      float n = fract(sin(dot(floor(gl_FragCoord.xy), vec2(12.9898, 78.233))) * 43758.5453); if (k > n) discard; } }`);
+  };
   const mesh = new THREE.Mesh(g, m); mesh.castShadow = mesh.receiveShadow = true;
   return {mesh, material: m, roads, count: real.length + filler.length, real: real.length};
 }
@@ -468,8 +478,8 @@ function makeExplorer() {
   const tex = new THREE.TextureLoader().load(A.walk); tex.colorSpace = THREE.SRGBColorSpace; tex.magFilter = THREE.LinearFilter; tex.minFilter = THREE.LinearMipmapLinearFilter; tex.anisotropy = 4;
   const mat = new THREE.SpriteMaterial({map: tex, alphaTest: .45, fog: true});
   const sprite = new THREE.Sprite(mat); sprite.renderOrder = 3;
-  const shadow = new THREE.Mesh(new THREE.CircleGeometry(1.7, 24).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({map: radialTexture('rgba(20,30,20,.55)', 'rgba(20,30,20,0)'), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4}));
-  const [SW, SHt] = A.walkSize, HEIGHT = 4.6;
+  const shadow = new THREE.Mesh(new THREE.CircleGeometry(3.6, 24).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({map: radialTexture('rgba(20,30,20,.55)', 'rgba(20,30,20,0)'), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4}));
+  const [SW, SHt] = A.walkSize, HEIGHT = 10;
   function frame(index) {
     const c = A.walkCells[index], [x, y, w, h] = c.rect;
     tex.offset.set(x / SW, 1 - (y + h) / SHt); tex.repeat.set(w / SW, h / SHt);
@@ -498,7 +508,7 @@ function makeCar() {
   const wheels = [];
   for (const [x, z] of [[-.95, -1.45], [.95, -1.45], [-.95, 1.45], [.95, 1.45]]) { const w = wheel(.4, .3); w.position.set(x, .4, z); g.add(w); wheels.push(w); }
   [lower, cabin, glass].forEach(m => { m.castShadow = true; g.add(m); });
-  g.scale.setScalar(1.7); return {group: g, wheels};
+  g.scale.setScalar(3); return {group: g, wheels};
 }
 function lathe(points, segs = 20) { return new THREE.LatheGeometry(points.map(p => new THREE.Vector2(p[0], p[1])), segs).rotateX(-Math.PI / 2); }   // axis along -Z (nose forward)
 function makeSlowPlane() {
@@ -520,7 +530,7 @@ function makeSlowPlane() {
   const nl = new THREE.Mesh(new THREE.SphereGeometry(.09, 8, 6), nav); nl.position.set(-6.3, 1.05, -.9); const nr = new THREE.Mesh(new THREE.SphereGeometry(.09, 8, 6), navG); nr.position.set(6.3, 1.05, -.9);
   g.add(fus, stripe, canopy, wing, ...tips, stab, fin, ...struts, spinner, prop, disc, ...gear, nl, nr);
   g.traverse(o => { if (o.isMesh && o !== disc) o.castShadow = true; });
-  g.scale.setScalar(1.6); return {group: g, prop, disc};
+  g.scale.setScalar(2.6); return {group: g, prop, disc};
 }
 function makeJet() {
   const g = new THREE.Group(), white = paintMat(0xf6f7f9), blue = paintMat(0x2266c4), orange = paintMat(0xf07a2a);
@@ -538,7 +548,7 @@ function makeJet() {
   const engines = [-1, 1].map(s => { const e = new THREE.Group(); const can = new THREE.Mesh(lathe([[.55, -1.6], [.62, -1.1], [.6, 1.2], [.45, 1.7]], 16), orange); const noz = new THREE.Mesh(new THREE.CircleGeometry(.42, 16), glow); noz.position.z = 1.71; e.add(can, noz); e.position.set(s * 3.2, -.75, 1.0); return e; });
   g.add(fus, canopy, ...wings, ...stabs, fin, stripe, ...engines);
   g.traverse(o => { if (o.isMesh) o.castShadow = true; });
-  g.scale.setScalar(1.6); return {group: g, glow};
+  g.scale.setScalar(2.8); return {group: g, glow};
 }
 
 // pokju-edu car (exported from its own builder) when the payload carries one
@@ -546,7 +556,7 @@ async function loadPokjuCar() {
   if (!A.car) return null;
   const gltf = await new GLTFLoader().parseAsync(Uint8Array.from(atob(A.car), c => c.charCodeAt(0)).buffer, '');
   const g = new THREE.Group(), m = gltf.scene; m.traverse(o => { if (o.isMesh) { o.castShadow = true; if (o.material?.name?.includes('light')) vehicles.lights.push(o.material); } });
-  g.add(m); g.scale.setScalar(1.7); return {group: g, wheels: []};
+  g.add(m); g.scale.setScalar(3); return {group: g, wheels: []};
 }
 
 // ---------- places: floating pins with a light column and a name label
@@ -583,10 +593,11 @@ function makePlaces() {
 const world = {};
 const PLAYER = {x: 0, z: 0, y: 0, vx: 0, vz: 0, speed: 0, heading: 0, mode: 'walk', phase: 0, alt: 0, bank: 0, pitch: 0, target: null, pending: null, landed: true};
 const VEH = {
-  walk: {label: '걷기', speed: 14, accel: 9, turn: 14, alt: 0, cam: {tilt: [70, 50], follow: [24, 16]}, lead: .4},
-  car: {label: '자동차', speed: 56, accel: 1.4, brake: 3.2, turn: 2.4, alt: 0, cam: {tilt: [120, 48], follow: [34, 14]}, lead: .7},
-  slowplane: {label: '느린 비행기', speed: 52, accel: .9, brake: 1.1, turn: 1.0, alt: 95, cam: {tilt: [190, 46], follow: [62, 16]}, lead: 1.0},
-  plane: {label: '비행기', speed: 210, accel: .7, brake: .9, turn: .75, alt: 260, cam: {tilt: [430, 52], follow: [120, 18]}, lead: 1.1}
+  // sizes and speeds are game-scale, not real-scale: the explorer stands 8 m tall and walks 40 m/s so places are minutes apart, not hours
+  walk: {label: '걷기', speed: 40, accel: 7, turn: 14, alt: 0, cam: {tilt: [105, 50], follow: [44, 17]}, lead: .35},
+  car: {label: '자동차', speed: 160, accel: 1.1, brake: 2.6, turn: 2.6, alt: 0, cam: {tilt: [240, 48], follow: [72, 15]}, lead: .4},
+  slowplane: {label: '느린 비행기', speed: 160, accel: .8, brake: 1.0, turn: 1.0, alt: 120, cam: {tilt: [320, 46], follow: [118, 16]}, lead: .5},
+  plane: {label: '비행기', speed: 640, accel: .6, brake: .8, turn: .7, alt: 330, cam: {tilt: [700, 52], follow: [230, 18]}, lead: .3}
 };
 const CAM = {mode: 'tilt', yaw: 0, userYaw: 0, userTime: -9, zoom: 1, x: 0, y: 0, z: 0, tx: 0, ty: 0, tz: 0, fov: 52};
 
@@ -674,8 +685,8 @@ canvas.addEventListener('pointermove', e => {
   const p = pointers.get(e.pointerId); if (!p) return;
   const dx = e.clientX - p.x, dy = e.clientY - p.y; p.x = e.clientX; p.y = e.clientY;
   if (Math.hypot(p.x - p.sx, p.y - p.sy) > 8) p.moved = true;
-  if (pointers.size === 2) { const [a, b] = [...pointers.values()], d = Math.hypot(a.x - b.x, a.y - b.y); if (pinchDist > 10) CAM.zoom = clamp(CAM.zoom * pinchDist / d, .45, 2.4); pinchDist = d; return; }
-  if (p.moved) { CAM.userYaw += dx * .006; CAM.userTime = performance.now(); if (CAM.mode === 'follow') CAM.pitchAdj = clamp((CAM.pitchAdj || 0) + dy * .15, -10, 22); }
+  if (pointers.size === 2) { const [a, b] = [...pointers.values()], d = Math.hypot(a.x - b.x, a.y - b.y); if (pinchDist > 10) zoomBy(pinchDist / d); pinchDist = d; tiltBy(dy * .09); return; }
+  if (p.moved) { CAM.userYaw += dx * .006; CAM.userTime = performance.now(); tiltBy(dy * .18); }
 });
 function endPointer(e) {
   if (e.pointerId === input.stickId) { input.stickId = null; input.x = input.y = 0; stick.hidden = true; return; }
@@ -683,10 +694,14 @@ function endPointer(e) {
   if (e.type === 'pointerup' && !p.moved && pointers.size === 0 && performance.now() - p.t < 400) tapToMove(e.clientX, e.clientY);
 }
 canvas.addEventListener('pointerup', endPointer); canvas.addEventListener('pointercancel', endPointer); canvas.addEventListener('lostpointercapture', endPointer);
-canvas.addEventListener('wheel', e => { e.preventDefault(); CAM.zoom = clamp(CAM.zoom * Math.exp(e.deltaY * .0012), .45, 2.4); }, {passive: false});
+canvas.addEventListener('wheel', e => { e.preventDefault(); if (e.shiftKey) tiltBy(-e.deltaY * .05); else zoomBy(Math.exp(e.deltaY * .0012)); }, {passive: false});
+function zoomBy(k) { CAM.zoom = clamp(CAM.zoom * k, .2, 4); }
+function tiltBy(deg) { CAM.pitchAdj = clamp((CAM.pitchAdj || 0) + deg, -70, 70); }
 const KEYMAP = {ArrowUp: 'u', KeyW: 'u', ArrowDown: 'd', KeyS: 'd', ArrowLeft: 'l', KeyA: 'l', ArrowRight: 'r', KeyD: 'r'};
 addEventListener('keydown', e => {
   if (KEYMAP[e.code]) { input.keys.add(KEYMAP[e.code]); PLAYER.target = null; e.preventDefault(); }
+  else if (e.code === 'Equal' || e.code === 'NumpadAdd') zoomBy(.8); else if (e.code === 'Minus' || e.code === 'NumpadSubtract') zoomBy(1.25);
+  else if (e.code === 'KeyR' || e.code === 'PageUp') tiltBy(6); else if (e.code === 'KeyF' || e.code === 'PageDown') tiltBy(-6);
   else if (e.code === 'KeyC') toggleCamera(); else if (e.code === 'KeyT') cycleTime(); else if (e.code === 'KeyQ') cycleQuality();
   else if (['Digit1', 'Digit2', 'Digit3', 'Digit4'].includes(e.code)) setMode(['walk', 'car', 'slowplane', 'plane'][+e.code.slice(-1) - 1]);
 });
@@ -725,7 +740,7 @@ function setMode(mode) {
 }
 function markMode(mode) { document.querySelectorAll('[data-mode]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.mode === mode))); }
 document.querySelectorAll('[data-mode]').forEach(b => b.addEventListener('click', () => setMode(b.dataset.mode)));
-function toggleCamera() { CAM.mode = CAM.mode === 'tilt' ? 'follow' : 'tilt'; CAM.userYaw = 0; CAM.pitchAdj = 0; $('cam-label').textContent = CAM.mode === 'tilt' ? '비스듬히' : '뒤따라'; toast(CAM.mode === 'tilt' ? '북쪽이 위인 비스듬한 지도 화면' : '탐험가 뒤를 따라가는 화면. 오른쪽 화면을 끌면 둘러봐요.'); }
+function toggleCamera() { CAM.mode = CAM.mode === 'tilt' ? 'follow' : 'tilt'; CAM.userYaw = 0; CAM.pitchAdj = 0; $('cam-label').textContent = CAM.mode === 'tilt' ? '비스듬히' : '뒤따라'; toast(CAM.mode === 'tilt' ? '북쪽이 위인 지도 화면. 화면을 끌면 돌리고 기울여요.' : '탐험가 뒤를 따라가는 화면. 화면을 끌면 둘러봐요.'); }
 function cycleTime() { applyTime(timeKey === 'day' ? 'dusk' : timeKey === 'dusk' ? 'night' : 'day'); }
 function cycleQuality() {
   qualityMode = qualityMode === 'auto' ? 'high' : qualityMode === 'high' ? 'low' : 'auto';
@@ -736,7 +751,8 @@ function cycleQuality() {
   Q = next; autoScale = 1; post.bloom.enabled = Q.bloom; sun.shadow.mapSize.set(Q.shadow, Q.shadow); sun.shadow.map?.dispose(); sun.shadow.map = null; resize();
 }
 $('cam-btn').onclick = toggleCamera; $('time-btn').onclick = cycleTime; $('q-btn').onclick = cycleQuality;
-$('compass').onclick = () => { CAM.userYaw = 0; if (CAM.mode === 'follow') toggleCamera(); };
+$('compass').onclick = () => { CAM.userYaw = 0; CAM.pitchAdj = 0; if (CAM.mode === 'follow') toggleCamera(); };
+$('zoom-in').onclick = () => zoomBy(.75); $('zoom-out').onclick = () => zoomBy(1.33); $('tilt-up').onclick = () => tiltBy(10); $('tilt-down').onclick = () => tiltBy(-10);
 $('q-label').textContent = qualityMode === 'auto' ? '자동' : QUALITY[qualityMode].label;
 $('reload').onclick = () => { try { localStorage.setItem('hs3d-quality', 'low'); } catch {} location.reload(); };
 canvas.addEventListener('webglcontextlost', e => { e.preventDefault(); running = false; $('lost').hidden = false; });
@@ -750,7 +766,7 @@ function simulate(dt) {
   const yaw = CAM.yaw, fx = Math.sin(yaw), fz = -Math.cos(yaw), rx = Math.cos(yaw), rz = Math.sin(yaw);
   let dx = rx * ix + fx * iy, dz = rz * ix + fz * iy, mag = Math.min(1, Math.hypot(dx, dz));
   if (mag < .01 && PLAYER.target) {
-    const tx = PLAYER.target[0] - PLAYER.x, tz = PLAYER.target[1] - PLAYER.z, d = Math.hypot(tx, tz), stop = PLAYER.mode === 'walk' ? 2 : PLAYER.speed * 1.2 + 4;
+    const tx = PLAYER.target[0] - PLAYER.x, tz = PLAYER.target[1] - PLAYER.z, d = Math.hypot(tx, tz), stop = PLAYER.mode === 'walk' ? 5 : PLAYER.speed * .45 + 10;
     if (d < stop) PLAYER.target = null; else { dx = tx / d; dz = tz / d; mag = clamp(d / 30, .35, 1); }
   }
   const before = [PLAYER.x, PLAYER.z];
@@ -782,7 +798,7 @@ function simulate(dt) {
     if (PLAYER.pending && PLAYER.alt - ground < 1.5) { const m = PLAYER.pending; PLAYER.pending = null; PLAYER.mode = m; PLAYER.speed *= .2; toast(m === 'walk' ? '땅에 내렸어요' : '자동차로 바꿨어요'); }
   } else PLAYER.y = ground;
   const moved = Math.hypot(PLAYER.x - before[0], PLAYER.z - before[1]);
-  PLAYER.phase = (PLAYER.phase + moved / 3.4 * Math.PI * 2) % (Math.PI * 2);
+  PLAYER.phase = (PLAYER.phase + moved / 10 * Math.PI * 2) % (Math.PI * 2);
   PLAYER.moving = moved > .02;
 }
 
@@ -796,10 +812,10 @@ function updateCamera(dt) {
     CAM.base = CAM.base ?? PLAYER.heading; yawGoal = CAM.base + CAM.userYaw;
   }
   CAM.yaw = dampAngle(CAM.yaw, yawGoal, 7, dt);
-  const lead = V.lead, tx = PLAYER.x + PLAYER.vx * lead, tz = PLAYER.z + PLAYER.vz * lead, ty = PLAYER.y + (PLAYER.mode === 'walk' ? 2.4 : 2);
-  CAM.tx = damp(CAM.tx, tx, 5, dt); CAM.tz = damp(CAM.tz, tz, 5, dt); CAM.ty = damp(CAM.ty, ty, 6, dt);
+  const lead = V.lead, tx = PLAYER.x + PLAYER.vx * lead, tz = PLAYER.z + PLAYER.vz * lead, ty = PLAYER.y + (PLAYER.mode === 'walk' ? 5 : 3);
+  const follow = 5 + PLAYER.speed / 18; CAM.tx = damp(CAM.tx, tx, follow, dt); CAM.tz = damp(CAM.tz, tz, follow, dt); CAM.ty = damp(CAM.ty, ty, 6, dt);
   CAM.dist = damp(CAM.dist || dist0, dist0 * CAM.zoom, 2.5, dt);
-  const pitch = THREE.MathUtils.degToRad(clamp(pitch0 + (CAM.pitchAdj || 0), 6, 80));
+  const pitch = THREE.MathUtils.degToRad(clamp(pitch0 + (CAM.pitchAdj || 0), 4, 88));
   const back = [-Math.sin(CAM.yaw), Math.cos(CAM.yaw)];
   let cx = CAM.tx + back[0] * Math.cos(pitch) * CAM.dist, cz = CAM.tz + back[1] * Math.cos(pitch) * CAM.dist, cy = CAM.ty + Math.sin(pitch) * CAM.dist;
   cy = Math.max(cy, heightAt(cx, cz) + 6);
@@ -829,7 +845,7 @@ function updateActors(dt, t) {
   if (v && v.group.visible) {
     const g = v.group; g.position.set(PLAYER.x, PLAYER.y, PLAYER.z); g.rotation.y = -PLAYER.heading;
     if (PLAYER.mode === 'car') {
-      const f = 3.5, a = heightAt(PLAYER.x + Math.sin(PLAYER.heading) * f, PLAYER.z - Math.cos(PLAYER.heading) * f), b = heightAt(PLAYER.x - Math.sin(PLAYER.heading) * f, PLAYER.z + Math.cos(PLAYER.heading) * f);
+      const f = 6, a = heightAt(PLAYER.x + Math.sin(PLAYER.heading) * f, PLAYER.z - Math.cos(PLAYER.heading) * f), b = heightAt(PLAYER.x - Math.sin(PLAYER.heading) * f, PLAYER.z + Math.cos(PLAYER.heading) * f);
       g.rotation.x = Math.atan2(a - b, 2 * f); g.rotation.z = damp(g.rotation.z, clamp(-(PLAYER.turnRate || 0) * PLAYER.speed * .004, -.06, .06), 6, dt);
       for (const w of v.wheels) w.children.forEach(c => c.rotation.x -= PLAYER.speed * dt / .4);
     } else {
@@ -838,7 +854,7 @@ function updateActors(dt, t) {
       if (v.prop) { v.prop.rotation.z += dt * (18 + PLAYER.speed * .8); v.disc.material.opacity = clamp(PLAYER.speed / 30, .05, .2); }
       if (v.glow) v.glow.emissiveIntensity = 1.2 + PLAYER.speed / VEH.plane.speed * 4;
     }
-    const size = PLAYER.mode === 'car' ? 9 : PLAYER.mode === 'slowplane' ? 26 : 34, h = PLAYER.y - groundY, s = size * (1 + h / 200);
+    const size = PLAYER.mode === 'car' ? 16 : PLAYER.mode === 'slowplane' ? 42 : 62, h = PLAYER.y - groundY, s = size * (1 + h / 200);
     world.vehShadow.visible = true; world.vehShadow.scale.set(s, 1, s * .7); world.vehShadow.material.opacity = clamp(1 - h / 400, .15, 1);
     world.vehShadow.position.set(PLAYER.x, groundY + .3, PLAYER.z); world.vehShadow.rotation.y = -PLAYER.heading;
   } else world.vehShadow.visible = false;
@@ -867,12 +883,20 @@ function updateActors(dt, t) {
 // ---------- near ground detail: repaint an 800 m square around the camera target when it drifts away
 function updateNear(dt) {
   const N = world.near; if (!N) return;
-  const flyH = Math.max(0, PLAYER.y - heightAt(PLAYER.x, PLAYER.z)), want = PLAYER.mode === 'plane' ? 0 : 1 - smooth(110, 200, flyH);
+  const flyH = Math.max(0, PLAYER.y - heightAt(PLAYER.x, PLAYER.z)), want = PLAYER.mode === 'plane' ? 0 : 1 - smooth(160, 260, flyH);
   N.strength = damp(N.strength, N.center ? want : 0, 3, dt);
   if (want > 0) {
-    const R = 400, cx = Math.round(CAM.tx / 25) * 25, cz = Math.round(CAM.tz / 25) * 25;
-    if (!N.center || Math.hypot(cx - N.center[0], cz - N.center[1]) > 140) {
-      N.center = [cx, cz]; paintRegion(N.canvas, cx - R, cz - R, 2 * R, 2 * R); N.tex.needsUpdate = true; N.rect.set(cx - R, cz - R, 2 * R, N.strength);
+    const R = PLAYER.mode === 'walk' ? 450 : 800, lead = PLAYER.mode === 'walk' ? 2 : 1.2;
+    const cx = Math.round((CAM.tx + PLAYER.vx * lead) / 25) * 25, cz = Math.round((CAM.tz + PLAYER.vz * lead) / 25) * 25;
+    if (!N.job && (!N.center || N.R !== R || Math.hypot(cx - N.center[0], cz - N.center[1]) > R * .3)) {
+      const S = N.canvas.width, back = N.back || (N.back = document.createElement('canvas')); back.width = back.height = S;
+      N.job = {cx, cz, R, back, q: 0, quarter: N.quarter || (N.quarter = Object.assign(document.createElement('canvas'), {width: S / 2, height: S / 2}))};
+    }
+    if (N.job) {   // one quarter per frame keeps the repaint from stalling a frame
+      const J = N.job, S = N.canvas.width, qx = J.q % 2, qz = Math.floor(J.q / 2);
+      paintRegion(J.quarter, J.cx - J.R + qx * J.R, J.cz - J.R + qz * J.R, J.R, J.R);
+      J.back.getContext('2d').drawImage(J.quarter, qx * S / 2, qz * S / 2);
+      if (++J.q === 4) { N.back = N.canvas; N.canvas = J.back; N.tex.image = N.canvas; N.tex.needsUpdate = true; N.center = [J.cx, J.cz]; N.R = J.R; N.rect.set(J.cx - J.R, J.cz - J.R, 2 * J.R, N.strength); N.job = null; }
     }
   }
   N.rect.w = N.strength;
@@ -887,6 +911,7 @@ function frame(now) {
   const t = now / 1000;
   simulate(dt); updateCamera(dt); updateActors(dt, t); updateNear(dt);
   sky.position.copy(camera.position); skyUniforms.uTime.value = t;
+  { const H = world.buildings.material.userData.hole; H.cam.value.copy(camera.position); H.player.value.set(PLAYER.x, PLAYER.y + (PLAYER.mode === 'walk' ? 5 : 3), PLAYER.z); H.radius.value = PLAYER.mode === 'walk' ? 18 : PLAYER.mode === 'car' ? 24 : 34; }
   world.waterNormal.offset.set(t * .012, t * .007);
   if (post) { post.grade.uniforms.uTime.value = t; post.composer.render(dt); } else renderer.render(scene, camera);
   frameTimes.push(dt * 1000);
@@ -905,7 +930,7 @@ addEventListener('resize', resize);
 
 build().then(() => {
   $('loading').hidden = true; canvas.focus({preventScroll: true});
-  toast('왼쪽 화면을 누른 채 끌면 걸어요. 오른쪽 화면을 누르면 그곳으로 가요.');
+  toast('왼쪽을 누른 채 끌면 걸어요. 오른쪽을 끌면 카메라를 돌리고 기울이고, 두 손가락으로 확대해요.');
   window.__spike = {PLAYER, CAM, setMode, applyTime, toggleCamera, world, renderer, info: () => ({buildings: world.buildings.count, realBuildings: world.buildings.real, trees: world.trees.reduce((s, m) => s + m.count, 0), lamps: world.lamps.count, places: world.places.list.length, calls: renderer.info.render.calls, triangles: renderer.info.render.triangles})};
   requestAnimationFrame(frame);
 }).catch(e => { console.error(e); $('loading-step').textContent = '만드는 중에 문제가 생겼어요: ' + e.message; });
