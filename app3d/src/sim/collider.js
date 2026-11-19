@@ -55,6 +55,7 @@ export function createCollider(rings) {
     return out;
   };
   return {
+    rings,
     resolve(x, y, radius) {
       let hit = false, nx = 0, ny = 0;
       for (let it = 0; it < 4; it++) {

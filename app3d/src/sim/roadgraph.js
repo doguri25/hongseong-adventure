@@ -20,7 +20,7 @@ export function buildRoadGraph(features) {
       for (let k = 1; k < pts.length; k++) L.push(L[k - 1] + Math.hypot(pts[k][0] - pts[k - 1][0], pts[k][1] - pts[k - 1][1]));
       if (L.at(-1) > 0.5) {
         const ow = f.tags.oneway, a = node(pts[0]), b = node(pts.at(-1));
-        const e = { id: edges.length, pts, L, len: L.at(-1), half: ROAD_WIDTH[f.tags.highway] / 2, oneway: ow === 'yes' || ow === '-1', way: ow === 'yes' ? 1 : ow === '-1' ? -1 : 0, a, b };
+        const e = { id: edges.length, pts, L, len: L.at(-1), hw: f.tags.highway, half: ROAD_WIDTH[f.tags.highway] / 2, oneway: ow === 'yes' || ow === '-1', way: ow === 'yes' ? 1 : ow === '-1' ? -1 : 0, a, b };
         edges.push(e); a.links.push({ e, end: 0 }); b.links.push({ e, end: 1 });
       }
       start = i;
