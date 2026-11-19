@@ -67,15 +67,17 @@ const storage = (() => {
 
 const hud = createHud(document, {
   onMode: (m) => chooseMode(m), onCamera: () => toggleCamera(), onTime: () => cycleTime(), onQuality: () => cycleQuality(),
-  onCompass: () => { if (!G) return; G.view.userYaw = 0; G.view.pitchAdj = 0; if (G.cam.mode === 'follow') toggleCamera(); },
-  onZoom: (k) => { if (G) G.view.zoom = clamp(G.view.zoom * k, 0.2, 4); },
-  onTilt: (d) => { if (G) G.view.pitchAdj = clamp(G.view.pitchAdj + d, -70, 70); },
-  onTurn: (side) => { if (G && isCar(G.player.mode)) G.turn = side; },
+  onCompass: () => { if (!live()) return; G.view.userYaw = 0; G.view.pitchAdj = 0; if (G.cam.mode === 'follow') toggleCamera(); },
+  onZoom: (k) => { if (live()) G.view.zoom = clamp(G.view.zoom * k, 0.2, 4); },
+  onTilt: (d) => { if (live()) G.view.pitchAdj = clamp(G.view.pitchAdj + d, -70, 70); },
+  onTurn: (side) => { if (live() && isCar(G.player.mode)) G.turn = side; },
   onTalk: () => talk(), onFerry: () => boardFerry(),
   onReload: () => { if (G) G.extra.quality = 'low'; rememberQuality(storage, 'low'); location.reload(); },   // the pagehide save must not undo it
 });
 
 let G = null;   // the running game, set once the world is built
+// player actions (keys, taps, HUD buttons) wait until boot has finished: before that the post chain does not exist
+const live = () => !!(G && G.booted);
 
 // ---------- boot helpers
 const nextFrame = () => new Promise((r) => { let done = false; const go = () => { if (!done) { done = true; r(); } }; requestAnimationFrame(() => setTimeout(go, 0)); setTimeout(go, 60); });
@@ -244,6 +246,7 @@ async function boot() {
 
   await step('첫 화면을 그리는 중');
   hud.loading('첫 화면을 그리는 중', 1);
+  G.booted = true;
   start();
 }
 
@@ -375,7 +378,7 @@ function clearTarget() {
 
 // ---------- modes
 function chooseMode(mode) {
-  if (!G) return { ok: false };
+  if (!live()) return { ok: false };
   if (!MODES.includes(mode)) return { ok: false };
   if (G.voyage) { const m = '배를 타는 동안에는 탈것을 바꿀 수 없어요'; hud.toast(m); return { ok: false, toast: m }; }
   const p = G.player, from = p.mode, wasPending = p.pending;
@@ -405,7 +408,7 @@ function ferryOption() {
 }
 
 function boardFerry() {
-  if (!G || G.dialog.isOpen || G.npcDialog.isOpen) return;
+  if (!live() || G.dialog.isOpen || G.npcDialog.isOpen) return;
   const opt = ferryOption(); if (!opt) return;
   const returning = opt === 'back', p = G.player;
   clearTarget();
@@ -435,7 +438,7 @@ function stepVoyage(dt) {
 // ---------- NPCs
 function nearNpc() { const n = G.npcLayer.nearest(G.player); return n ? n.npc : null; }
 function talk() {
-  if (!G || G.dialog.isOpen) return;
+  if (!live() || G.dialog.isOpen) return;
   const npc = nearNpc(); if (!npc) return;
   G.controls.reset(); hud.stick({ visible: false });
   G.npcDialog.open(npc);
@@ -443,7 +446,7 @@ function talk() {
 
 // ---------- camera, time, quality
 function toggleCamera() {
-  if (!G) return;
+  if (!live()) return;
   const c = G.cam;
   c.mode = c.mode === 'tilt' ? 'follow' : 'tilt'; c.base = null;
   G.view.userYaw = 0; G.view.pitchAdj = 0;
@@ -464,13 +467,13 @@ function applyTime(key) {
   hud.setTime(T.label);
   return T;
 }
-function cycleTime() { if (!G) return; applyTime(TIME_ORDER[(TIME_ORDER.indexOf(G.timeKey) + 1) % TIME_ORDER.length]); save(); }
+function cycleTime() { if (!live()) return; applyTime(TIME_ORDER[(TIME_ORDER.indexOf(G.timeKey) + 1) % TIME_ORDER.length]); save(); }
 
 function qualityLabel() { return G.qstate.mode === 'auto' ? '자동' : QUALITY[G.qstate.mode].label; }
 function propsQuality() { return G.qstate.mode === 'auto' ? (G.qstate.bloom ? 'high' : 'low') : G.qstate.mode; }
 
 function cycleQuality() {
-  if (!G) return;
+  if (!live()) return;
   const mode = QUALITY_ORDER[(QUALITY_ORDER.indexOf(G.qstate.mode) + 1) % QUALITY_ORDER.length];
   const key = mode === 'auto' ? 'high' : mode, Q = QUALITY[key];
   const msaaChanged = Q.msaa !== G.Q.msaa;
@@ -520,7 +523,7 @@ function autoQuality() {
 // ---------- input
 const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
 function tap(cx, cy) {
-  if (!G || G.dialog.isOpen || G.npcDialog.isOpen) return;
+  if (!live() || G.dialog.isOpen || G.npcDialog.isOpen) return;
   const rect = G.renderer.domElement.getBoundingClientRect();
   ndc.set(((cx - rect.left) / rect.width) * 2 - 1, -((cy - rect.top) / rect.height) * 2 + 1);
   ray.setFromCamera(ndc, G.camera);
@@ -559,7 +562,7 @@ function updateTapRing(dt) {
 }
 
 function action(a) {
-  if (!G || G.dialog.isOpen || G.npcDialog.isOpen) return;
+  if (!live() || G.dialog.isOpen || G.npcDialog.isOpen) return;
   if (a === 'interact') { if (nearNpc()) talk(); else if (ferryOption()) boardFerry(); }
   else if (a === 'camera') toggleCamera();
   else if (a === 'time') cycleTime();

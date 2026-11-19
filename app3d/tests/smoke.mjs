@@ -2,8 +2,9 @@
 // Serves build/app3d with a tiny static server, opens it in Chromium (SwiftShader WebGL) at a desktop and a phone
 // viewport, waits for window.__hs3d.ready, then checks: no page errors, all six travel modes are accepted or refused
 // with a toast, the floating stick moves the player, and a lost WebGL context shows #lost. A quick touch-tablet pass
-// checks the credit stays collapsed and a short touch in the stick zone taps. Screenshots go to OUT (SMOKE_OUT,
-// default a folder in the system temp directory; SMOKE_ONLY=tablet,phone runs only those passes).
+// checks the credit stays collapsed, a short touch in the stick zone taps, and action keys pressed while the world
+// is still loading are ignored. Screenshots go to OUT (SMOKE_OUT, default a folder in the system temp directory;
+// SMOKE_ONLY=tablet,phone runs only those passes).
 import http from 'node:http';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -101,6 +102,21 @@ async function run(browser, base, spec) {
   page.on('console', (m) => { if (m.type() === 'error') console.log(`  [${name} console.error] ${m.text().slice(0, 300)}`); });
   const shot = (file) => page.screenshot({ path: path.join(OUT, `${name}-${file}.png`) });
 
+  if (spec.keysWhileLoading) {
+    // M5: action keys (quality, time, camera) pressed while the world is still loading must be ignored, not throw
+    await page.addInitScript(() => {
+      const codes = ['KeyQ', 'KeyT', 'KeyC', 'KeyE', 'Digit3'];
+      let n = 0;
+      const id = setInterval(() => {
+        // stop at the last loading step: from there on the game is live and keys act normally
+        if (window.__hs3d || document.getElementById('loading')?.hidden || document.getElementById('loading-step')?.textContent === '첫 화면을 그리는 중') { clearInterval(id); return; }
+        const code = codes[n++ % codes.length];
+        window.dispatchEvent(new KeyboardEvent('keydown', { code, bubbles: true }));
+        window.dispatchEvent(new KeyboardEvent('keyup', { code, bubbles: true }));
+        window.__keysWhileLoading = n;
+      }, 40);
+    });
+  }
   const t0 = Date.now();
   await page.goto(base + '/index.html', { waitUntil: 'load' });
   let ready = false;
@@ -122,6 +138,10 @@ async function run(browser, base, spec) {
   check(info.npcs >= 50, `${name}: NPCs placed (${info.npcs})`);
   check(info.lamps > 0, `${name}: street lamps (${info.lamps})`);
   check(info.terrainChunks > 0, `${name}: terrain chunks built (${info.terrainChunks})`);
+  if (spec.keysWhileLoading) {
+    const k = await page.evaluate(() => ({ n: window.__keysWhileLoading || 0, q: window.__hs3d.info().quality.mode }));
+    check(k.n > 0 && errors.length === 0, `${name}: ${k.n} action keys pressed while loading were ignored without errors (quality ${k.q})`);
+  }
   await shot('1-start');
   if (spec.quick) {
     // touch tablet: the credit stays a collapsed toggle, and a short still touch in the stick zone taps the map
@@ -226,7 +246,7 @@ async function main() {
     for (const spec of [
       { name: 'desktop', viewport: { width: 1280, height: 760 }, touch: false, tour: true },
       { name: 'phone', viewport: { width: 390, height: 844 }, touch: true, tour: true },
-      { name: 'tablet', viewport: { width: 1024, height: 768 }, touch: true, quick: true },
+      { name: 'tablet', viewport: { width: 1024, height: 768 }, touch: true, quick: true, keysWhileLoading: true },
     ].filter((s) => !process.env.SMOKE_ONLY || process.env.SMOKE_ONLY.split(',').includes(s.name))) await run(browser, base, spec);
   } finally {
     await browser.close();
