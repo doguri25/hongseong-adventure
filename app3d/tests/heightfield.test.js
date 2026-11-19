@@ -71,3 +71,51 @@ test('carveWater: sea with island hole, land floor 0.3', () => {
   assert.ok(Math.abs(f.data[8 * 11 + 5] - 0.3) < 1e-6); // land outside sea raised
   assert.equal(f.data[4 * 11 + 0], -2);          // row 4 (y=40) sea, left of hole
 });
+
+// shoreRamp: the sea plane (Y = 0) meets the terrain where the triangulated heights cross zero. With the plain carve
+// (-2 inside, >= 0.3 outside) that crossing follows the 25 m grid as a staircase; the ramp puts it on the OSM coastline.
+import { shoreRamp } from '../src/world/heightfield.js';
+
+const coastX = (y) => 300 + 0.37 * y;   // a slanted coastline, sea to the west
+function shoreField(land = 5) {
+  const n = 41, f = gridOf(n, 25, () => land);
+  const sea = { kind: 'osm', tags: { natural: 'water', water: 'sea' }, points: [[0, 0], [coastX(0), 0], [coastX(1000), 1000], [0, 1000], [0, 0]], holes: [] };
+  return { f, n, sea };
+}
+// zero crossings along each grid row, compared with the true coastline
+function crossingError(f, n) {
+  let worst = 0;
+  for (let j = 0; j < n; j++) for (let i = 0; i + 1 < n; i++) {
+    const a = f.data[j * n + i], b = f.data[j * n + i + 1];
+    if ((a < 0) === (b < 0)) continue;
+    const x = (i + a / (a - b)) * 25;
+    worst = Math.max(worst, Math.abs(x - coastX(j * 25)));
+  }
+  return worst;
+}
+
+test('shoreRamp puts the waterline on the coastline', () => {
+  for (const land of [0.1, 5, 40]) {
+    const { f, n, sea } = shoreField(land);
+    carveWater(f, { sea });
+    const before = crossingError(f, n);
+    shoreRamp(f, sea, { border: [0, 0, 1000, 1000] });
+    const after = crossingError(f, n);
+    assert.ok(after < 4, `land ${land}: waterline within 4 m of the coast (was ${before.toFixed(1)}, now ${after.toFixed(1)})`);
+    assert.ok(after < before || before < 4, `land ${land}: ramp improves the waterline`);
+  }
+});
+
+test('shoreRamp keeps land dry, sea wet, far nodes and the map border untouched', () => {
+  const { f, n, sea } = shoreField(5);
+  carveWater(f, { sea });
+  const carved = f.data.slice();
+  shoreRamp(f, sea, { border: [0, 0, 1000, 1000] });
+  for (let k = 0; k < f.data.length; k++) {
+    if (carved[k] < 0) assert.ok(f.data[k] < 0 && f.data[k] >= -10, 'sea stays below the plane, at most 10 m deep');
+    else assert.ok(f.data[k] > 0, 'land stays above the plane');
+  }
+  assert.equal(f.data[20 * n + 0], -2);    // on the map's west border (x = 0): a polygon edge, not a coast
+  assert.equal(f.data[20 * n + 40], 5);    // far inland
+  assert.equal(f.data[0 * n + 2], -2);     // far out at sea (x = 50, coast at 300)
+});

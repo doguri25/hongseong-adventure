@@ -1,6 +1,6 @@
 // Pure height grid (no Three.js). Node (i, j) sits at game-frame x = i*cell, y = j*cell (metres).
 // Data is row-major, row 0 = north (y = 0). `data` stays writable so water carving can lower it.
-import { VEX } from '../frame.js';
+import { VEX, BOUNDS, M_LON, M_LAT } from '../frame.js';
 import { blocksWater } from '../../../dist/water.js';
 
 export class HeightField {
@@ -87,4 +87,72 @@ export function carveWater(field, { sea, lakes = [] } = {}) {
     levels.push({ feature: f, level: shore });
   }
   return levels;
+}
+
+// ---- shore ramp (run after the sea carve, before lakes) ----
+// The sea plane (Y = 0) meets the terrain where the triangulated heights cross zero. With the plain carve (sea -2,
+// land >= 0.3) that line follows the 25 m grid as a staircase. Near the coast (within 1.5 cells) this pass makes
+// every node's height proportional to its signed distance d from the OSM coastline: land between lo·d and hi·d (at
+// least 2 cm), sea at -r·d with r the mean height/distance ratio of its land neighbours, so each zero crossing lands
+// on the coastline itself. Sea-polygon edges that run along the map border are not coastline and are ignored.
+const MAP_W = (BOUNDS[2] - BOUNDS[0]) * M_LON, MAP_H = (BOUNDS[3] - BOUNDS[1]) * M_LAT;
+
+export function shoreRamp(field, sea, { lo = 0.08, hi = 0.3, deepest = -10, border = [0, 0, MAP_W, MAP_H] } = {}) {
+  if (!sea) return 0;
+  const { w, h, cell, data } = field, band = cell * 1.5, rings = [sea.points, ...(sea.holes || [])];
+  const along = (a, b, k, v) => Math.abs(a[k] - v) < 1 && Math.abs(b[k] - v) < 1;
+  const segs = [];
+  for (const r of rings) for (let k = 0; k < r.length; k++) {
+    const a = r[k], b = r[(k + 1) % r.length];
+    if (a[0] === b[0] && a[1] === b[1]) continue;
+    if (along(a, b, 0, border[0]) || along(a, b, 1, border[1]) || along(a, b, 0, border[2]) || along(a, b, 1, border[3])) continue;
+    segs.push([a[0], a[1], b[0], b[1]]);
+  }
+  const G = 64, index = new Map(), gk = (i, j) => i * 100003 + j;
+  for (const s of segs) {
+    for (let i = Math.floor(Math.min(s[0], s[2]) / G); i <= Math.floor(Math.max(s[0], s[2]) / G); i++)
+      for (let j = Math.floor(Math.min(s[1], s[3]) / G); j <= Math.floor(Math.max(s[1], s[3]) / G); j++) {
+        const k = gk(i, j); if (!index.has(k)) index.set(k, []); index.get(k).push(s);
+      }
+  }
+  const coastDistance = (x, y) => {
+    let best = Infinity;
+    const ci = Math.floor(x / G), cj = Math.floor(y / G);
+    for (let i = ci - 1; i <= ci + 1; i++) for (let j = cj - 1; j <= cj + 1; j++) for (const s of index.get(gk(i, j)) || []) {
+      const dx = s[2] - s[0], dy = s[3] - s[1], l = dx * dx + dy * dy;
+      const t = l ? Math.max(0, Math.min(1, ((x - s[0]) * dx + (y - s[1]) * dy) / l)) : 0;
+      const d = Math.hypot(x - s[0] - dx * t, y - s[1] - dy * t);
+      if (d < best) best = d;
+    }
+    return best;
+  };
+  const inSea = new Uint8Array(data.length);
+  fillRings(field, rings, (j, i0, i1) => { for (let i = i0; i <= i1; i++) inSea[j * w + i] = 1; });
+  // nodes within the band of some coastline segment, with their distance
+  const dist = new Float32Array(data.length).fill(Infinity), near = [];
+  for (const s of segs) {
+    const i0 = Math.max(0, Math.floor((Math.min(s[0], s[2]) - band) / cell)), i1 = Math.min(w - 1, Math.ceil((Math.max(s[0], s[2]) + band) / cell));
+    const j0 = Math.max(0, Math.floor((Math.min(s[1], s[3]) - band) / cell)), j1 = Math.min(h - 1, Math.ceil((Math.max(s[1], s[3]) + band) / cell));
+    for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
+      const n = j * w + i;
+      if (dist[n] !== Infinity) continue;
+      const d = coastDistance(i * cell, j * cell);
+      dist[n] = d;
+      if (d < band) near.push(n);
+    }
+  }
+  // land first (clamped to a gentle ramp), then the sea nodes from their land neighbours
+  // (land the carve lifted to its 0.3 m floor counts as flat: it follows lo·d, so it may sit just above the sea here)
+  for (const n of near) if (!inSea[n]) { const d = Math.max(dist[n], 0.5), base = data[n] <= 0.3001 ? 0 : data[n]; data[n] = Math.max(0.02, Math.min(hi * d, Math.max(lo * d, base))); }
+  for (const n of near) {
+    if (!inSea[n]) continue;
+    const i = n % w, j = (n - i) / w;
+    let sum = 0, count = 0;
+    for (let b = -1; b <= 1; b++) for (let a = -1; a <= 1; a++) {
+      const ii = i + a, jj = j + b;
+      if ((a || b) && ii >= 0 && jj >= 0 && ii < w && jj < h && !inSea[jj * w + ii]) { const m = jj * w + ii; sum += data[m] / Math.max(dist[m], 0.5); count++; }
+    }
+    if (count) data[n] = Math.min(-0.05, Math.max(deepest, -(sum / count) * dist[n]));
+  }
+  return near.length;
 }
