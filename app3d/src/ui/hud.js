@@ -2,14 +2,15 @@
 // Top left: home button, where, coins, discoveries. Top centre: the mission card (folds on phones, remembered per layout
 // in the 2D game's `hongseong-hud-v1`). Top right: minimap button (drawn by ui/minimap.js) and the camera pad. Bottom
 // right: speedometer (ui/gauge.js), 탐방 / 대화 / 탈것 round buttons, the vehicle picker, car turns and the ferry.
-// Centre: the big notice and toasts. Nothing here knows about Three.js or the simulation; main.js decides what to show.
+// Centre: the big notice (ui/notice.js: kept clear of open dialogs) and toasts. Nothing here knows about Three.js or the
+// simulation; main.js decides what to show.
 import { createGauge, speedNumber, factorLabel } from './gauge.js';
+import { createNotice } from './notice.js';
 
 const CAMERA_LABEL = { tilt: '비스듬히', follow: '뒤따라' };
 const MODE_LABEL = { walk: '걷기', bike: '자전거', car: '자동차', supercar: '슈퍼카', slowplane: '느린 비행기', plane: '비행기', boat: '배' };
 const TURN_HINT = { left: '← 다음 갈림길에서 좌회전', right: '다음 갈림길에서 우회전 →', route: '길을 찾아 가는 중' };
 const FERRY_LABEL = { out: '배 타고 죽도로', back: '배 타고 남당항으로' };
-const TONE = { ok: '#35e08a', danger: '#ff5468', warn: '#ffb52e' };
 export const HUD_KEY = 'hongseong-hud-v1';
 const PREF_KEYS = ['portrait', 'landscape', 'desktop'];
 
@@ -98,8 +99,8 @@ export function createHud(doc, handlers = {}, { storage } = {}) {
   function syncMissionEdge() { syncEdge('tl', chips, '--tl-b'); syncEdge('mission', card, '--mission-b'); }
   if (win.ResizeObserver) { const ro = new win.ResizeObserver(syncMissionEdge); ro.observe(card); ro.observe(chips); }
 
-  const gauge = createGauge($('speedo-canvas'));
-  let toastTimer = 0, noticeTimer = 0, actions = { npc: null, ferry: null, car: false, visit: undefined }, compassYaw = NaN, mode = 'walk';
+  const gauge = createGauge($('speedo-canvas')), bigNotice = createNotice($('notice'), { doc, win });
+  let toastTimer = 0, actions = { npc: null, ferry: null, car: false, visit: undefined }, compassYaw = NaN, mode = 'walk';
   const compassSvg = $('compass').firstElementChild, stick = $('stick'), knob = $('knob');
   const fitCanvas = (canvas) => {
     const css = canvas.clientWidth, px = Math.round(css * Math.min(2, win.devicePixelRatio || 1));
@@ -203,16 +204,9 @@ export function createHud(doc, handlers = {}, { storage } = {}) {
       clearTimeout(toastTimer);
       toastTimer = setTimeout(() => t.classList.remove('show'), ms);
     },
-    // the big centre notice: title in the display face, a short line under it, green (ok) or red (danger) glow
-    notice(title, sub = '', tone = 'ok') {
-      const n = $('notice');
-      text($('notice-title'), title); text($('notice-sub'), sub || '');
-      n.style.setProperty('--tc', TONE[tone] || TONE.ok);
-      n.dataset.tone = tone;
-      n.classList.remove('show'); void n.offsetWidth; n.classList.add('show');
-      clearTimeout(noticeTimer);
-      noticeTimer = setTimeout(() => n.classList.remove('show'), 1700);
-    },
+    // the big notice: title in the display face, a short line under it, green (ok) or red (danger) glow; in the middle
+    // of the screen, or beside an open dialog without covering any of its text or buttons
+    notice(title, sub = '', tone = 'ok') { bigNotice.show(title, sub, tone); },
 
     compass(yaw) {
       if (Math.abs(yaw - compassYaw) < 0.002) return;

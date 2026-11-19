@@ -27,7 +27,7 @@
   --body: 'NanumRound', 'Apple SD Gothic Neo', 'Noto Sans KR', system-ui, sans-serif;
   --r-panel: 20px; --r-chip: 16px;
   /* layers, low to high */
-  --z-hud: 2; --z-toast: 4; --z-scrim: 6; --z-notice: 7; --z-overlay: 8;   /* the big notice also shows over dialogs */
+  --z-hud: 2; --z-toast: 4; --z-scrim: 6; --z-notice: 7; --z-overlay: 8;   /* the big notice also shows beside open dialogs */
   --safe-t: env(safe-area-inset-top, 0px); --safe-r: env(safe-area-inset-right, 0px); --safe-b: env(safe-area-inset-bottom, 0px); --safe-l: env(safe-area-inset-left, 0px);
   color-scheme: dark;
 }
@@ -225,13 +225,23 @@ html.q-low .panel, html.q-low .dialog { background-color: rgba(12, 14, 28, .96);
 #stick { position: absolute; width: 132px; height: 132px; margin: -66px 0 0 -66px; border-radius: 50%; background: rgba(14, 16, 30, .4); border: 2px solid rgba(255, 255, 255, .34); pointer-events: none; z-index: var(--z-hud); }
 #knob { position: absolute; left: 50%; top: 50%; width: 56px; height: 56px; margin: -28px 0 0 -28px; border-radius: 50%; background: var(--grad); box-shadow: 0 4px 14px rgba(0, 0, 0, .5); border: 2px solid rgba(255, 255, 255, .7); }
 
-/* ---- the big centre notice: 도착! / 새로운 발견! / 직행 미션 성공! / 정답! (pokju #qtoast), over dialogs too ---- */
+/* ---- the big notice: 도착! / 새로운 발견! / 직행 미션 성공! / 정답! (pokju #qtoast). In the middle of the screen during
+   play; while a dialog is open ui/notice.js docks it in free space beside the dialog (.docked: sized by --nb / --ns, no
+   upward drift), or as a small pill above the dialog's first line (.pill), never over its text or buttons ---- */
 .notice { top: 40%; opacity: 0; }
 .notice span:empty { display: none; }
 .notice.show { animation: notice-pop 1.6s cubic-bezier(.2, .9, .3, 1.2) forwards; }
+.notice.docked b { font-size: var(--nb); }
+.notice.docked span { font-size: var(--ns); margin-top: 6px; }
+.notice.docked.show { animation-name: notice-dock; }
+.notice.pill { display: flex; align-items: center; gap: 8px; padding: 3px 14px; border-radius: 999px; background: rgba(10, 12, 26, .92); border: 1px solid var(--tc, var(--ok)); box-shadow: 0 0 14px var(--tc, var(--ok)); }
+.notice.pill b { font-size: 17px; line-height: 1.25; color: var(--tc, var(--ok)); text-shadow: none; white-space: nowrap; }
+.notice.pill span { margin-top: 0; padding: 0; font-size: 15px; background: none; white-space: nowrap; }
+.notice.away { visibility: hidden; }
 @keyframes notice-pop { 0% { opacity: 0; transform: translate(-50%, -50%) scale(.6); } 12% { opacity: 1; transform: translate(-50%, -50%) scale(1.08); } 22% { transform: translate(-50%, -50%) scale(1); } 75% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, calc(-50% - 26px)) scale(1); } }
+@keyframes notice-dock { 0% { opacity: 0; transform: translate(-50%, -50%) scale(.7); } 14% { opacity: 1; transform: translate(-50%, -50%) scale(1.04); } 24% { transform: translate(-50%, -50%) scale(1); } 78% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -50%) scale(1); } }
 @keyframes notice-still { 0%, 85% { opacity: 1; } 100% { opacity: 0; } }
-html.reduce-motion .notice.show { animation-name: notice-still; }
+html.reduce-motion .notice.show, html.reduce-motion .notice.docked.show { animation-name: notice-still; }
 html.reduce-motion .mission .dots i.active { animation: none; }
 
 /* ---- bottom-left corner on wide mouse screens: hint and the open map credit ---- */
@@ -315,6 +325,6 @@ html.reduce-motion .mission .dots i.active { animation: none; }
 }
 @media (prefers-reduced-motion: reduce) {
   .toast, #toast, #loading-bar i, .gauge > i { transition: none; }
-  .notice.show { animation-name: notice-still; }
+  .notice.show, .notice.docked.show { animation-name: notice-still; }
   .mission .dots i.active { animation: none; }
 }

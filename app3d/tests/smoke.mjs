@@ -169,18 +169,99 @@ async function checkHud(page, name, spec, shot) {
   await page.evaluate(() => window.__hs3d.closeDialogs());
 }
 
-// Records every big-notice the HUD shows (title, line, and whether it sits above the dialog scrim and inside the screen).
+// Records every big notice the HUD shows (title, line, whether it sits above the dialog scrim and inside the screen).
+// Whenever the notice moves or changes, and every 80 ms, while it is visible together with an open dialog, checks that
+// its title and line, taken at the largest size of their pop animation, do not overlap any readable part of the dialog:
+// its controls and every element holding text of its own, each clipped to the scroll boxes it sits in. overlaps() as
+// ui/dom.js: edges that only touch do not count.
 async function watchNotices(page) {
   await page.evaluate(() => {
-    if (window.__notices) { window.__notices.length = 0; return; }
-    window.__notices = [];
+    if (window.__notices) { window.__notices.length = 0; window.__noticeCheck = { samples: 0, bad: [] }; return; }
+    window.__notices = []; window.__noticeCheck = { samples: 0, bad: [] };
     const n = document.getElementById('notice');
     new MutationObserver(() => {
-      if (!n.classList.contains('show')) return;
+      if (!n.classList.contains('show') || n.dataset.reshow) return;   // a screenshot's re-show is checked, not counted
       const scrim = getComputedStyle(document.querySelector('.scrim')).zIndex;
-      window.__notices.push({ title: n.querySelector('b').textContent, sub: n.querySelector('span').textContent, above: Number(getComputedStyle(n).zIndex) > Number(scrim), fits: n.scrollWidth <= innerWidth - 16, opacity: getComputedStyle(n).animationName });
+      window.__notices.push({ title: n.querySelector('b').textContent, sub: n.querySelector('span').textContent, above: Number(getComputedStyle(n).zIndex) > Number(scrim), fits: n.scrollWidth <= innerWidth - 16 });
     }).observe(n, { attributes: true, attributeFilter: ['class'] });
+    const overlaps = (a, b) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
+    const CONTROL = new Set(['BUTTON', 'A', 'INPUT', 'SELECT', 'TEXTAREA', 'SUMMARY']);
+    const sample = () => {
+      const dialog = document.querySelector('.scrim:not([hidden]) [role="dialog"]'), cs = getComputedStyle(n);
+      if (!dialog || !n.classList.contains('show') || cs.visibility === 'hidden') return;
+      // scale each part about the notice's centre from its current animation scale to the animation's peak
+      const nr = n.getBoundingClientRect(), now = n.offsetWidth ? nr.width / n.offsetWidth : 1, k = (n.classList.contains('docked') ? 1.04 : 1.08) / (now || 1);
+      const cx = (nr.left + nr.right) / 2, cy = (nr.top + nr.bottom) / 2;
+      const parts = [n.querySelector('b'), n.querySelector('span')].filter((e) => e.textContent).map((e) => {
+        const r = e.getBoundingClientRect();
+        return { left: cx + (r.left - cx) * k, top: cy + (r.top - cy) * k, right: cx + (r.right - cx) * k, bottom: cy + (r.bottom - cy) * k };
+      });
+      window.__noticeCheck.samples++;
+      for (const el of dialog.querySelectorAll('*')) {
+        if (!CONTROL.has(el.tagName) && ![...el.childNodes].some((c) => c.nodeType === 3 && c.nodeValue.trim())) continue;
+        let r = el.getBoundingClientRect();
+        r = { left: r.left, top: r.top, right: r.right, bottom: r.bottom };
+        for (let a = el.parentElement; a && a !== dialog.parentElement; a = a.parentElement) {
+          const o = getComputedStyle(a);
+          if (o.overflowX === 'visible' && o.overflowY === 'visible') continue;
+          const c = a.getBoundingClientRect();
+          r = { left: Math.max(r.left, c.left), top: Math.max(r.top, c.top), right: Math.min(r.right, c.right), bottom: Math.min(r.bottom, c.bottom) };
+        }
+        if (r.right <= r.left || r.bottom <= r.top) continue;
+        for (const p of parts) if (overlaps(p, r)) {
+          const what = `"${n.querySelector('b').textContent}" over ${el.tagName.toLowerCase()}${el.className ? '.' + String(el.className).split(' ')[0] : ''}("${el.textContent.trim().slice(0, 12)}")`;
+          if (!window.__noticeCheck.bad.includes(what)) window.__noticeCheck.bad.push(what);
+        }
+      }
+    };
+    setInterval(sample, 80);
+    new MutationObserver(() => queueMicrotask(sample)).observe(n, { attributes: true, attributeFilter: ['class', 'style'], childList: true, subtree: true, characterData: true });
+    for (const sc of document.querySelectorAll('.scrim')) new MutationObserver(() => setTimeout(sample, 0)).observe(sc, { attributes: true, childList: true, subtree: true, characterData: true });
   });
+}
+
+// A screenshot of the big notice where it was placed: on SwiftShader a frame can outlast its whole 1.6 s pop, so once
+// the HUD has let the last notice go (its 1.7 s timer, late under load), it is shown again in place (its docking and
+// position stay on the element), held at full opacity for the shot, then let go again.
+async function noticeShot(page, shot, file) {
+  await page.waitForFunction(() => !document.getElementById('notice').classList.contains('show'), null, { timeout: 15000, polling: 100 }).catch(() => {});
+  await page.evaluate(() => {
+    const n = document.getElementById('notice');
+    n.dataset.reshow = '1';
+    n.classList.add('show');
+    for (const a of n.getAnimations()) { a.pause(); a.currentTime = a.effect.getComputedTiming().duration * 0.4; }
+  });
+  if (process.env.SMOKE_DEBUG) console.log('  notice', file, await page.evaluate(() => { const n = document.getElementById('notice'), r = n.getBoundingClientRect(); return JSON.stringify({ cls: n.className, op: getComputedStyle(n).opacity, vis: getComputedStyle(n).visibility, anims: n.getAnimations().map((a) => a.animationName + ':' + a.playState + ':' + Math.round(a.currentTime)), rect: [r.left, r.top, r.width, r.height].map(Math.round), style: n.getAttribute('style') }); }));
+  await shot(file);
+  await page.evaluate(() => { const n = document.getElementById('notice'); n.classList.remove('show'); delete n.dataset.reshow; });
+}
+
+// 정답! / 다시 생각해 봐요 in the open place dialog: page to its quiz, answer wrong, then right.
+async function quizNotices(page, name, shot) {
+  for (let i = 0; i < 10; i++) {
+    const step = await page.evaluate(() => {
+      if (document.querySelector('#place-body .quiz .options button')) return 'quiz';
+      const b = document.querySelector('#place-footer .btn.primary');
+      if (!b || !/다음|퀴즈/.test(b.textContent)) return 'none';
+      b.click(); return 'next';
+    });
+    if (step !== 'next') break;
+    await sleep(300);
+  }
+  const answer = (right) => page.evaluate((right) => {
+    const a = window.__hs3d.world.dialog.place?.quiz?.answer;
+    const b = [...document.querySelectorAll('#place-body .quiz .options button')].find((o) => (Number(o.dataset.answer) === a) === right && !o.disabled);
+    if (!b) return false;
+    b.click(); return true;
+  }, right);
+  const wrong = await answer(false);
+  await sleep(450); if (wrong) await noticeShot(page, shot, '9b-quiz-wrong-notice');
+  await sleep(1500);
+  const right = await answer(true);
+  await sleep(450); if (right) await noticeShot(page, shot, '9c-quiz-right-notice');
+  await sleep(1500);
+  const seen = await page.evaluate(() => window.__notices.map((n) => n.title));
+  check(wrong && right && seen.includes('다시 생각해 봐요') && seen.includes('정답!'), `${name}: a wrong and a right quiz answer show 다시 생각해 봐요 and 정답! (${seen.join(' / ')})`);
 }
 
 // Arrival while driving: the dialog stops player and car, closing it fires nothing again, and the arrival shows the
@@ -209,14 +290,17 @@ async function driveArrival(page, name, shot) {
   }
   check(!!opened && opened.hasCar && opened.paused, `${name}: driving into a place opens its dialog and pauses (${opened ? opened.id : 'never opened'})`);
   if (!opened) return;
-  await sleep(150);
-  await shot('9-arrival-notice');
+  await noticeShot(page, shot, '9-arrival-notice');
   const notices = await page.evaluate(() => window.__notices.slice());
   const arrival = notices.find((n) => ['도착!', '새로운 발견!', '직행 미션 성공!', '탐방 미션 완료!'].includes(n.title));
-  check(!!arrival && arrival.above && arrival.fits, `${name}: the arrival shows the big notice over the dialog (${notices.map((n) => n.title + (n.sub ? ' ' + n.sub : '')).join(' / ') || 'none'})`);
+  check(!!arrival && arrival.above && arrival.fits, `${name}: the arrival shows the big notice beside the dialog (${notices.map((n) => n.title + (n.sub ? ' ' + n.sub : '')).join(' / ') || 'none'})`);
   await sleep(450);
   const still = await page.evaluate(() => { const W = window.__hs3d.world; return { speed: W.player.speed, carSpeed: W.player.car.speed, target: W.target }; });
   check(still.speed === 0 && still.carSpeed === 0 && !still.target, `${name}: player and car are at rest behind the dialog (${JSON.stringify(still)})`);
+  await sleep(1200);   // the arrival notice runs out
+  await quizNotices(page, name, shot);
+  const clear = await page.evaluate(() => ({ ...window.__noticeCheck }));
+  check(clear.samples > 0 && clear.bad.length === 0, `${name}: the notice never covers the dialog's title, text or buttons (${clear.samples} samples with both visible${clear.bad.length ? ' — ' + clear.bad.join(', ') : ''})`);
   const closed = await page.evaluate(() => { const W = window.__hs3d.world; document.getElementById('place-close').click(); return { open: W.dialog.isOpen, paused: W.ctl.paused(), carSpeed: W.player.car.speed }; });
   check(!closed.open && !closed.paused && closed.carSpeed === 0, `${name}: closing resumes play with the car at 0 (${JSON.stringify(closed)})`);
   await sleep(4000);
