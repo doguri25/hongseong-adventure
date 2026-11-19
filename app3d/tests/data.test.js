@@ -62,6 +62,13 @@ test('buildings are deduplicated and inside the county', () => {
   assert.ok(buildings.every((b) => b.tags.building));
 });
 
+test('building levels survive the merge of the three building sources (M2/R6)', () => {
+  // the county export tags 25 ways with building:levels; all of them are also in the game map, which has none
+  const withLevels = buildings.filter((b) => Number.isFinite(parseFloat(b.tags.levels)));
+  assert.ok(withLevels.length >= 20, `buildings with levels: ${withLevels.length}`);
+  assert.ok(withLevels.some((b) => parseFloat(b.tags.levels) >= 5));
+});
+
 test('heights grid matches world.json', () => {
   assert.equal(png.width, world.grid.w);
   assert.equal(png.height, world.grid.h);

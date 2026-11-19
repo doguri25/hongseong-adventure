@@ -81,7 +81,6 @@ def btags(tags):
     for src, dst in BKEEP.items():
         if src in tags and tags[src] not in ('', None):
             t[dst] = tags[src]
-    t.setdefault('building', 'yes')
     return t
 
 
@@ -90,13 +89,27 @@ def in_bounds(ring):
     return BOUNDS[0] <= lon <= BOUNDS[2] and BOUNDS[1] <= lat <= BOUNDS[3]
 
 
-bld, seen = [], set()
+bld, seen = [], {}
+merged = {'levels': 0, 'height': 0, 'name': 0, 'building': 0}
 def add(wid, tags, ring):
+    """First source wins the geometry; later sources of the same way only fill in tags it lacks (M2/R6: the
+    county and Naepo exports carry building:levels and height that the game map dropped)."""
     wid = str(wid)
-    if wid in seen or len(ring) < 4:
+    if len(ring) < 4:
         return False
-    seen.add(wid)
-    bld.append({'id': wid, 't': btags(tags), 'p': delta(ring)})
+    t = btags(tags)
+    if wid in seen:
+        have = seen[wid]['t']
+        for k, v in t.items():
+            if k == 'building' and have.get('building', 'yes') == 'yes' and v != 'yes':
+                have['building'] = v; merged[k] += 1   # a specific type beats the bare "yes"
+            elif k not in have:
+                have[k] = v; merged[k] += 1
+        return False
+    t.setdefault('building', 'yes')
+    b = {'id': wid, 't': t, 'p': delta(ring)}
+    seen[wid] = b
+    bld.append(b)
     return True
 
 n_game = sum(add(f['id'], f['tags'], f['points']) for f in game_buildings)
@@ -111,7 +124,8 @@ for fn in ('county-buildings.geojson', 'naepo-buildings.geojson'):
             if in_bounds(ring):
                 n += add(wid if k == 0 else f'{wid}_{k}', props, ring)
     print('buildings added from', fn, n)
-print('buildings total', len(bld), '(game map', n_game, ')')
+print('buildings total', len(bld), '(game map', n_game, ')', 'tags merged from later sources', merged,
+      'with levels', sum('levels' in b['t'] for b in bld), 'with height', sum('height' in b['t'] for b in bld))
 bld_json = json.dumps({'q': 1 / Q, 'items': bld}, ensure_ascii=False, separators=(',', ':'))
 
 # ---------- Terrarium DEM
