@@ -6,6 +6,8 @@ import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import gradeFrag from '../shaders/grade.frag?raw';
 
+// quality: {msaa, bloom} (a QUALITY preset or the live quality state). The multisampled target is fixed at creation:
+// a change of msaa means dispose() and a new chain.
 export function createPost(renderer, scene, camera, quality) {
   const size = renderer.getDrawingBufferSize(new THREE.Vector2());
   const rt = new THREE.WebGLRenderTarget(size.x, size.y, { type: THREE.HalfFloatType, samples: quality.msaa });
@@ -28,5 +30,7 @@ export function createPost(renderer, scene, camera, quality) {
     setSize(w, h, dpr) { composer.setPixelRatio(dpr); composer.setSize(w, h); grade.uniforms.uAspect.value = w / h; },
     setTime(T) { bloom.strength = T.bloom; grade.uniforms.uNight.value = T.night; grade.uniforms.uDusk.value = T.dusk; },
     setSpeed(v) { grade.uniforms.uSpeed.value = Math.max(0, Math.min(1, v)); },
+    // every pass's targets and materials, then the composer's own two targets (one is `rt`) and its copy pass
+    dispose() { for (const p of composer.passes) p.dispose?.(); composer.dispose(); },
   };
 }

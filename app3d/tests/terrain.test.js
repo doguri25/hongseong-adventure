@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
 import { HeightField } from '../src/world/heightfield.js';
-import { Terrain, buildChunkGeometry } from '../src/world/terrain.js';
+import { Terrain, buildChunkGeometry, lodFor } from '../src/world/terrain.js';
 
 const field = () => {
   const grid = { w: 321, h: 161, cell: 25 }; // 8000 x 4000 m
@@ -49,4 +49,17 @@ test('lazy chunks, LOD by distance, dispose beyond 14 km', () => {
   cam.set(c0.cx + 20000, 0, c0.cz);
   t.update(cam, Infinity);
   assert.equal(c0.mesh, null);
+});
+
+test('LOD distances come from the quality and can change live', () => {
+  assert.deepEqual([lodFor(2900), lodFor(3100), lodFor(8100)], [0, 1, 2]);
+  assert.deepEqual([lodFor(2100, [2000, 5000]), lodFor(5100, [2000, 5000])], [1, 2]);
+  const f = field(), scene = new THREE.Scene(), t = new Terrain(scene, f, new THREE.MeshStandardMaterial(), [2000, 5000]);
+  const cam = new THREE.Vector3(t.chunks[0].cx, 0, t.chunks[0].cz);
+  t.update(cam, Infinity);
+  const mid = t.chunks.find((c) => { const d = Math.hypot(c.cx - cam.x, c.cz - cam.z); return d > 2000 && d < 3000; });
+  assert.equal(mid.lod, 1);
+  t.setLod([3000, 8000]);
+  t.update(cam, Infinity);
+  assert.equal(mid.lod, 0);
 });

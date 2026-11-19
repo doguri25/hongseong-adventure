@@ -18,7 +18,7 @@ import { loadActorAssets } from './world/actor-assets.js';
 import { createSky, TIMES } from './render/sky.js';
 import { createLighting } from './render/lighting.js';
 import { createPost } from './render/post.js';
-import { QUALITY, nextQuality, pixelRatio, watchContextLoss, rememberQuality } from './render/quality.js';
+import { QUALITY, nextQuality, qualityState, autoStartKey, pixelRatio, watchContextLoss, rememberQuality } from './render/quality.js';
 import { buildRoadGraph } from './sim/roadgraph.js';
 import { createPlayer, stepPlayer, setMode as setPlayerMode, TOAST } from './sim/player.js';
 import { createCamera, stepCamera } from './sim/camera.js';
@@ -149,18 +149,22 @@ async function boot() {
   const lakeLevels = carveWater(field, { sea: null, lakes });
 
   const session = loadSession(storage), state = session.state, extra = session.extra;
-  const qualityKey = extra.quality === 'auto' ? 'high' : extra.quality, Q = QUALITY[qualityKey];
-  const qstate = { mode: extra.quality, scale: 1, bloom: Q.bloom };
-  const low = qualityKey === 'low';
+  // automatic quality starts lighter on touch and low-memory devices (render/quality.js autoStartKey)
+  // (window.navigator: boot() has its own `navigator`, the walking-road navigator)
+  const autoKey = autoStartKey({ coarse: matchMedia('(pointer: coarse)').matches, deviceMemory: window.navigator.deviceMemory });
+  const qstate = qualityState(extra.quality, autoKey), Q = QUALITY[qstate.key];
+  const low = qstate.key === 'low';
+  renderer.shadowMap.enabled = qstate.shadow > 0;
 
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(52, innerWidth / innerHeight, 1, 42000);
   const sky = createSky(scene, renderer);
   const lighting = createLighting(scene);
+  lighting.sun.castShadow = qstate.shadow > 0;
 
   await step('지형과 땅 그림을 준비하는 중');
-  const ground = new Ground(renderer, field, features, buildingList, { low });
-  const terrain = new Terrain(scene, field, ground.material);
+  const ground = new Ground(renderer, field, features, buildingList, { low, sizes: Q.ground });
+  const terrain = new Terrain(scene, field, ground.material, QUALITY[qstate.props].terrainLod);
   const water = createWater(scene, lakeLevels);
 
   await step('건물을 세우는 중');
@@ -183,7 +187,7 @@ async function boot() {
   const services = { field, navigator, water: waterGuard, graph, collider, bounds: MOVE_BOUNDS };
 
   await step('나무와 가로등을 심는 중');
-  const props = new Props(scene, field, features, collider, graph, QUALITY[propsKey(qstate)].props);
+  const props = new Props(scene, field, features, collider, graph, QUALITY[qstate.props].props);
 
   await step('탐험가와 탈것을 준비하는 중');
   const reduced = REDUCED || state.motion === false;
@@ -205,7 +209,7 @@ async function boot() {
   G = {
     renderer, scene, camera, sky, lighting, ground, terrain, water, buildings, collider, props, placeLayer, places, npcLayer, actors,
     field, features, graph, navigator, waterGuard, services, world, state, extra, player, cam, held, docks, byId, post,
-    Q, qstate, view: null, target: null, turn: null, voyage: null, timeKey: extra.time, running: false,
+    Q, qstate, autoKey, view: null, target: null, turn: null, voyage: null, timeKey: extra.time, running: false,
     frameTimes: [], lastCheck: 0, wide: null, fps: 0, saveAt: 0, hudAt: 0, waterNoteAt: -1e9, flyH: 0, speedFx: 0, tapRing: null, rendered: false,
   };
 
@@ -232,8 +236,7 @@ async function boot() {
 
   await step('그림자와 빛을 맞추는 중');
   resize();
-  post.current = createPost(renderer, scene, camera, Q);
-  post.current.bloom.enabled = qstate.bloom;
+  post.current = createPost(renderer, scene, camera, qstate);
   resize();
   applyTime(G.timeKey);
   addEventListener('resize', resize);
@@ -301,8 +304,8 @@ function tick(dt, t) {
   const [X, Z] = toRender(player.x, player.y);
   holePoint.set(X, player.h + (player.mode === 'walk' || player.mode === 'bike' ? 12 : 7), Z);
   G.buildings.setHole(camera.position, holePoint, HOLE[player.mode] || 62);
-  G.props.update(camera.position, QUALITY[propsKey(G.qstate)].props, focusPoint.set(cr.target[0], cr.target[1], cr.target[2]));
-  G.lighting.follow([X, player.h, Z], G.flyH, G.cam.dist, G.Q.shadow);
+  G.props.update(camera.position, QUALITY[G.qstate.props].props, focusPoint.set(cr.target[0], cr.target[1], cr.target[2]));
+  G.lighting.follow([X, player.h, Z], G.flyH, G.cam.dist, G.qstate.shadow);
   G.sky.update(camera.position, t);
   G.water.update(t);
   updateTapRing(dt);
@@ -470,25 +473,36 @@ function applyTime(key) {
 function cycleTime() { if (!live()) return; applyTime(TIME_ORDER[(TIME_ORDER.indexOf(G.timeKey) + 1) % TIME_ORDER.length]); save(); }
 
 function qualityLabel() { return G.qstate.mode === 'auto' ? '자동' : QUALITY[G.qstate.mode].label; }
-function propsKey(q) { return q.mode === 'auto' ? (q.bloom ? 'high' : 'low') : q.mode; }
+
+// Apply a new quality state (render/quality.js qualityState / nextQuality), rebuilding only what changed. The tree,
+// lamp and terrain budgets follow G.qstate.props (props.update reads it every frame); the ground texture sizes and
+// the facade textures stay as they were at boot.
+function applyQuality(next) {
+  const prev = G.qstate;
+  if (next === prev) return;
+  G.qstate = next; G.Q = QUALITY[next.key];
+  const rebuild = next.msaa !== prev.msaa;
+  if (rebuild) {   // the render target's multisampling is fixed at creation: a new post chain, the old one freed
+    G.post.current.dispose();
+    G.post.current = createPost(G.renderer, G.scene, G.camera, next);
+    G.post.current.setTime(TIMES[G.timeKey]);
+  }
+  G.post.current.bloom.enabled = next.bloom;
+  if ((next.shadow > 0) !== (prev.shadow > 0)) {
+    G.renderer.shadowMap.enabled = G.lighting.sun.castShadow = next.shadow > 0;
+    if (!(next.shadow > 0)) { G.lighting.sun.shadow.map?.dispose(); G.lighting.sun.shadow.map = null; }
+  }   // a new shadow map size is applied by lighting.follow
+  if (next.props !== prev.props) G.terrain.setLod(QUALITY[next.props].terrainLod);
+  if (rebuild || next.scale !== prev.scale || next.key !== prev.key) resize();
+}
 
 function cycleQuality() {
   if (!live()) return;
   const mode = QUALITY_ORDER[(QUALITY_ORDER.indexOf(G.qstate.mode) + 1) % QUALITY_ORDER.length];
-  const key = mode === 'auto' ? 'high' : mode, Q = QUALITY[key];
-  const msaaChanged = Q.msaa !== G.Q.msaa;
-  G.Q = Q;
-  G.qstate = { mode, scale: 1, bloom: Q.bloom };
   G.extra.quality = mode;
-  if (msaaChanged) {   // the render target's multisampling is fixed at creation: rebuild the post chain
-    G.post.current.composer.dispose?.();
-    G.post.current = createPost(G.renderer, G.scene, G.camera, Q);
-    G.post.current.setTime(TIMES[G.timeKey]);
-  }
-  G.post.current.bloom.enabled = Q.bloom;
-  resize();
+  applyQuality(qualityState(mode, G.autoKey));
   hud.setQuality(qualityLabel());
-  hud.toast('화질을 바꿨어요. 나무 수와 땅 그림 해상도는 다시 불러오면 바뀌어요.');
+  hud.toast('화질을 바꿨어요. 땅 그림 해상도는 다시 불러오면 바뀌어요.');
   save();
 }
 
@@ -504,7 +518,8 @@ function resize() {
   if (wide !== G.wide) { G.wide = wide; hud.openCredit(wide); }
 }
 
-// automatic quality: on the median frame time of the last 2 s, resolution first, then bloom (render/quality.js)
+// automatic quality: on the median frame time of the last 2 s, resolution first, then bloom, MSAA, shadows and the
+// geometry budget (render/quality.js nextQuality)
 function autoQuality() {
   const times = G.frameTimes; G.frameTimes = [];
   if (!times.length) return;
@@ -512,12 +527,7 @@ function autoQuality() {
   G.fps = Math.round(1000 / med);
   hud.setFps(G.fps);
   if (document.hidden || times.length < 2) return;   // a very slow device still steps down every few seconds
-  const next = nextQuality(G.qstate, med);
-  if (next === G.qstate) return;
-  const rescale = next.scale !== G.qstate.scale;
-  G.qstate = next;
-  if (G.post.current.bloom.enabled !== next.bloom) G.post.current.bloom.enabled = next.bloom;
-  if (rescale) resize();
+  applyQuality(nextQuality(G.qstate, med));
 }
 
 // ---------- input

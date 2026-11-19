@@ -4,12 +4,12 @@ import { BOUNDS, M_LON, M_LAT, VEX, toRender } from '../frame.js';
 const CHUNK = 2000;          // metres per chunk side
 const SKIRT = 20;            // metres the skirts hang below every edge
 const LOD_SPACING = [25, 50, 100];
-const LOD_DIST = [3000, 8000];
+const LOD_DIST = [3000, 8000];   // default (high); render/quality.js QUALITY[*].terrainLod sets one per quality
 const DROP_DIST = 14000;
 const W = (BOUNDS[2] - BOUNDS[0]) * M_LON;
 const H = (BOUNDS[3] - BOUNDS[1]) * M_LAT;
 
-export function lodFor(dist) { return dist < LOD_DIST[0] ? 0 : dist < LOD_DIST[1] ? 1 : 2; }
+export function lodFor(dist, lodDist = LOD_DIST) { return dist < lodDist[0] ? 0 : dist < lodDist[1] ? 1 : 2; }
 
 // Geometry for one chunk at one LOD. Positions are relative to the chunk's north-west corner
 // (render space orientation), normals come from the height field so seams match across LODs.
@@ -61,8 +61,8 @@ export function buildChunkGeometry(field, x0, y0, sx, sy, spacing) {
 }
 
 export class Terrain {
-  constructor(scene, field, material) {
-    this.scene = scene; this.field = field; this.material = material;
+  constructor(scene, field, material, lodDist = LOD_DIST) {
+    this.scene = scene; this.field = field; this.material = material; this.lodDist = lodDist;
     this.chunks = [];
     const ex = field.extentX, ey = field.extentY;
     this.cols = Math.ceil(ex / CHUNK); this.rows = Math.ceil(ey / CHUNK);
@@ -72,6 +72,9 @@ export class Terrain {
       this.chunks.push({ x0, y0, sx, sy, cx, cz, lod: -1, mesh: null });
     }
   }
+
+  // LOD switch distances [25->50 m, 50->100 m]; chunks rebuild on the next updates (nearest first)
+  setLod(lodDist) { if (lodDist && (lodDist[0] !== this.lodDist[0] || lodDist[1] !== this.lodDist[1])) this.lodDist = [lodDist[0], lodDist[1]]; }
 
   // cameraRenderPos: {x, z} (a THREE.Vector3 works). `budget` caps geometry builds per call.
   update(cameraRenderPos, budget = 8) {
@@ -83,7 +86,7 @@ export class Terrain {
         if (ch.mesh) this._drop(ch);
         continue;
       }
-      const lod = lodFor(d);
+      const lod = lodFor(d, this.lodDist);
       if (lod !== ch.lod) todo.push({ ch, lod, d });
     }
     todo.sort((a, b) => a.d - b.d);

@@ -9,6 +9,7 @@ const MID_R = 3000;
 const REPAINT = 0.3;
 const FINE_PX_PER_M = 1.4;
 const EDGE = 0.14;
+const NEAR_OFF = 260;   // m above the ground: above this the near level is faded out, so it is not repainted either
 
 // Near-level radius by travel mode; null = no near level (plane).
 export function nearRadius(mode) {
@@ -16,9 +17,11 @@ export function nearRadius(mode) {
   return mode === 'car' || mode === 'supercar' || mode === 'slowplane' || mode === 'boat' ? 1100 : 650;
 }
 
-// cam: {x, y, mode}. Returns the rectangle a level should cover: centre snapped to 25 m, radius R (null = off).
+// cam: {x, y, mode, fly?} (fly: metres above the ground). Returns the rectangle a level should cover: centre snapped
+// to 25 m, radius R (null = off: the near level for the jet, and for anything flying higher than NEAR_OFF).
 export function levelFor(name, cam) {
   if (name === 'base') return { cx: W / 2, cy: H / 2, R: Math.max(W, H) / 2, wx: W, wy: H };
+  if (name === 'near' && cam.fly > NEAR_OFF) return null;
   const R = name === 'mid' ? MID_R : nearRadius(cam.mode);
   if (R === null) return null;
   return { cx: Math.round(cam.x / SNAP) * SNAP, cy: Math.round(cam.y / SNAP) * SNAP, R, wx: 2 * R, wy: 2 * R };
@@ -30,7 +33,8 @@ export function needsRepaint(level, cx, cy) {
   return Math.hypot(cx - level.cx, cy - level.cy) > REPAINT * level.R;
 }
 
-const sizeFor = (name, low) => name === 'base' ? (low ? 2048 : 4096) : name === 'mid' ? 2048 : (low ? 1024 : 2048);
+// texture size per level; sizes = QUALITY[*].ground {base, near} (fixed at boot), the mid level is always 2048
+const sizeFor = (name, sizes) => name === 'mid' ? 2048 : sizes[name];
 const smoothstep = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 
 const FRAG_HEAD = `uniform sampler2D uBase, uMid, uNear, uDetail;
@@ -48,8 +52,9 @@ const FRAG_BODY = `
   diffuseColor.rgb = gcol * mix(.86, 1.1, texture2D(uDetail, vMapUv * 380.0).r) * mix(.92, 1.05, texture2D(uDetail, vMapUv * 41.0).r);`;
 
 export class Ground {
-  constructor(renderer, field, features, buildings, { low = false } = {}) {
+  constructor(renderer, field, features, buildings, { low = false, sizes } = {}) {
     this.renderer = renderer; this.field = field; this.low = low;
+    this.sizes = sizes || (low ? { base: 2048, near: 1024 } : { base: 4096, near: 2048 });
     this.features = features; this.buildings = buildings;
     const aniso = renderer.capabilities.getMaxAnisotropy();
     const blank = () => { const t = new THREE.Texture(); t.flipY = false; t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = aniso; t.generateMipmaps = true; t.minFilter = THREE.LinearMipmapLinearFilter; t.magFilter = THREE.LinearFilter; return t; };
@@ -112,7 +117,7 @@ export class Ground {
   }
 
   _request(L, c) {
-    const size = sizeFor(L.name, this.low);
+    const size = sizeFor(L.name, this.sizes);
     const fine = size / c.wx > FINE_PX_PER_M;
     const x0 = c.cx - c.wx / 2, y0 = c.cy - c.wy / 2;
     L.pending = { cx: c.cx, cy: c.cy, R: c.R, x0, y0, wx: c.wx, wy: c.wy };
@@ -165,7 +170,7 @@ export class Ground {
   update(camTarget, mode, flyHeight = 0) {
     const now = typeof performance !== 'undefined' ? performance.now() : this.t + 16;
     const dt = Math.min(0.1, Math.max(0, (now - this.t) / 1000)); this.t = now;
-    const cam = { x: camTarget[0], y: camTarget[1], mode };
+    const cam = { x: camTarget[0], y: camTarget[1], mode, fly: flyHeight };
     const L = this.levels;
 
     // base once, then mid, then near

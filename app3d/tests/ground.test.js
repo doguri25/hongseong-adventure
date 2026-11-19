@@ -31,3 +31,10 @@ test('repaint when the target drifts more than 0.3 R', () => {
   assert.equal(needsRepaint(lv, 1000 + 150, 1000 + 150), true);
   assert.equal(needsRepaint(null, 0, 0), true);
 });
+
+test('the near level is off (no repaint) while flying above 260 m', () => {
+  assert.equal(levelFor('near', { x: 0, y: 0, mode: 'slowplane', fly: 270 }), null);
+  assert.equal(levelFor('near', { x: 0, y: 0, mode: 'slowplane', fly: 250 }).R, 1100);
+  assert.equal(levelFor('near', { x: 0, y: 0, mode: 'walk' }).R, 650);   // no fly given: on the ground
+  assert.equal(levelFor('mid', { x: 0, y: 0, mode: 'slowplane', fly: 600 }).R, 3000);
+});
