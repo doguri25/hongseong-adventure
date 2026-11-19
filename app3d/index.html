@@ -117,6 +117,38 @@
     </section>
   </div>
 
+  <!-- 홍성군 전체 지도 (ui/county-map.js, ui/search.js): one dialog for the controller's map, search and nearby kinds
+       (P23) with the views 지도 / 장소 찾기 / 주변 찾기; data-view on the panel says which. The side of the 지도 view and
+       the other two views are filled by the modules -->
+  <div class="scrim map-scrim" id="map-dialog" hidden>
+    <section class="dialog county" id="map-panel" role="dialog" aria-modal="true" aria-labelledby="map-title" data-view="map">
+      <header>
+        <div class="titles"><h2 id="map-title">홍성군 전체 지도</h2><p class="blurb" id="map-where">현재 위치 · 홍성군</p></div>
+        <div class="tabs map-tabs" role="tablist" aria-label="지도 보기" id="map-tabs">
+          <button type="button" role="tab" id="mtab-map" aria-controls="mview-map" aria-selected="true">지도</button>
+          <button type="button" role="tab" id="mtab-search" aria-controls="mview-search" aria-selected="false" tabindex="-1">장소 찾기</button>
+          <button type="button" role="tab" id="mtab-nearby" aria-controls="mview-nearby" aria-selected="false" tabindex="-1">주변 찾기</button>
+        </div>
+        <button class="close" id="map-close" type="button" aria-label="닫기" title="닫기 (Esc)">×</button>
+      </header>
+      <div class="mview map-view" id="mview-map" role="tabpanel" aria-labelledby="mtab-map">
+        <div class="map-stage">
+          <canvas id="county-canvas" tabindex="0" role="img" aria-label="홍성군 전체 지도. 확대하거나 끌어서 둘러볼 수 있어요."></canvas>
+          <div class="map-tools chip" role="group" aria-label="전체 지도 확대와 축소">
+            <button type="button" id="map-out" aria-label="전체 지도 축소">−</button>
+            <span id="map-zoom">100%</span>
+            <button type="button" id="map-in" aria-label="전체 지도 확대">+</button>
+            <button type="button" id="map-reset">전체 보기</button>
+          </div>
+          <p class="map-note chip">주황색 점이 나예요. 두 손가락으로 확대하고 지도를 끌어 보세요.</p>
+        </div>
+        <div class="map-side" id="map-side"></div>
+      </div>
+      <div class="mview search-view" id="mview-search" role="tabpanel" aria-labelledby="mtab-search" hidden></div>
+      <div class="mview nearby-view" id="mview-nearby" role="tabpanel" aria-labelledby="mtab-nearby" hidden></div>
+    </section>
+  </div>
+
   <!-- the title and menu (pokju #menu, ui/menu.js): opens at boot as the title and from the home button; the world
        keeps rendering behind it. Panes are filled by menu.js except 설정, whose rows are here -->
   <div class="scrim menu-scrim" id="menu" hidden>

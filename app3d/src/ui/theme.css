@@ -473,6 +473,7 @@ html.reduce-motion .mission .dots i.active { animation: none; }
 .mis-card h4 { margin: 0; font-family: var(--display); font-weight: 400; font-size: 20px; line-height: 1.2; word-break: keep-all; overflow-wrap: anywhere; }
 .mis-card p { font-size: 15px; line-height: 1.5; color: var(--chip-fg); word-break: keep-all; }
 .mis-card .btn { margin-top: 6px; }
+.mis-tools { display: flex; flex-wrap: wrap; gap: 8px; }   /* 장소 찾기 (P23) */
 
 /* 탈것: six cards with the rendered model (ui/thumbs.js) */
 .rides { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
@@ -571,8 +572,132 @@ html.reduce-motion .mission .dots i.active { animation: none; }
   #journal-note { min-height: 0; height: 80px; }
 }
 
+/* ---- 홍성군 전체 지도 (ui/county-map.js, ui/search.js; P23): the title, the view tabs 지도 / 장소 찾기 / 주변 찾기 and ×
+   in one header row (the tabs under the title on a phone held upright). 지도: the county canvas with its zoom chip and
+   the 2D note, beside (on a phone held upright, above) the scrolling side: 지역 목록, the district's places, the legend,
+   the story cards. 장소 찾기 and 주변 찾기 scroll as one column. The canvas takes every touch (pan, pinch); the lists
+   scroll vertically ---- */
+.dialog.county { width: min(1060px, 100%); height: min(720px, 100%); }
+.dialog.county header { flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 10px 10px 10px 18px; }
+.dialog.county header .titles { flex: 1 1 180px; }
+.dialog.county h2 { margin: 0; }
+.dialog.county .blurb { margin-top: 2px; }
+.map-tabs { flex: 0 1 380px; }
+.map-tabs [role="tab"] { font-size: 15px; }
+.mview { flex: 1 1 auto; min-height: 0; }
+.map-view { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(300px, 1fr); grid-template-rows: minmax(0, 1fr); }
+.map-stage { position: relative; min-width: 0; min-height: 0; overflow: hidden; background: #24435a; border-right: 1px solid var(--line); -webkit-user-select: none; user-select: none; }   /* a drag pans, never selects */
+#county-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; outline: none; }
+#county-canvas:active { cursor: grabbing; }
+#county-canvas:focus-visible { box-shadow: inset 0 0 0 3px var(--accent); }
+.map-tools { position: absolute; top: 10px; left: 10px; display: flex; align-items: center; gap: 2px; padding: 3px; border-radius: 26px; background-color: var(--chip-strong); }
+.map-tools button { width: 44px; height: 44px; padding: 0; border: 0; border-radius: 50%; background: transparent; display: grid; place-items: center; font-size: 24px; font-weight: 700; line-height: 1; color: var(--cyan); }
+.map-tools button:hover:not(:disabled) { background: var(--track); }
+.map-tools #map-reset { width: auto; padding: 0 14px; border-radius: 22px; font-size: 15px; color: #fff; }
+#map-zoom { min-width: 50px; text-align: center; font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.map-note { position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%); width: max-content; max-width: calc(100% - 20px); margin: 0; padding: 6px 12px; font-size: 15px; line-height: 1.45; text-align: center; word-break: keep-all; pointer-events: none; }
+.map-note.away { opacity: 0; transition: opacity .4s; }
+html.reduce-motion .map-note.away { transition: none; }
+.map-side, .search-view, .nearby-view { min-width: 0; min-height: 0; overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y; -webkit-overflow-scrolling: touch; display: flex; flex-direction: column; gap: 10px; }
+.map-side { padding: 12px 16px 16px; }
+.search-view, .nearby-view { padding: 14px 18px 18px; }
+.map-side > *, .search-view > *, .nearby-view > * { flex: none; }
+.map-side h3 { margin: 2px 0 0; font-size: 15px; font-weight: 700; color: var(--chip-sub); }
+.mview .lead { margin: 0; font-size: 15px; line-height: 1.55; color: var(--chip-fg); word-break: keep-all; }
+.districts { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 6px; }
+.districts button { min-height: 44px; padding: 4px 8px; border: 1px solid var(--line); border-radius: 12px; background: rgba(255, 255, 255, .05); font-size: 15px; font-weight: 700; color: var(--chip-fg); white-space: nowrap; }
+.districts button:hover { background: var(--track); }
+.districts button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+.map-side .results-head { color: #fff; font-family: var(--display); font-weight: 400; font-size: 19px; }
+.county-results, .place-list { display: flex; flex-direction: column; gap: 6px; }
+.county-place { display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 6px 12px; border: 1px solid var(--line); border-radius: 14px; background: rgba(255, 255, 255, .05); text-align: left; }
+.county-place:hover { border-color: var(--cyan); background: rgba(34, 225, 255, .1); }
+.cp-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.cp-text strong { font-size: 16px; line-height: 1.3; color: #fff; word-break: keep-all; overflow-wrap: anywhere; }
+.cp-text small { font-size: 13px; font-weight: 700; line-height: 1.35; color: var(--chip-sub); }
+.cp-go { flex: none; font-size: 18px; color: var(--cyan); }
+/* the 2D place pictogram in its colour (dist/place-icons.js) */
+.psym { flex: none; width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: var(--symbol-color, var(--accent)); box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, .6); }
+.psym svg { width: 20px; height: 20px; fill: none; stroke: #fff; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.map-more { border: 1px solid var(--line); border-radius: 14px; background: rgba(255, 255, 255, .04); }
+.map-more summary { list-style: none; min-height: 44px; display: flex; align-items: center; gap: 8px; padding: 6px 14px; font-size: 15px; font-weight: 700; color: var(--cyan); cursor: pointer; }
+.map-more summary::-webkit-details-marker { display: none; }
+.map-more summary::after { content: ''; margin-left: auto; width: 8px; height: 8px; border: solid currentColor; border-width: 0 2px 2px 0; transform: translateY(-2px) rotate(45deg); }
+.map-more[open] summary::after { transform: translateY(2px) rotate(-135deg); }
+.legend-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px 10px; padding: 2px 14px 12px; }
+.legend-item { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: 14px; font-weight: 700; line-height: 1.3; word-break: keep-all; }
+.legend-item .psym { width: 26px; height: 26px; }
+.legend-item .psym svg { width: 16px; height: 16px; }
+.story-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 10px; padding: 2px 12px 12px; }
+.story-card { display: flex; flex-direction: column; min-width: 0; border: 1px solid var(--line); border-radius: 14px; overflow: hidden; background: rgba(255, 255, 255, .05); }
+.story-card img { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; background: #161a33; }
+.story-body { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 8px 12px 12px; }
+.story-body h4 { margin: 0; font-family: var(--display); font-weight: 400; font-size: 18px; line-height: 1.25; word-break: keep-all; overflow-wrap: anywhere; }
+.story-body p { margin: 0; font-size: 15px; line-height: 1.5; color: var(--chip-sub); word-break: keep-all; overflow-wrap: anywhere; }
+.story-body .btn { margin-top: 4px; }
+.row-tag { font-size: 13px; font-weight: 700; line-height: 1.35; color: var(--chip-sub); word-break: keep-all; overflow-wrap: anywhere; }
+.row-tag[data-county="other"] { color: var(--warn); }
+#map-back { align-self: flex-start; margin-top: 4px; }
+/* 장소 찾기: the combobox and its results inline under it */
+.search-box { display: flex; flex-direction: column; gap: 8px; }
+.search-wrap { position: relative; display: flex; }
+.search-input, .near-search { width: 100%; min-height: 52px; padding: 0 52px 0 16px; border: 2px solid var(--line); border-radius: 16px; background: rgba(255, 255, 255, .06); color: #fff; font: 700 18px/1.3 var(--body); -webkit-user-select: text; user-select: text; -webkit-appearance: none; appearance: none; }
+.search-input::placeholder, .near-search::placeholder { color: var(--chip-sub); opacity: 1; font-weight: 400; }
+.search-input:focus-visible, .near-search:focus-visible { outline: 3px solid var(--accent); outline-offset: 1px; }
+.search-input::-webkit-search-cancel-button, .near-search::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; display: none; }
+.search-clear { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); width: 44px; height: 44px; padding: 0; border: 0; border-radius: 50%; background: transparent; font-size: 26px; line-height: 1; color: var(--chip-sub); }
+.search-clear:hover { background: var(--track); color: #fff; }
+.search-results { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.search-results [role="option"] { display: flex; align-items: center; gap: 12px; min-height: 58px; padding: 8px 12px; border: 2px solid var(--line); border-radius: 14px; background: rgba(255, 255, 255, .05); cursor: pointer; }
+.search-results [role="option"]:hover, .search-results [role="option"][aria-selected="true"] { border-color: var(--cyan); background: rgba(34, 225, 255, .12); }
+.opt-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.opt-text strong { font-size: 17px; line-height: 1.3; color: #fff; word-break: keep-all; overflow-wrap: anywhere; }
+.opt-text small { font-size: 15px; line-height: 1.4; color: var(--chip-sub); word-break: keep-all; }
+.search-empty, .empty-note { margin: 0; padding: 14px 12px; text-align: center; font-size: 15px; line-height: 1.55; color: var(--chip-sub); border: 2px dashed var(--line); border-radius: 14px; }
+/* 주변 찾기: the 2D filters, the name filter and the rows (pictogram, kind · area, name, address and distance, 찾아가기) */
+.near-title { margin: 0; font-family: var(--display); font-weight: 400; font-size: 21px; line-height: 1.25; color: #fff; }
+.near-filters { display: flex; flex-wrap: wrap; gap: 6px; }
+.near-filters button { min-height: 44px; padding: 0 14px; border: 1px solid var(--line); border-radius: 22px; background: rgba(255, 255, 255, .05); font-size: 15px; font-weight: 700; color: var(--chip-sub); white-space: nowrap; }
+.near-filters button:hover { color: #fff; }
+.near-filters button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+.near-search { min-height: 48px; padding-right: 16px; font-size: 16px; }
+.place-row { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; gap: 6px 12px; align-items: center; padding: 10px 12px; border: 1px solid var(--line); border-radius: 16px; background: rgba(255, 255, 255, .05); }
+.row-text { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.place-row h4 { margin: 0; font-size: 17px; font-weight: 700; line-height: 1.3; color: #fff; word-break: keep-all; overflow-wrap: anywhere; }
+.place-row .found { color: var(--ok); }
+.place-row p { margin: 0; font-size: 15px; line-height: 1.45; color: var(--chip-sub); word-break: keep-all; overflow-wrap: anywhere; }
+.place-row .go { padding: 8px 14px; white-space: nowrap; }
+
+@media (max-width: 720px) {
+  .dialog.county { width: 100%; height: 100%; }
+  .dialog.county header { padding: 8px 6px 8px 14px; gap: 6px 8px; }
+  .map-tabs { order: 3; flex: 1 1 100%; }
+  .map-view { grid-template-columns: minmax(0, 1fr); grid-template-rows: clamp(220px, 46%, 420px) minmax(0, 1fr); }
+  .map-stage { border-right: 0; border-bottom: 1px solid var(--line); }
+  .map-side { padding: 10px 12px 14px; }
+  .search-view, .nearby-view { padding: 12px 12px 16px; }
+  .districts { grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); }
+}
+@media (max-width: 480px) {
+  .place-row { grid-template-columns: 34px minmax(0, 1fr); }
+  .place-row .go { grid-column: 2; justify-self: start; }
+}
+@media (max-height: 460px) {
+  .dialog.county { width: 100%; height: 100%; }
+  .dialog.county header { flex-wrap: nowrap; padding: 4px 6px 4px 14px; gap: 8px; }
+  .dialog.county header .titles { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 10px; min-width: 0; }
+  .dialog.county h2 { font-size: 20px; white-space: nowrap; }
+  .dialog.county .blurb { margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .map-tabs { flex: 0 1 340px; }
+  .map-view { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); }
+  .map-tools { top: 6px; left: 6px; }
+  .map-note { bottom: 6px; padding: 4px 10px; }
+  .map-side, .search-view, .nearby-view { padding: 8px 12px 12px; gap: 8px; }
+  .near-title { font-size: 19px; }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .toast, #toast, #loading-bar i, .gauge > i { transition: none; }
+  .toast, #toast, #loading-bar i, .gauge > i, .map-note.away { transition: none; }
   .notice.show, .notice.docked.show { animation-name: notice-still; }
   .mission .dots i.active { animation: none; }
 }

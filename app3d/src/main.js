@@ -1,8 +1,8 @@
 // Hongseong Adventure 3D: boots the whole county world from the game's own data and runs the game's movement and
-// arrival rules under the pokju-style HUD (ui/hud.js, minimap.js, gauge.js) and title menu (ui/menu.js). Boot: fetch
-// data -> height field (+ water carving) -> world layers -> road services -> actors, places, NPCs -> restore the
-// session -> the title menu (paused) -> loop (simulate -> camera -> actors/world -> ground, props, buildings -> post
-// render -> HUD -> auto quality every 2 s -> save every 2 s while moving).
+// arrival rules under the pokju-style HUD (ui/hud.js, minimap.js, gauge.js), title menu (ui/menu.js) and county map
+// (ui/county-map.js, search.js). Boot: fetch data -> height field (+ water carving) -> world layers -> road services ->
+// actors, places, NPCs -> restore the session -> the title menu (paused) -> loop (simulate -> camera -> actors/world ->
+// ground, props, buildings -> post render -> HUD -> auto quality every 2 s -> save every 2 s while moving).
 import * as THREE from 'three';
 import { BOUNDS, M_LON, M_LAT, project, unproject, toRender, fromRender } from './frame.js';
 import { decodeFeatures, decodeBuildings, terrariumHeight } from './data/decode.js';
@@ -34,6 +34,7 @@ import { createController } from './game/controller.js';
 import { missionView } from './game/missions.js';
 import { createPlaceDialog, createNpcDialog } from './ui/place-dialog.js';
 import { createMenu } from './ui/menu.js';
+import { createMapDialog, MAP_KINDS } from './ui/county-map.js';
 import { createThumbs } from './ui/thumbs.js';
 import { writeSave } from './game/files.js';
 import { PLACES } from '#game/content.js';
@@ -85,8 +86,7 @@ const hud = createHud(document, {
   onTilt: (d) => { if (live()) G.view.pitchAdj = clamp(G.view.pitchAdj + d, -70, 70); },
   onTurn: (side) => { if (live() && isCar(G.player.mode)) G.turn = side; },
   onTalk: () => talk(), onFerry: () => boardFerry(), onVisit: () => visit(),
-  // the county map (Task 7) has no renderer yet: the controller drops it without pausing
-  onMap: () => { if (live() && !G.ctl.paused()) G.ctl.open('map'); },
+  onMap: () => { if (live() && !G.ctl.paused()) G.ctl.open('map'); },   // the minimap: 홍성군 전체 지도
   onHome: () => { if (live() && !G.ctl.paused()) G.ctl.open('menu'); },
   onJournal: () => { if (live() && !G.ctl.paused()) G.ctl.open('menu', { tab: 'journal' }); },   // the discovery chip
   onGuide: (id) => { if (live() && id) G.ctl.goTo(id); },
@@ -259,6 +259,11 @@ async function boot() {
     changed: () => { refreshStats(); refreshMission(); save(); },
     onClose: () => ctl.close(),
   });
+  // 홍성군 전체 지도 with 장소 찾기 and 주변 찾기 (P23): the controller's map, search and nearby kinds
+  G.mapDialog = createMapDialog(document, {
+    root: $('app'), returnFocus: canvas, places, districts: world.districts, image: minimap.image || MINIMAP_IMAGE,
+    getState: () => state, player: () => player, where: whereLabel, reachable, ctl, onClose: () => ctl.close(),
+  });
 
   // restore the travel mode: the shared travelSpeed wins over a stale 3D-only one (falls back to walking when, say, a
   // car has no road nearby)
@@ -407,7 +412,7 @@ function onEvent(e) {
 function openPlace(place, physical) { G.ctl.open('place', { place, physical }); }
 
 // The effects the game controller (game/controller.js) asks for; its JSDoc lists the hooks. Dialog kinds without a
-// renderer yet (map, search, nearby, help, ferry) return false and are dropped without pausing.
+// renderer yet (help, ferry) return false and are dropped without pausing.
 function controllerServices() {
   return {
     stopPlayer: () => { clearTarget(); Object.assign(G.player, { speed: 0, vx: 0, vy: 0, turnRate: 0 }); if (G.player.car) haltCar(G.player.car); G.turn = null; },
@@ -416,10 +421,11 @@ function controllerServices() {
       if (kind === 'place') rewardNotice(data.place, G.dialog.open(data.place, { physical: !!data.physical }));
       else if (kind === 'npc') G.npcDialog.open(data.npc);
       else if (kind === 'menu') G.menu.open(data);
+      else if (MAP_KINDS.includes(kind)) G.mapDialog.open(kind, data);
       else return false;
       return true;
     },
-    hideDialog: (kind) => { if (kind === 'place') G.dialog.hide(); else if (kind === 'npc') G.npcDialog.close(); else if (kind === 'menu') G.menu.hide(); },
+    hideDialog: (kind) => { if (kind === 'place') G.dialog.hide(); else if (kind === 'npc') G.npcDialog.close(); else if (kind === 'menu') G.menu.hide(); else if (MAP_KINDS.includes(kind)) G.mapDialog.hide(); },
     onPause: (paused) => {
       if (paused) return;
       G.last = 0; G.frameTimes = []; G.lastCheck = performance.now();   // the slow paused frames must not look like a slow device
@@ -734,10 +740,14 @@ function refreshStats() {
   hud.setStats({ coins: G.state.coins, found: G.state.discovered.filter((id) => ids.has(id)).length, total: G.places.length });
 }
 
+// the player's district (the where chip and the county map's 현재 위치)
+function whereLabel() {
+  const p = G.player, d = districtAt(unproject([p.x, p.y]), G.world.districts);
+  return d ? `${d.county} ${d.name}` : '천수만 · 바다';
+}
 function refreshHud() {
   const p = G.player;
-  const d = districtAt(unproject([p.x, p.y]), G.world.districts);
-  hud.setWhere(d ? `${d.county} ${d.name}` : '천수만 · 바다');
+  hud.setWhere(whereLabel());
   hud.setTurnHint(isCar(p.mode) ? p.hint : null);
   const npc = G.voyage ? null : nearNpc();
   hud.setActions({ npc, ferry: ferryOption(), car: isCar(p.mode) && !!p.car && !p.pending, visit: visitable() });

@@ -1,7 +1,7 @@
 // The title and menu (pokju #menu): the game name, the coins (#wallet), the primary button (이어하기, or 탐방 시작 on a
-// fresh save) and five tabs: 탐방 (today's three missions), 탈것 (six vehicles with rendered pictures, ui/thumbs.js),
-// 꾸미기 (the three characters and the 2D shop, ui/shop.js), 수첩 (the discovery journal and the save files,
-// ui/journal.js) and 설정.
+// fresh save) and five tabs: 탐방 (today's three missions and 장소 찾기, which opens the county map's search view),
+// 탈것 (six vehicles with rendered pictures, ui/thumbs.js), 꾸미기 (the three characters and the 2D shop, ui/shop.js),
+// 수첩 (the discovery journal and the save files, ui/journal.js) and 설정.
 // It is the game controller's 'menu' dialog: opening it pauses the game (the world keeps rendering behind at <= 10 fps)
 // and every way out (the primary button, Escape) goes through ctx.onClose -> ctl.close(). The rules stay in the pure
 // modules (game/missions.js missionCards, shop.js, dist/core.js purchase); main.js applies every effect (ctx below).
@@ -102,6 +102,8 @@ export function createMenu(doc, ctx) {
           el('button', { type: 'button', className: 'btn' + (c.status === 'done' ? '' : ' btn-grad'), disabled: c.status === 'done', dataset: { mission: c.id }, onclick: () => start(c.id) }, c.action))))),
       el('p', { className: 'note' }, '미션 도착은 직접 이동했을 때 기록해요. 수첩에서 이야기를 다시 읽는 것은 도착으로 세지 않아요. 미션별 보너스는 하루 한 번이에요.'),
       v.allDone ? el('button', { type: 'button', className: 'btn btn-grad', id: 'new-missions', dataset: { renew: '1' }, onclick: renew }, '새 미션 받기') : null,
+      // P23: 장소 찾기 opens the county map at its search view (closing the menu without a resume in between)
+      el('div', { className: 'mis-tools' }, el('button', { type: 'button', className: 'btn', id: 'open-search', dataset: { search: '1' }, onclick: () => { ctx.ctl.sound.play('click'); ctx.ctl.open('search'); } }, '장소 찾기')),
     ));
   }
   function start(id) {

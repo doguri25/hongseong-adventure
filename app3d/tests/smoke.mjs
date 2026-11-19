@@ -17,6 +17,10 @@
 // correct sound), the reward (this visit's coins and points, the coin sound), Tab kept inside, and 계속 탐방하기 back
 // into play with the focus on the map; each view's sizes, fonts and layout (nothing overlapping, all inside the panel).
 // Desktop and phone also check the photo / terrain / illustration labels, a school's sources, Escape and 발견 수첩 보기.
+// 홍성군 전체 지도 is checked at all four viewports (checkMap): opened from the minimap, zoomed (buttons, wheel or two
+// fingers), dragged, a district, the legend and story cards, pin taps, 장소 찾기 (ㅎㅅㅇ, 홍성역, the arrows, Escape, the
+// IME guard, a choice that starts the route), 주변 찾기 (filters, the name filter), the menu's 장소 찾기; sizes, fonts and
+// layout in each view.
 // Screenshots go to OUT (SMOKE_OUT, default a folder in the system temp directory; SMOKE_ONLY=tablet,phone,landscape
 // runs only those passes).
 import http from 'node:http';
@@ -27,6 +31,7 @@ import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { PLACES } from '#game/content.js';
 import { STAMPS, JOURNALS } from '#game/wardrobe.js';
+import { symbolKey } from '#game/place-icons.js';
 import { freshState } from '#game/core.js';
 
 const require = createRequire(import.meta.url);
@@ -87,11 +92,13 @@ async function dragStick(page, label) {
 const TEXT_15 = ['#where', '.stats', '.hint', '.credit .lead', '.credit summary', '#toast', '.notice span', '#turn-hint', '.act', '#mission-detail', '#npc-body', '#place-body', '.dialog .blurb', '.dialog .meta', '.dialog .reward', '.quiz .feedback', '#loading-step', '#lost p',
   '.menu .lead', '.menu .note', '.menu .status', '.mis-card p', '.card .desc', '.product p', '.reset-confirm p', '.tally', '.wallet',
   '#found-btn', '.tally dt', '.tally dd', '.tally small', '.j-desc', '.j-empty', '.j-note label', '#journal-note',
-  '.place-hero figcaption', '#place-caption', '.speech', '.speech small', '.quiz .options button', '.quiz .q-text', '.quiz .lead', '.rv p', '.rv .num small', '.src p', '.src .facts span'];
+  '.place-hero figcaption', '#place-caption', '.speech', '.speech small', '.quiz .options button', '.quiz .q-text', '.quiz .lead', '.rv p', '.rv .num small', '.src p', '.src .facts span',
+  '.map-note', '.mview .lead', '.cp-text strong', '.story-body p', '.search-input', '.opt-text strong', '.opt-text small', '.search-empty', '.empty-note', '.near-title', '.near-search', '.place-row h4', '.place-row p'];
 const LABEL_MIN = [['.travel button span', 13], ['.travel button small', 12], ['.dialog .tag', 13], ['.skill .lbl', 13], ['.skill small', 12], ['.mission-kick', 13], ['#mission-title', 13], ['.mission .badge', 13], ['.mission-foot .btn', 13], ['#speed-factor', 12], ['.cam-pad button', 13],
   ['.menu .tabs [role="tab"]', 13], ['.menu h3', 13], ['.mis-kick', 13], ['.mis-card h4', 13], ['.mis-card .btn', 13], ['.ride-head b', 13], ['.card .factor', 12], ['.shop-cats .cat', 13], ['.card.char b', 13], ['.card.char span', 13], ['.product h4', 13], ['.product .buy', 13], ['.opt-name', 13], ['.seg button', 13], ['.menu select', 13], ['.menu .settings > .btn', 13], ['.reset-confirm .btn', 13], ['.menu .go', 13],
   ['.j-filters button', 13], ['.j-tag', 13], ['.j-stamp', 13], ['.j-card b', 13], ['.j-actions .btn', 13],
-  ['#place-kind', 13], ['.dialog .speaker', 13], ['.dialog .page-num', 13], ['#place-footer .btn', 13], ['.q-kick', 13], ['.quiz .options b', 13], ['.voice-status', 13], ['.src .btn', 13], ['.src h3', 13]];
+  ['#place-kind', 13], ['.dialog .speaker', 13], ['.dialog .page-num', 13], ['#place-footer .btn', 13], ['.q-kick', 13], ['.quiz .options b', 13], ['.voice-status', 13], ['.src .btn', 13], ['.src h3', 13],
+  ['.map-tabs [role="tab"]', 13], ['.map-tools button', 13], ['#map-zoom', 13], ['.map-side h3', 13], ['.districts button', 13], ['.cp-text small', 13], ['.map-more summary', 13], ['.legend-item', 13], ['.story-body h4', 13], ['.story-body .btn', 13], ['.row-tag', 13], ['#map-back', 13], ['.near-filters button', 13], ['.place-row .go', 13], ['.mis-tools .btn', 13]];
 // touch screens: nothing interactive in the stick zone (left 42 % of the width, lower 45 % of the height) while
 // playing; the discovery chip (a button: the 수첩) clear of every other HUD piece; overlaps() as ui/dom.js: edges that
 // only touch do not count
@@ -744,6 +751,251 @@ async function driveArrival(page, name, shot, touch) {
   check(!(after.open && after.id === opened.id) && !after.open && after.carSpeed === 0, `${name}: the same place does not reopen and the car stays at rest (${JSON.stringify(after)})`);
 }
 
+// The county map dialog's layout in its current view: the panel inside the screen; its header parts, tabs, the map
+// stage and its zoom chip and note, and the visible list parts (each clipped to the scroll boxes it sits in, so what is
+// scrolled away does not count) inside the panel and clear of one another (overlaps() as ui/dom.js; parts nested in
+// one another do not count); no one-line label wider than its button, no row text outside its row; the scrolling list
+// keeps at least three lines of room and the map at least 150 x 150.
+async function checkMapLayout(page, name, where) {
+  const r = await page.evaluate(() => {
+    const panel = document.getElementById('map-panel'), P = panel.getBoundingClientRect(), bad = [], out = [], wide = [], spill = [];
+    const overlaps = (a, b) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
+    const inside = (q, o) => q.left >= o.left - 0.5 && q.right <= o.right + 0.5 && q.top >= o.top - 0.5 && q.bottom <= o.bottom + 0.5;
+    const label = (e) => e.id || e.dataset.district || e.dataset.countyPlace || e.dataset.place || e.dataset.nearFilter || e.dataset.story || String(e.className).split(' ')[0] || e.tagName;
+    const shown = (e) => { const cs = getComputedStyle(e); return cs.display !== 'none' && cs.visibility !== 'hidden' && Number(cs.opacity) > 0.05; };
+    const clip = (e) => {
+      const q = e.getBoundingClientRect();
+      let c = { left: q.left, top: q.top, right: q.right, bottom: q.bottom };
+      for (let a = e.parentElement; a && a !== panel; a = a.parentElement) {
+        const cs = getComputedStyle(a);
+        if (!/(auto|scroll|hidden)/.test(cs.overflowX + cs.overflowY)) continue;
+        const b = a.getBoundingClientRect();
+        c = { left: Math.max(c.left, b.left), top: Math.max(c.top, b.top), right: Math.min(c.right, b.right), bottom: Math.min(c.bottom, b.bottom) };
+      }
+      return c.right - c.left > 0.5 && c.bottom - c.top > 0.5 ? c : null;
+    };
+    const SEL = 'header .titles > *, #map-tabs, #map-tabs [role="tab"], #map-close, .mview:not([hidden]), .map-view > *, .map-tools, .map-tools > *, .map-note, .map-side > *, .districts > button, .county-place, .map-more summary, .legend-item, .story-card, .search-view > *, .search-box > *, .search-results > li, .nearby-view > *, .near-filters > button, .place-row, .place-row > *';
+    const parts = [...panel.querySelectorAll(SEL)].filter((e) => e.closest('[hidden]') === null && shown(e)).map((e) => [e, clip(e)]).filter(([, q]) => q);
+    for (let i = 0; i < parts.length; i++) for (let j = i + 1; j < parts.length; j++) {
+      const [a, ra] = parts[i], [b, rb] = parts[j];
+      if (!a.contains(b) && !b.contains(a) && overlaps(ra, rb)) bad.push(`${label(a)} / ${label(b)}`);
+    }
+    if (!inside(P, { left: 0, top: 0, right: innerWidth, bottom: innerHeight })) out.push('panel');
+    for (const [e, q] of parts) if (!inside(q, P)) out.push(label(e));
+    for (const b of panel.querySelectorAll('.districts > button, .near-filters > button, #map-tabs [role="tab"], #map-reset, .place-row .go')) if (b.closest('[hidden]') === null && b.clientWidth && b.scrollWidth > b.clientWidth + 1) wide.push(label(b));
+    for (const row of panel.querySelectorAll('.place-row, .county-place, .search-results > li, .story-card')) {
+      if (row.closest('[hidden]') !== null || !clip(row)) continue;
+      const q = row.getBoundingClientRect();
+      for (const k of row.querySelectorAll('*')) { const e = k.getBoundingClientRect(); if (e.width && (e.left < q.left - 0.5 || e.right > q.right + 0.5 || e.top < q.top - 0.5 || e.bottom > q.bottom + 0.5)) spill.push(`${label(row)} ${label(k)}`); }
+    }
+    const scroller = panel.querySelector('.mview:not([hidden]) .map-side') || panel.querySelector('.mview:not([hidden])');
+    const stage = panel.querySelector('.mview:not([hidden]) .map-stage')?.getBoundingClientRect();
+    return { view: panel.dataset.view, parts: parts.length, bad: bad.slice(0, 6), nBad: bad.length, out: out.slice(0, 6), wide, spill: spill.slice(0, 4), nSpill: spill.length, room: Math.round(scroller.clientHeight), stage: stage ? [Math.round(stage.width), Math.round(stage.height)] : null };
+  });
+  const roomy = r.room >= 72 && (!r.stage || (r.stage[0] >= 150 && r.stage[1] >= 150));
+  check(r.nBad === 0 && r.out.length === 0 && r.wide.length === 0 && r.nSpill === 0 && roomy, `${name} map ${where} (${r.view}): ${r.parts} parts inside the panel and screen, none overlapping, labels fit, list ${r.room} px${r.stage ? ', map ' + r.stage.join('x') : ''}${r.nBad ? ' — overlap: ' + r.bad.join(', ') : ''}${r.out.length ? ' — outside: ' + r.out.join(', ') : ''}${r.wide.length ? ' — too wide: ' + r.wide.join(', ') : ''}${r.nSpill ? ' — spilling: ' + r.spill.join(', ') : ''}`);
+}
+
+// 홍성군 전체 지도 (ui/county-map.js, ui/search.js; P23) at this viewport. The minimap opens it at 지도 (paused, focus in,
+// the county drawn with its 223 pins); + / the wheel / two fingers zoom it, a drag pans it, 전체 보기 zooms out; a
+// district lists its places and frames itself; the legend and the 18 story cards open (a card opens its story); one pin
+// under a tap heads there, several open 주변 찾기 with only those. 장소 찾기: ㅎㅅㅇ (initial consonants) and 홍성역, the
+// arrows and Escape (the list first, the dialog second), a composing Enter (Chrome and Safari orders) chooses nothing,
+// then Enter (a tap on touch screens) chooses 홍성역: the map closes and the route starts with the move sound. 주변 찾기:
+// the 2D filters and the name filter, nearest first. The menu's 장소 찾기 opens the search view. Each view's sizes, fonts
+// and layout; screenshots.
+const SCHOOL_KINDS = ['elementary', 'middle', 'high', 'university'];
+async function checkMap(page, name, spec, shot) {
+  const touch = !!spec.touch, kind = touch ? 'touch' : 'mouse';
+  await watchSounds(page);
+  const home = await page.evaluate(() => { window.__hs3d.closeDialogs(); const p = window.__hs3d.player; return [p.x, p.y]; });
+  const back = () => page.evaluate(([x, y]) => { const W = window.__hs3d.world; for (let i = 0; i < 4 && W.ctl.paused(); i++) window.__hs3d.closeDialogs(); W.target = null; window.__hs3d.teleport(x, y); }, home);
+  // the minimap opens the map, paused, focus on the 지도 tab
+  const opened = await page.evaluate(() => {
+    document.getElementById('minimap').click();
+    const W = window.__hs3d.world;
+    return { open: !document.getElementById('map-dialog').hidden, kind: W.ctl.dialog?.kind, paused: W.ctl.paused(), view: document.getElementById('map-panel').dataset.view, focus: document.activeElement?.id, inert: document.querySelector('.hud-br').inert, where: document.getElementById('map-where').textContent, chip: document.getElementById('where').textContent };
+  });
+  check(opened.open && opened.kind === 'map' && opened.paused && opened.view === 'map' && opened.focus === 'mtab-map' && opened.inert && opened.where === '현재 위치 · ' + opened.chip, `${name}: the minimap opens 홍성군 전체 지도 at 지도, paused, focus on its tab, the HUD inert (${JSON.stringify(opened)})`);
+  await page.waitForFunction(() => window.__hs3d.world.mapDialog.map.ready, null, { timeout: 30000, polling: 300 }).catch(() => {});
+  await sleep(500);
+  const drawn = await page.evaluate(() => {
+    const c = document.getElementById('county-canvas'), d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data, colours = new Set(), m = window.__hs3d.world.mapDialog.map;
+    for (let i = 0; i < d.length; i += 64) colours.add((d[i] >> 3) << 10 | (d[i + 1] >> 3) << 5 | d[i + 2] >> 3);
+    return { w: c.width, h: c.height, colours: colours.size, pins: m.pins.length, zoom: document.getElementById('map-zoom').textContent, out: document.getElementById('map-out').disabled, districts: [...document.querySelectorAll('#map-side [data-district]')].map((b) => b.textContent), heading: document.getElementById('county-results-heading').textContent, rows: document.querySelectorAll('#county-results .county-place').length };
+  });
+  check(drawn.w > 0 && drawn.colours > 80 && drawn.pins === 223 && drawn.zoom === '100%' && drawn.out, `${name}: the county is drawn (${drawn.w}x${drawn.h}, ${drawn.colours} colours) with ${drawn.pins} pins at ${drawn.zoom}, − disabled`);
+  check(drawn.districts.length === 12 && drawn.districts[0] === '전체 지역' && drawn.districts[1] === '홍성읍 · 58곳' && drawn.heading === '전체 지역 · 223곳' && drawn.rows === 223, `${name}: 지역 목록 lists 전체 지역 and the 11 districts with counts, ${drawn.heading} (${drawn.districts.slice(0, 4).join(' / ')} …)`);
+  await checkUi(page, name, 'county map', touch);
+  await checkMapLayout(page, name, 'start');
+  await shot('map-1-county');
+  // zoom: the + button, then the wheel (mouse) or a pinch (touch); a drag pans; 전체 보기 zooms back out
+  const zoom = await page.evaluate(async (kind) => {
+    const m = window.__hs3d.world.mapDialog.map, c = document.getElementById('county-canvas'), r = c.getBoundingClientRect(), wait = () => new Promise((f) => setTimeout(f, 120));
+    const ev = (type, id, x, y) => c.dispatchEvent(new PointerEvent(type, { pointerId: id, pointerType: kind, isPrimary: id === 61, clientX: x, clientY: y, bubbles: true, cancelable: true, buttons: type === 'pointerup' ? 0 : 1 }));
+    document.getElementById('map-in').click();
+    // the label follows on the map's next frame, which a busy SwiftShader frame of the world behind can delay
+    for (let i = 0; i < 60 && document.getElementById('map-zoom').textContent !== '150%'; i++) await new Promise((f) => setTimeout(f, 50));
+    const plus = { zoom: m.view.zoom, label: document.getElementById('map-zoom').textContent };
+    const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+    let pinch = null;
+    if (kind === 'touch') {
+      const z0 = m.view.zoom;
+      ev('pointerdown', 61, cx - 30, cy); ev('pointerdown', 62, cx + 30, cy);
+      for (let i = 1; i <= 6; i++) { ev('pointermove', 61, cx - 30 - i * 8, cy); ev('pointermove', 62, cx + 30 + i * 8, cy); await new Promise((f) => setTimeout(f, 16)); }
+      ev('pointerup', 61, cx - 78, cy); ev('pointerup', 62, cx + 78, cy); await wait();
+      pinch = { from: z0, to: m.view.zoom };
+    }
+    const c0 = m.view.view.center.slice();
+    ev('pointerdown', 63, cx, cy); for (let i = 1; i <= 4; i++) ev('pointermove', 63, cx + i * 15, cy + i * 10); ev('pointerup', 63, cx + 60, cy + 40); await wait();
+    const c1 = m.view.view.center.slice(), open = !document.getElementById('map-dialog').hidden;
+    return { plus, pinch, moved: [Math.round(c0[0] - c1[0]), Math.round(c0[1] - c1[1])], open };
+  }, kind);
+  if (!touch) {
+    const box = await page.locator('#county-canvas').boundingBox();
+    await page.mouse.move(box.x + box.width * 0.6, box.y + box.height * 0.4);
+    await page.mouse.wheel(0, -300);
+    await sleep(300);
+    zoom.wheel = await page.evaluate(() => window.__hs3d.world.mapDialog.map.view.zoom);
+  }
+  check(Math.abs(zoom.plus.zoom - 1.5) < 1e-6 && zoom.plus.label === '150%' && (touch ? zoom.pinch.to > zoom.pinch.from * 1.8 : zoom.wheel > 1.5 * 1.15) && zoom.moved[0] > 0 && zoom.moved[1] > 0 && zoom.open,
+    `${name}: + zooms to ${zoom.plus.label}, ${touch ? `two fingers ${zoom.pinch.from.toFixed(2)} -> ${zoom.pinch.to.toFixed(2)}` : `the wheel -> ${zoom.wheel.toFixed(2)}`}, a drag pans the map ${zoom.moved.join(', ')} m and taps nothing`);
+  await sleep(300);
+  await shot('map-2-zoomed');
+  const all = await page.evaluate(() => { document.getElementById('map-reset').click(); return window.__hs3d.world.mapDialog.map.view.zoom; });
+  check(all === 1, `${name}: 전체 보기 shows the whole county again (zoom ${all})`);
+  // a district: its places nearest first, the map framing it
+  const district = await page.evaluate(async () => {
+    const W = window.__hs3d.world, b = document.querySelector('#map-side [data-district="홍성군 홍성읍"]');
+    b.click(); await new Promise((f) => setTimeout(f, 200));
+    const rows = [...document.querySelectorAll('#county-results .county-place')].map((e) => W.byId.get(e.dataset.countyPlace));
+    const d = rows.map((p) => Math.hypot(p.point[0] - W.player.x, p.point[1] - W.player.y));
+    return { pressed: b.getAttribute('aria-pressed'), heading: document.getElementById('county-results-heading').textContent, n: rows.length, area: rows.every((p) => p.area === '홍성군 홍성읍'), sorted: d.every((v, i) => !i || v >= d[i - 1]), zoom: W.mapDialog.map.view.zoom, sounds: window.__sounds.slice(-1) };
+  });
+  check(district.pressed === 'true' && district.heading === '홍성군 홍성읍 · 58곳' && district.n === 58 && district.area && district.sorted && district.zoom > 2 && district.sounds[0] === 'click', `${name}: 홍성읍 lists its ${district.n} places nearest first under "${district.heading}" and frames the district (zoom ${district.zoom.toFixed(2)})`);
+  await sleep(300);
+  await checkUi(page, name, 'county map district', touch);
+  await checkMapLayout(page, name, 'district');
+  await shot('map-3-district');
+  // the legend and the story cards (images load once opened)
+  const more = await page.evaluate(() => { const l = document.getElementById('map-legend'), s = document.getElementById('map-stories'); l.open = true; s.open = true; s.scrollIntoView({ block: 'start' }); return { legend: l.querySelectorAll('.legend-item').length, stories: s.querySelectorAll('.story-card').length, buttons: [...s.querySelectorAll('[data-travel]')].every((b) => b.textContent === '이야기 만나기 →') }; });
+  await page.waitForFunction(() => { const i = document.querySelector('#map-stories .story-card img'); return i && i.complete && i.naturalWidth > 0; }, null, { timeout: 20000, polling: 300 }).catch(() => {});
+  more.img = await page.evaluate(() => document.querySelector('#map-stories .story-card img')?.naturalWidth || 0);
+  const kinds = new Set(PLACES.map(symbolKey)).size, remote = PLACES.filter((p) => p.remote).length;
+  check(more.legend === kinds && more.stories === remote && remote === 18 && more.buttons && more.img > 0, `${name}: 장소 아이콘 알아보기 shows the ${more.legend} 2D symbols and 우리 고장의 문화 이야기 the ${more.stories} story cards (picture ${more.img}px)`);
+  await sleep(300);
+  await checkUi(page, name, 'county map legend and stories', touch);
+  await checkMapLayout(page, name, 'legend and stories');
+  await shot('map-4-stories');
+  const story = await page.evaluate(() => { const b = document.querySelector('#map-stories [data-travel]'), W = window.__hs3d.world; b.click(); return { id: b.dataset.travel, map: !document.getElementById('map-dialog').hidden, place: W.dialog.isOpen ? W.dialog.place.id : null, kind: W.ctl.dialog?.kind, paused: W.ctl.paused() }; });
+  check(!story.map && story.place === story.id && story.kind === 'place' && story.paused, `${name}: a story card's 이야기 만나기 opens that story in the place dialog (${JSON.stringify(story)})`);
+  await back();
+  // pins: a tap on a lone pin heads there; a tap where several pins meet lists only those under 주변 찾기
+  const pins = await page.evaluate(async (kind) => {
+    const W = window.__hs3d.world, c = document.getElementById('county-canvas'), m = W.mapDialog.map;
+    document.getElementById('minimap').click(); await new Promise((f) => setTimeout(f, 300));
+    const r = c.getBoundingClientRect(), list = m.pins, me = [W.player.x, W.player.y];
+    const under = (v) => list.filter((u) => Math.hypot(u.x - v.x, u.y - v.y) < 16);
+    const ev = (type, x, y) => c.dispatchEvent(new PointerEvent(type, { pointerId: 71, pointerType: kind, isPrimary: true, clientX: r.left + x, clientY: r.top + y, bubbles: true, cancelable: true }));
+    const many = list.find((v) => under(v).length >= 3);
+    ev('pointerdown', many.x, many.y); ev('pointerup', many.x, many.y);
+    const near = { view: document.getElementById('map-panel').dataset.view, title: document.getElementById('nearby-title').textContent, rows: [...document.querySelectorAll('#nearby-list .place-row')].map((e) => e.dataset.place), want: under(many).map((v) => v.p.id), filters: document.querySelector('#mview-nearby .near-filters').hidden };
+    document.getElementById('mtab-map').click(); await new Promise((f) => setTimeout(f, 200));
+    const lone = list.find((v) => under(v).length === 1 && Math.hypot(v.p.point[0] - me[0], v.p.point[1] - me[1]) > 2000 && v.x > 60 && v.y > 90);
+    window.__sounds.length = 0;
+    ev('pointerdown', lone.x, lone.y); ev('pointerup', lone.x, lone.y);
+    return { near, lone: { id: lone.p.id, map: !document.getElementById('map-dialog').hidden, paused: W.ctl.paused(), target: W.target && Math.hypot(W.target[0] - lone.p.point[0], W.target[1] - lone.p.point[1]) < 1, sounds: window.__sounds.slice() } };
+  }, kind);
+  check(pins.near.view === 'nearby' && pins.near.title === '가까이 있는 장소' && pins.near.filters && pins.near.rows.length === pins.near.want.length && pins.near.want.every((id) => pins.near.rows.includes(id)), `${name}: a tap on ${pins.near.want.length} pins at once lists only those under 가까이 있는 장소 (${pins.near.rows.join(', ')})`);
+  check(!pins.lone.map && !pins.lone.paused && pins.lone.target && pins.lone.sounds.includes('move'), `${name}: a tap on a lone pin (${pins.lone.id}) closes the map and heads there with the move sound (${JSON.stringify(pins.lone)})`);
+  await back();
+  // 장소 찾기: initial consonants, the arrows, Escape on the list, the IME guard, then 홍성역
+  await page.evaluate(() => { document.getElementById('minimap').click(); document.getElementById('mtab-search').click(); });
+  await page.fill('#map-query', 'ㅎㅅㅇ');
+  await sleep(200);
+  const initials = await page.evaluate(() => ({ focus: document.activeElement?.id, expanded: document.getElementById('map-query').getAttribute('aria-expanded'), options: [...document.querySelectorAll('#map-results [role="option"]')].map((o) => o.querySelector('strong').textContent) }));
+  check(initials.focus === 'map-query' && initials.expanded === 'true' && initials.options[0] === '홍성역' && initials.options.length === 6, `${name}: 장소 찾기 finds ㅎㅅㅇ by initial consonants (${initials.options.join(' / ')})`);
+  await sleep(200);
+  await checkUi(page, name, 'place search', touch);
+  await checkMapLayout(page, name, 'search ㅎㅅㅇ');
+  await shot('map-5-search-initials');
+  for (const k of ['ArrowDown', 'ArrowDown', 'ArrowDown', 'ArrowUp']) await page.keyboard.press(k);
+  const keys = await page.evaluate(() => ({ active: document.getElementById('map-query').getAttribute('aria-activedescendant'), selected: [...document.querySelectorAll('#map-results [role="option"]')].findIndex((o) => o.getAttribute('aria-selected') === 'true') }));
+  await page.keyboard.press('Escape');
+  const esc = await page.evaluate(() => ({ list: document.getElementById('map-results').hidden, expanded: document.getElementById('map-query').getAttribute('aria-expanded'), map: !document.getElementById('map-dialog').hidden }));
+  check(keys.active === 'map-result-1' && keys.selected === 1 && esc.list && esc.expanded === 'false' && esc.map, `${name}: the arrows move through the results (${keys.active}) and Escape closes the list, not the map (${JSON.stringify(esc)})`);
+  const ime = await page.evaluate(() => {
+    const i = document.getElementById('map-query'), W = window.__hs3d.world, state = () => ({ map: !document.getElementById('map-dialog').hidden, target: !!W.target, value: i.value });
+    i.focus(); i.value = '';
+    i.dispatchEvent(new CompositionEvent('compositionstart', { bubbles: true, data: '' }));
+    i.value = '홍성역'; i.dispatchEvent(new InputEvent('input', { bubbles: true, isComposing: true, inputType: 'insertCompositionText', data: '역' }));
+    const chrome = new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 229, isComposing: true, bubbles: true, cancelable: true });
+    i.dispatchEvent(chrome);
+    const during = { ...state(), options: document.querySelectorAll('#map-results [role="option"]').length };
+    i.dispatchEvent(new CompositionEvent('compositionend', { bubbles: true, data: '역' }));
+    const safari = new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 229, bubbles: true, cancelable: true });   // Safari: the committing Enter after compositionend
+    i.dispatchEvent(safari);
+    return { during, after: state(), first: document.querySelector('#map-results [role="option"] strong')?.textContent };
+  });
+  check(ime.during.map && !ime.during.target && ime.during.options > 0 && ime.after.map && !ime.after.target && ime.after.value === '홍성역' && ime.first === '홍성역', `${name}: an Enter inside a Korean IME composition chooses nothing (Chrome and Safari orders; ${JSON.stringify(ime)})`);
+  await sleep(200);
+  await shot('map-6-search-station');
+  await page.evaluate(() => { window.__sounds.length = 0; });
+  if (touch) await page.tap('#map-result-0'); else await page.keyboard.press('Enter');
+  const station = PLACES.find((p) => p.id === 'new-hongseong-station');
+  const route = await page.evaluate(async (id) => {
+    const W = window.__hs3d.world, p = W.byId.get(id), r = { map: !document.getElementById('map-dialog').hidden, paused: W.ctl.paused(), target: !!W.target && Math.hypot(W.target[0] - p.point[0], W.target[1] - p.point[1]) < 1, focus: document.activeElement?.id, toast: document.getElementById('toast').textContent, sounds: window.__sounds.slice() };
+    const x0 = W.player.x, y0 = W.player.y;
+    for (let i = 0; i < 20 && !(W.player.route?.length || Math.hypot(W.player.x - x0, W.player.y - y0) > 1); i++) await new Promise((f) => setTimeout(f, 100));
+    r.route = W.player.route?.length || 0; r.moved = Math.round(Math.hypot(W.player.x - x0, W.player.y - y0));
+    return r;
+  }, station.id);
+  check(!route.map && !route.paused && route.target && route.focus === 'c' && route.toast.includes(station.name) && route.sounds.includes('move') && (route.route > 0 || route.moved > 0), `${name}: ${touch ? 'a tap on' : 'Enter on'} 홍성역 closes the map and starts the route there (${JSON.stringify(route)})`);
+  await back();
+  // 주변 찾기: the 2D filters and the name filter, nearest first
+  const near = await page.evaluate(async () => {
+    const W = window.__hs3d.world;
+    W.ctl.open('nearby');
+    await new Promise((f) => setTimeout(f, 200));
+    const rows = () => [...document.querySelectorAll('#nearby-list .place-row')].map((e) => W.byId.get(e.dataset.place) || { id: e.dataset.place });
+    const dist = (list) => list.map((p) => (p.point ? Math.hypot(p.point[0] - W.player.x, p.point[1] - W.player.y) : Infinity));
+    const sorted = (d) => d.every((v, i) => !i || v >= d[i - 1]);
+    const r = { view: document.getElementById('map-panel').dataset.view, title: document.getElementById('nearby-title').textContent, filters: [...document.querySelectorAll('#mview-nearby [data-near-filter]')].map((b) => b.textContent), all: rows().length, sorted: sorted(dist(rows())), go: document.querySelector('#nearby-list .go')?.textContent };
+    document.querySelector('#mview-nearby [data-near-filter="school"]').click();
+    const schools = rows();
+    r.schools = schools.map((p) => p.id); r.schoolsSorted = sorted(dist(schools));
+    const input = document.getElementById('nearby-search');
+    input.value = '초등'; input.dispatchEvent(new Event('input', { bubbles: true }));
+    r.named = rows().map((p) => `${p.name} ${p.originalName || ''} ${p.area} ${p.category}`);
+    return r;
+  });
+  const wantSchools = PLACES.filter((p) => !p.remote && SCHOOL_KINDS.includes(symbolKey(p))).map((p) => p.id).sort();
+  check(near.view === 'nearby' && near.title === '홍성의 장소 찾기' && near.filters.length === 15 && near.filters[4] === '초·중·고·대학교' && near.all === 223 && near.sorted && near.go === '찾아가기 →', `${name}: 주변 찾기 lists the ${near.all} places nearest first under the 15 2D filters (${near.filters.slice(0, 5).join(' / ')} …)`);
+  check(JSON.stringify(near.schools.slice().sort()) === JSON.stringify(wantSchools) && near.schoolsSorted && near.named.length > 0 && near.named.every((t) => t.includes('초등')), `${name}: 초·중·고·대학교 keeps the ${near.schools.length} schools nearest first and 초등 narrows them to ${near.named.length}`);
+  await sleep(200);
+  await checkUi(page, name, 'nearby', touch);
+  await checkMapLayout(page, name, 'nearby schools');
+  await shot('map-7-nearby');
+  await page.evaluate(() => { const i = document.getElementById('nearby-search'); i.value = ''; i.dispatchEvent(new Event('input', { bubbles: true })); document.querySelector('#mview-nearby [data-near-filter="all"]').click(); document.getElementById('mview-nearby').scrollTop = 0; });
+  await sleep(200);
+  await checkMapLayout(page, name, 'nearby all');
+  await shot('map-8-nearby-all');
+  // the menu's 장소 찾기 opens the search view; Escape on the empty field closes the map into play
+  const fromMenu = await page.evaluate(() => {
+    const W = window.__hs3d.world;
+    window.__hs3d.closeDialogs();
+    document.getElementById('home-btn').click(); document.getElementById('tab-missions').click();
+    const b = document.getElementById('open-search');
+    b?.click();
+    return { label: b?.textContent, menu: !document.getElementById('menu').hidden, map: !document.getElementById('map-dialog').hidden, kind: W.ctl.dialog?.kind, view: document.getElementById('map-panel').dataset.view, focus: document.activeElement?.id, value: document.getElementById('map-query').value, paused: W.ctl.paused() };
+  });
+  check(fromMenu.label === '장소 찾기' && !fromMenu.menu && fromMenu.map && fromMenu.kind === 'search' && fromMenu.view === 'search' && fromMenu.focus === 'map-query' && fromMenu.value === '' && fromMenu.paused, `${name}: the menu's 장소 찾기 opens the map at 장소 찾기 with the focus in the field (${JSON.stringify(fromMenu)})`);
+  await page.keyboard.press('Escape');
+  const closed = await page.evaluate(() => ({ map: !document.getElementById('map-dialog').hidden, paused: window.__hs3d.ctl.paused(), focus: document.activeElement?.id, inert: document.querySelector('.hud-br').inert }));
+  check(!closed.map && !closed.paused && closed.focus === 'c' && !closed.inert, `${name}: Escape closes the map into play, focus back on the map (${JSON.stringify(closed)})`);
+  await back();
+}
+
 async function run(browser, base, spec) {
   const { name, viewport, touch } = spec;
   const ctx = await browser.newContext({ viewport, hasTouch: touch, isMobile: touch, deviceScaleFactor: touch ? 2 : 1, locale: 'ko-KR' });
@@ -795,6 +1047,7 @@ async function run(browser, base, spec) {
     check(k.n > 0 && errors.length === 0, `${name}: ${k.n} action keys pressed while loading were ignored without errors (quality ${k.q})`);
   }
   if (!await checkJournal(page, name, spec, shot)) { check(errors.length === 0, `${name}: no pageerror (${errors.join(' | ').slice(0, 400)})`); await ctx.close(); return; }
+  await checkMap(page, name, spec, shot);
   await shot('1-start');
   if (spec.quick) {
     // touch tablet: the credit stays a collapsed toggle, and a short still touch in the stick zone taps the map

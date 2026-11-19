@@ -16,7 +16,7 @@ export function minimapPoint(dx, dy, yaw, k) {
 }
 
 /**
- * createMinimap(canvas, {image, world:{w,h}, places, found}) -> {draw(player, target, yaw), resize()}
+ * createMinimap(canvas, {image, world:{w,h}, places, found}) -> {draw(player, target, yaw), resize(), ready, image}
  * image: URL or loaded image; places: [{id, point:[x,y]}]; found(): the discovered ids (array or Set) for dot colours.
  * draw: player {x, y, heading, mode}; target [x,y] | null; yaw the camera yaw in radians.
  */
@@ -115,5 +115,5 @@ export function createMinimap(canvas, { image, world, places = [], found = () =>
     x.fillText('N', R + nx, R + ny + nr * 0.06);
   }
 
-  return { draw, resize, get ready() { return ready; } };
+  return { draw, resize, get ready() { return ready; }, get image() { return img; } };   // image: shared with the county map
 }
