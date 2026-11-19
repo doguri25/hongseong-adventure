@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { loadSession, saveSession, startPosition, restoreTravel } from '../src/game/session.js';
+import { loadSession, saveSession, startPosition, restoreTravel, resetSession } from '../src/game/session.js';
 import { startVoyage, advanceVoyage } from '../src/game/ferry.js';
 import { createCollider } from '../src/sim/collider.js';
 import { WaterGuard } from '#game/water.js';
@@ -129,4 +129,30 @@ test('restoreTravel: a travel mode changed in the 2D game wins over the stale 3D
   assert.equal(restoreTravel({ travelSpeed: 'walk' }, { travel: 'slowplane' }), 'walk');
   assert.equal(restoreTravel({ travelSpeed: 'nope' }, { travel: null }), 'walk');
   assert.equal(restoreTravel(null, null), 'walk');
+});
+
+test('resetSession: the 2D reset (fresh shared save, no position) keeping the 3D camera, time and quality', () => {
+  const st = fakeStorage(), state = freshState();
+  assert.ok(discover(state, 'library'));
+  state.owned.push('star-stamp'); state.equipped.stamp = 'star'; state.character = 'raccoon'; state.note = '메모';
+  saveSession(st, state, { camera: 'follow', time: 'night', quality: 'low' }, { x: 24000, y: 3700, mode: 'car' });
+  st.setItem('hongseong-hud-v1', JSON.stringify({ portrait: true }));
+  assert.equal(resetSession(st, { camera: 'follow', time: 'dusk', quality: 'medium', travel: 'car' }), true);
+  const back = loadSession(st), fresh = freshState();
+  assert.deepEqual(back.state.discovered, []);
+  assert.equal(back.state.coins, 0);
+  assert.deepEqual(back.state.owned, []);
+  assert.deepEqual(back.state.equipped, fresh.equipped);
+  assert.equal(back.state.character, 'explorer');
+  assert.equal(back.state.note, '');
+  assert.deepEqual(back.state.locations, {});
+  assert.equal(back.state.travelSpeed, 'walk');
+  assert.deepEqual(back.extra, { camera: 'follow', time: 'dusk', quality: 'medium', travel: null });
+  assert.equal(st.getItem('hongseong-hud-v1'), JSON.stringify({ portrait: true }));   // the HUD fold is not progress
+  // without an extra, the stored one is kept (cleaned)
+  const st2 = fakeStorage();
+  st2.setItem(KEY3D, JSON.stringify({ camera: 'follow', time: 'x', quality: 'high', travel: 'plane' }));
+  resetSession(st2);
+  assert.deepEqual(loadSession(st2).extra, { camera: 'follow', time: 'day', quality: 'high', travel: null });
+  assert.equal(resetSession({ getItem() { return null; }, setItem() { throw new Error('blocked'); } }), false);
 });

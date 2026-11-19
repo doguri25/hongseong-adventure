@@ -2,7 +2,8 @@
 // the daily-mission calls; main.js supplies every effect through `services`.
 //
 // createController({state, places, services, save, sound, narrator, clock}) -> {
-//   screen: 'title'|'play' (starts 'play'), dialog: null|{kind, data}, paused(), open(kind, data), close(),
+//   screen: 'title'|'play' (starts 'play'; 'title' while open('menu', {title: true}) is showing, the boot title menu),
+//   dialog: null|{kind, data}, paused(), open(kind, data), close(),
 //   onArrive(place, physical), onNpc(npc), startMission(id), goTo(placeId), setMode(mode), dayTick(now, force) }
 // Dialog kinds: place {place, physical} | npc {npc} | ferry | menu | map | search | nearby | help.
 //
@@ -46,6 +47,7 @@ export function createController({ state, places, services = {}, save = noop, so
         if (was) { call('resetInput'); call('onPause', false); }
         return false;
       }
+      ctl.screen = kind === 'menu' && data.title ? 'title' : 'play';
       call('stopPlayer'); call('resetInput');
       if (!was) call('onPause', true);
       return true;
@@ -54,7 +56,7 @@ export function createController({ state, places, services = {}, save = noop, so
     close() {
       const was = ctl.dialog;
       if (!was) return;
-      ctl.dialog = null;
+      ctl.dialog = null; ctl.screen = 'play';
       call('hideDialog', was.kind);
       call('resetInput');
       const next = queue.shift();

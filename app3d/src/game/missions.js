@@ -44,3 +44,25 @@ export function missionView(state, places) {
     dots, direct, bonus: DIRECT_BONUS,
   };
 }
+
+/**
+ * The menu's 탐방 tab: today's targets as the 2D mission list (dist/game.js showMissions). cards: {id, name, area, blurb,
+ * number ('✓' when done, else 1-3), kicker, status: 'done'|'active'|'open', action (the button: 미션 완료 is disabled)};
+ * allDone offers 새 미션 받기 (true with no targets, as the 2D list).
+ */
+export function missionCards(state, places) {
+  const ids = state.dailyQuests?.targets || [], activeId = activeQuest(state), byId = new Map(places.map((p) => [p.id, p]));
+  const cards = [];
+  ids.forEach((id, i) => {
+    const p = byId.get(id);
+    if (!p) return;
+    const done = questCompleted(state, id), active = id === activeId;
+    cards.push({
+      id, name: p.name, area: p.area, blurb: p.blurb || '', number: done ? '✓' : String(i + 1),
+      kicker: `${i === 0 ? '오늘의 첫 탐방' : '고장 탐방 미션'} · ${active ? '진행 중' : done ? '완료' : '선택 가능'}`,
+      status: done ? 'done' : active ? 'active' : 'open',
+      action: done ? '미션 완료' : active ? '목표로 출발' : '이 미션으로 출발',
+    });
+  });
+  return { cards, allDone: ids.every((id) => questCompleted(state, id)), bonus: DIRECT_BONUS };
+}

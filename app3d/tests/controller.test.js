@@ -130,3 +130,27 @@ test('dayTick refreshes only when the KST day changed', () => {
   assert.equal(state.dailyQuests.day, dayKey(NOW));
   assert.equal(c.dayTick(NOW), false);
 });
+
+test('the title menu pauses with screen title; closing it (button or Escape) goes into play', () => {
+  const { c, log } = setup();
+  assert.equal(c.open('menu', { title: true }), true);
+  assert.equal(c.screen, 'title');
+  assert.equal(c.paused(), true);
+  assert.deepEqual(c.dialog, { kind: 'menu', data: { title: true } });
+  c.close();
+  assert.equal(c.screen, 'play');
+  assert.equal(c.paused(), false);
+  assert.equal(log.at(-1), 'resume');
+  // the home button's menu during play is not the title
+  c.open('menu');
+  assert.equal(c.screen, 'play');
+  assert.equal(c.paused(), true);
+  // replaced by another dialog (say a place from the menu): no longer the title
+  c.close(); c.open('menu', { title: true }); c.open('place', { place: places[2], physical: false });
+  assert.equal(c.screen, 'play');
+  // a menu with no renderer is dropped: the screen stays play
+  const bare = setup({ services: { showDialog: () => false } });
+  bare.c.open('menu', { title: true });
+  assert.equal(bare.c.screen, 'play');
+  assert.equal(bare.c.paused(), false);
+});

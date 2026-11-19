@@ -323,6 +323,111 @@ html.reduce-motion .mission .dots i.active { animation: none; }
   .notice b { font-size: 44px; }
   .notice span { font-size: 15px; margin-top: 6px; }
 }
+/* ---- the title and menu (pokju #menu): a glass panel on the left over the world (which keeps rendering behind at
+   <= 10 fps), a bottom sheet on a phone held upright. Brand row with the coins, tabs, one scrolling pane, the primary
+   button in the foot. The scrim only darkens the left so the county stays in view ---- */
+#app.menu-open :is(.hud-tl, .credit-dock, .mission, .minimap, .cam-pad, .corner, .hud-br, #toast) { visibility: hidden; }
+.scrim.menu-scrim { display: block; padding: 0; background: linear-gradient(90deg, rgba(4, 5, 14, .5), rgba(4, 5, 14, .12) 62%, rgba(4, 5, 14, 0)); -webkit-backdrop-filter: none; backdrop-filter: none; }
+.menu { word-break: keep-all; overflow-wrap: break-word; position: absolute; left: calc(16px + var(--safe-l)); top: calc(16px + var(--safe-t)); bottom: calc(16px + var(--safe-b)); width: min(440px, calc(100% - 32px - var(--safe-l) - var(--safe-r))); display: flex; flex-direction: column; gap: 10px; padding: 16px 16px 14px; overflow: hidden; -webkit-user-select: text; user-select: text; }
+.menu .brand { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.menu .brand > b { font-family: var(--display); font-weight: 400; font-size: 30px; line-height: 1.1; white-space: nowrap; background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; filter: drop-shadow(0 3px 12px rgba(138, 92, 255, .45)); }
+.wallet { margin-left: auto; display: flex; align-items: center; gap: 6px; font-size: 15px; font-weight: 700; color: var(--chip-sub); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.wallet b { font-size: 18px; color: var(--warn); }
+.menu .tabs [role="tab"] { font-size: 15px; padding: 0 4px; }
+.menu .scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; margin: 0 -8px; padding: 2px 8px 6px; touch-action: pan-y; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+.menu .pane { display: flex; flex-direction: column; gap: 10px; }
+.menu .pane p { margin: 0; }
+.menu .lead, .menu .note, .menu .status { font-size: 15px; line-height: 1.55; color: var(--chip-fg); word-break: keep-all; }
+.menu .note { color: var(--chip-sub); }
+.menu .lead strong { color: var(--warn); }
+.menu .status:empty { display: none; }
+.menu .status { color: var(--cyan); font-weight: 700; }
+.menu .status.warn { color: var(--warn); }
+.menu h3 { margin: 8px 0 0; font-size: 14px; font-weight: 700; color: var(--chip-sub); letter-spacing: .04em; }
+.menu h3:first-child { margin-top: 0; }
+.menu .foot { flex-shrink: 0; display: flex; gap: 8px; padding-top: 10px; border-top: 1px solid var(--line); }
+.menu .go { flex: 1; min-height: 54px; border-radius: 27px; font-family: var(--display); font-weight: 400; font-size: 22px; }
+.btn.danger { border-color: rgba(255, 84, 104, .65); color: #ff8a98; }
+.btn.danger:hover:not(:disabled) { background: rgba(255, 84, 104, .14); }
+
+/* 탐방: the three missions (2D showMissions) */
+.mis-list { display: flex; flex-direction: column; gap: 8px; }
+.mis-card { display: grid; grid-template-columns: 36px minmax(0, 1fr); gap: 10px; padding: 10px 12px; border: 2px solid var(--line); border-radius: 14px; }
+.mis-card[data-status="active"] { border-color: #8a5cff; background: var(--accent-soft); }
+.mis-num { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; background: var(--track); font-family: var(--display); font-size: 18px; color: #fff; }
+.mis-card[data-status="active"] .mis-num { background: var(--grad); }
+.mis-card[data-status="done"] .mis-num { background: rgba(53, 224, 138, .2); color: var(--ok); }
+.mis-text { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; min-width: 0; }
+.mis-kick { font-size: 13px; font-weight: 700; color: var(--chip-sub); }
+.mis-card h4 { margin: 0; font-family: var(--display); font-weight: 400; font-size: 20px; line-height: 1.2; word-break: keep-all; overflow-wrap: anywhere; }
+.mis-card p { font-size: 15px; line-height: 1.5; color: var(--chip-fg); word-break: keep-all; }
+.mis-card .btn { margin-top: 6px; }
+
+/* 탈것: six cards with the rendered model (ui/thumbs.js) */
+.rides { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.card.ride { padding: 6px 6px 10px; gap: 4px; min-height: 44px; }
+.ride canvas, .char canvas { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 10px; background: #323957; }
+.ride-head { display: flex; align-items: baseline; gap: 6px; padding: 2px 4px 0; }
+.card .ride-head b { font-size: 18px; white-space: nowrap; }
+.card .factor { margin-left: auto; font-size: 13px; font-weight: 700; color: var(--cyan); font-variant-numeric: tabular-nums; }
+.card .desc { padding: 0 4px; font-size: 15px; line-height: 1.4; color: var(--chip-sub); word-break: keep-all; }
+
+/* 꾸미기: category switches, the three characters, the item cards (2D showShop) */
+.shop-cats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; padding: 4px; border-radius: 14px; background: var(--track); }
+.shop-cats .cat { min-height: 44px; padding: 0 4px; border: 0; border-radius: 10px; background: transparent; font-size: 15px; font-weight: 700; color: var(--chip-sub); white-space: nowrap; }
+.shop-cats .cat[aria-pressed="true"] { background: rgba(255, 255, 255, .16); color: #fff; }
+.chars { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.card.char { padding: 6px 6px 10px; align-items: center; text-align: center; }
+.char canvas { aspect-ratio: 1; }
+.card.char b { margin-top: 4px; font-size: 16px; }
+.card.char span { font-size: 13px; font-weight: 700; }
+.card.char[aria-pressed="true"] span { color: var(--cyan); }
+.shop-list { display: flex; flex-direction: column; gap: 8px; }
+.product { display: grid; grid-template-columns: 52px minmax(0, 1fr) auto; grid-template-areas: "sw name buy" "sw desc buy"; gap: 2px 12px; align-items: center; padding: 10px 12px; border: 2px solid var(--line); border-radius: 14px; }
+.product.on { border-color: #8a5cff; background: var(--accent-soft); }
+.swatch { grid-area: sw; width: 52px; height: 52px; border-radius: 14px; display: grid; place-items: center; font-size: 26px; line-height: 1; color: #fff; text-shadow: 0 1px 3px rgba(0, 0, 0, .55); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .25); }
+.product h4 { grid-area: name; margin: 0; font-size: 16px; font-weight: 700; line-height: 1.3; word-break: keep-all; }
+.product p { grid-area: desc; font-size: 15px; line-height: 1.45; color: var(--chip-sub); word-break: keep-all; }
+.product .buy { grid-area: buy; min-width: 88px; padding: 8px 12px; white-space: nowrap; }
+.price { display: inline-flex; align-items: center; gap: 6px; font-variant-numeric: tabular-nums; }
+.price .coin { width: 15px; height: 15px; }
+
+/* 수첩 (Task 5 fills it) */
+.tally { margin: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 6px 14px; padding: 12px 14px; border-radius: 14px; background: var(--track); font-size: 15px; }
+.tally dt { font-weight: 700; color: var(--chip-sub); }
+.tally dd { margin: 0; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+/* 설정: a name and a segmented switch per row (wrapping under the name when narrow) */
+.opt-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 12px; }
+.opt-name { flex: 1 1 120px; font-size: 15px; font-weight: 700; }
+.seg { display: flex; gap: 4px; padding: 4px; border-radius: 14px; background: var(--track); }
+.seg button { min-height: 44px; min-width: 56px; padding: 0 12px; border: 0; border-radius: 10px; background: transparent; font-size: 15px; font-weight: 700; color: var(--chip-sub); white-space: nowrap; }
+.seg button:hover { color: #fff; }
+.seg button[aria-pressed="true"] { background: var(--accent); color: #fff; }
+.menu input[type="range"] { flex: 1 1 160px; min-width: 140px; height: 44px; margin: 0; accent-color: var(--accent); }
+.menu select { flex: 1 1 200px; min-width: 0; min-height: 44px; border-radius: 12px; border: 2px solid var(--line); background: rgba(255, 255, 255, .06); color: #fff; font-family: var(--body); font-size: 15px; font-weight: 700; padding: 0 10px; }
+.menu select option { background-color: #12142a; color: #fff; }
+.settings > .btn, .reset-confirm .btn { align-self: flex-start; }
+.opt-links:not(:has(.links > :not([hidden]))) { display: none; }
+.links { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.links a.btn { display: inline-flex; align-items: center; text-decoration: none; }
+.reset-confirm { display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 2px solid rgba(255, 84, 104, .55); border-radius: 14px; background: rgba(255, 84, 104, .08); }
+.reset-confirm p { font-size: 15px; line-height: 1.55; }
+.reset-confirm .row { display: flex; flex-wrap: wrap; gap: 8px; }
+
+@media (max-width: 720px) {
+  .scrim.menu-scrim { background: linear-gradient(0deg, rgba(4, 5, 14, .5), rgba(4, 5, 14, .1) 70%); }
+  .menu { left: calc(8px + var(--safe-l)); right: calc(8px + var(--safe-r)); top: calc(max(84px, 11vh) + var(--safe-t)); bottom: calc(8px + var(--safe-b)); width: auto; padding: 14px 12px 12px; gap: 8px; }
+  .menu .brand > b { font-size: 27px; }
+}
+@media (max-height: 460px) {
+  .menu { left: calc(8px + var(--safe-l)); right: auto; top: calc(8px + var(--safe-t)); bottom: calc(8px + var(--safe-b)); width: min(560px, 66vw); padding: 10px 12px; gap: 6px; }
+  .rides { grid-template-columns: repeat(3, minmax(0, 1fr)); }   /* three across: a whole row of pictures above the fold */
+  .menu .brand > b { font-size: 24px; }
+  .menu .foot { padding-top: 6px; }
+  .menu .go { min-height: 46px; font-size: 19px; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .toast, #toast, #loading-bar i, .gauge > i { transition: none; }
   .notice.show, .notice.docked.show { animation-name: notice-still; }

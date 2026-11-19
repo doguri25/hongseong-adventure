@@ -115,7 +115,8 @@ export function createHud(doc, handlers = {}, { storage } = {}) {
     },
     loaded() { $('loading').hidden = true; syncMissionEdge(); },
     fatal(message) { $('loading').hidden = true; if (message) text($('fatal-text'), message); $('fatal').hidden = false; },
-    lost(show) { $('lost').hidden = !show; },
+    // an open dialog (the boot title menu) has made the overlays inert: 다시 불러오기 must still answer
+    lost(show) { const l = $('lost'); l.hidden = !show; if (show) l.inert = false; },
 
     // the layout key changes with the window shape (phone portrait / landscape / desktop): re-apply that layout's fold
     layout(width, height) {

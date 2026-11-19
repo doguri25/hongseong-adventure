@@ -6,8 +6,11 @@
 // is still loading are ignored; a quick phone-landscape pass covers the short screen. At all four viewports the HUD
 // is checked: every control >= 44x44, nothing interactive in the stick zone on touch screens (folded and open mission
 // card, vehicle picker, car turn buttons), the minimap draws, the 탐방 button opens a place in reach, and a driven
-// arrival shows the big notice. Screenshots go to OUT (SMOKE_OUT, default a folder in the system temp directory;
-// SMOKE_ONLY=tablet,phone,landscape runs only those passes).
+// arrival shows the big notice. The title menu opens at boot (paused); at all four viewports every menu tab is checked
+// the same way (sizes, fonts, the vehicle pictures), a wardrobe item is bought with seeded coins and taken off again,
+// a few settings take effect, the reset asks a second time in the page, and the menu closes into play (primary
+// button, home button + Escape, a mission's 출발). Screenshots go to OUT (SMOKE_OUT, default a folder in the system
+// temp directory; SMOKE_ONLY=tablet,phone,landscape runs only those passes).
 import http from 'node:http';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -70,8 +73,10 @@ async function dragStick(page, label) {
 
 // Accessibility floor for the HUD and dialogs: every visible control is at least 44x44 CSS px, every sentence a child
 // reads is at least 15 px; short labels inside buttons and chips may be smaller (labels 13, factor / key labels 12).
-const TEXT_15 = ['#where', '.stats', '.hint', '.credit .lead', '.credit summary', '#toast', '.notice span', '#turn-hint', '.act', '#mission-detail', '#npc-body', '#place-body', '.dialog .blurb', '.dialog .meta', '.dialog .reward', '.quiz .feedback', '#loading-step', '#lost p'];
-const LABEL_MIN = [['.travel button span', 13], ['.travel button small', 12], ['.dialog .tag', 13], ['.skill .lbl', 13], ['.skill small', 12], ['.mission-kick', 13], ['#mission-title', 13], ['.mission .badge', 13], ['.mission-foot .btn', 13], ['#speed-factor', 12], ['.cam-pad button', 13]];
+const TEXT_15 = ['#where', '.stats', '.hint', '.credit .lead', '.credit summary', '#toast', '.notice span', '#turn-hint', '.act', '#mission-detail', '#npc-body', '#place-body', '.dialog .blurb', '.dialog .meta', '.dialog .reward', '.quiz .feedback', '#loading-step', '#lost p',
+  '.menu .lead', '.menu .note', '.menu .status', '.mis-card p', '.card .desc', '.product p', '.reset-confirm p', '.tally', '.wallet'];
+const LABEL_MIN = [['.travel button span', 13], ['.travel button small', 12], ['.dialog .tag', 13], ['.skill .lbl', 13], ['.skill small', 12], ['.mission-kick', 13], ['#mission-title', 13], ['.mission .badge', 13], ['.mission-foot .btn', 13], ['#speed-factor', 12], ['.cam-pad button', 13],
+  ['.menu .tabs [role="tab"]', 13], ['.menu h3', 13], ['.mis-kick', 13], ['.mis-card h4', 13], ['.mis-card .btn', 13], ['.ride-head b', 13], ['.card .factor', 12], ['.shop-cats .cat', 13], ['.card.char b', 13], ['.card.char span', 13], ['.product h4', 13], ['.product .buy', 13], ['.opt-name', 13], ['.seg button', 13], ['.menu select', 13], ['.menu .settings > .btn', 13], ['.reset-confirm .btn', 13], ['.menu .go', 13]];
 // touch screens: nothing interactive in the stick zone (left 42 % of the width, lower 45 % of the height) while
 // playing; overlaps() as ui/dom.js: edges that only touch do not count
 async function measureUi(page, touch) {
@@ -101,6 +106,102 @@ async function checkUi(page, name, where, touch = false) {
   check(ui.small.length === 0, `${name} ${where}: ${ui.controls} visible controls are >= 44x44${ui.small.length ? ' — too small: ' + ui.small.join(', ') : ''}`);
   check(ui.fonts.length === 0, `${name} ${where}: sentences >= 15 px, labels at their minimum${ui.fonts.length ? ' — ' + ui.fonts.join(', ') : ''}`);
   if (touch) check(ui.inZone.length === 0, `${name} ${where}: no control in the stick zone${ui.inZone.length ? ' — ' + ui.inZone.join(', ') : ''}`);
+}
+
+// The title menu (ui/menu.js) as it opens at boot, then the menu from the home button. Every tab at this viewport:
+// controls >= 44 px and the font floors (the menu is a .scrim dialog, so the stick-zone rule does not apply to it), the
+// six vehicle pictures painted, a purchase with seeded coins, a few settings, the reset's second step; then into play.
+async function checkMenu(page, name, spec, shot) {
+  const touch = !!spec.touch;
+  const title = await page.evaluate(() => ({ open: !document.getElementById('menu').hidden, screen: window.__hs3d.ctl.screen, paused: window.__hs3d.ctl.paused(), go: document.getElementById('menu-go').textContent, focus: document.activeElement?.id, hudInert: document.querySelector('.hud-br').inert, hudHidden: getComputedStyle(document.querySelector('.hud-br')).visibility === 'hidden' }));
+  check(title.open && title.screen === 'title' && title.paused && title.go === '탐방 시작' && title.focus === 'menu-go' && title.hudInert && title.hudHidden, `${name}: the title menu is open at boot, paused, focus on "${title.go}", the HUD inert and out of sight (${JSON.stringify(title)})`);
+  // the world keeps rendering behind it, at most 10 frames a second
+  const fps = await page.evaluate(async () => { const W = window.__hs3d.world, seen = new Set(), t0 = performance.now(); while (performance.now() - t0 < 2000) { seen.add(W.pausedAt); await new Promise((r) => setTimeout(r, 15)); } return seen.size / 2; });
+  check(fps > 0 && fps <= 11, `${name}: the world renders behind the title at ${fps} fps (<= 10)`);
+  await page.evaluate(() => { window.__hs3d.world.state.coins = 500; window.__hs3d.menu.refresh(); });
+  for (const tab of ['missions', 'vehicles', 'wardrobe', 'journal', 'settings']) {
+    await page.evaluate((t) => document.getElementById('tab-' + t).click(), tab);
+    const sel = await page.evaluate((t) => ({ selected: document.getElementById('tab-' + t).getAttribute('aria-selected'), pane: !document.getElementById('pane-' + t).hidden, kids: document.getElementById('pane-' + t).children.length }), tab);
+    check(sel.selected === 'true' && sel.pane && sel.kids > 0, `${name}: menu tab ${tab} shows its pane (${sel.kids} items)`);
+    if (tab === 'vehicles') {
+      await page.waitForFunction(() => window.__hs3d.world.thumbs.size >= 6, null, { timeout: 60000, polling: 300 }).catch(() => {});
+      const pics = await page.evaluate(() => [...document.querySelectorAll('#pane-vehicles canvas')].map((c) => {
+        const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data, colours = new Set();
+        for (let i = 0; i < d.length; i += 16) colours.add((d[i] >> 4) << 8 | (d[i + 1] >> 4) << 4 | d[i + 2] >> 4);
+        return colours.size;
+      }));
+      check(pics.length === 6 && pics.every((n) => n > 12), `${name}: the six vehicle cards show rendered pictures (colours ${pics.join(', ')})`);
+    }
+    if (tab === 'wardrobe') await page.waitForFunction(() => window.__hs3d.world.thumbs.size >= 9, null, { timeout: 60000, polling: 300 }).catch(() => {});
+    await sleep(300);
+    await checkUi(page, name, `menu ${tab}`, touch);
+    await shot(`menu-${tab}`);
+  }
+  // 탈것: a card switches the mode (or says why not)
+  const ride = await page.evaluate(() => { document.getElementById('tab-vehicles').click(); document.querySelector('#pane-vehicles [data-mode="bike"]').click(); const r = { mode: window.__hs3d.player.mode, pressed: document.querySelector('#pane-vehicles [data-mode="bike"]').getAttribute('aria-pressed'), status: document.getElementById('ride-status').textContent }; document.querySelector('#pane-vehicles [data-mode="walk"]').click(); return { ...r, back: window.__hs3d.player.mode }; });
+  check((ride.mode === 'bike' && ride.pressed === 'true' || ride.status.length > 0) && ride.back === 'walk', `${name}: the 자전거 card switches the mode (${ride.mode}${ride.status ? ' · "' + ride.status + '"' : ''}) and 걷기 switches back`);
+  // 꾸미기: buy with seeded coins, worn on the explorer, taken off, a character; too dear -> disabled
+  const shop = await page.evaluate(() => {
+    const W = window.__hs3d.world, S = W.state, saved = () => JSON.parse(localStorage.getItem('hongseong-adventure-v1'));
+    document.getElementById('tab-wardrobe').click();
+    document.querySelector('[data-cat="outfit"]').click();
+    const before = S.coins;
+    document.querySelector('[data-buy="outfit-ocean"]').click();
+    const bought = { coins: S.coins, worn: S.equipped.outfit, actor: W.actors.outfitId, wallet: document.getElementById('wallet').textContent, hud: document.getElementById('coins').textContent, saved: saved().coins, label: document.querySelector('[data-buy="outfit-ocean"]').textContent };
+    document.querySelector('[data-buy="outfit-ocean"]').click();
+    const off = { coins: S.coins, worn: S.equipped.outfit, actor: W.actors.outfitId, label: document.querySelector('[data-buy="outfit-ocean"]').textContent };
+    S.coins = 50; document.querySelector('[data-cat="outfit"]').click();
+    const poor = { cape: document.querySelector('[data-buy="gold-cape"]').disabled, ocean: document.querySelector('[data-buy="outfit-ocean"]').disabled };
+    document.querySelector('[data-cat="character"]').click();
+    document.querySelector('[data-character="raccoon"]').click();
+    const who = { state: S.character, actor: W.actors.character, pressed: document.querySelector('[data-character="raccoon"]').getAttribute('aria-pressed') };
+    document.querySelector('[data-character="explorer"]').click();
+    return { before, bought, off, poor, who, back: S.character };
+  });
+  check(shop.bought.coins === shop.before - 100 && shop.bought.worn === 'ocean' && shop.bought.actor === 'ocean' && shop.bought.wallet === String(shop.bought.coins) && shop.bought.hud === String(shop.bought.coins) && shop.bought.saved === shop.bought.coins && shop.bought.label === '착용 해제',
+    `${name}: buying 바다빛 탐험복 with seeded coins: ${shop.before} -> ${shop.bought.coins}, worn by the explorer, wallet / HUD / save agree (${JSON.stringify(shop.bought)})`);
+  check(shop.off.coins === shop.bought.coins && shop.off.worn === 'default' && shop.off.actor === 'default' && shop.off.label === '착용하기', `${name}: pressed again it comes off, coins unchanged (${JSON.stringify(shop.off)})`);
+  check(shop.poor.cape && !shop.poor.ocean, `${name}: with 50 coins 햇살 망토 is disabled, the owned one is not`);
+  check(shop.who.state === 'raccoon' && shop.who.actor === 'raccoon' && shop.who.pressed === 'true' && shop.back === 'explorer', `${name}: choosing 귀여운 라쿤 changes the explorer at once (${JSON.stringify(shop.who)})`);
+  // 설정: time, camera, motion, speed take effect and are saved; the reset asks again in the page, then cancels
+  const set = await page.evaluate(() => {
+    const W = window.__hs3d.world, press = (k, v) => document.querySelector(`[data-setting="${k}"] [data-value="${v}"]`).click();
+    document.getElementById('tab-settings').click();
+    press('time', 'night'); press('camera', 'follow'); press('motion', 'off'); press('speed', '1.4'); press('movement', 'free');
+    const saved = JSON.parse(localStorage.getItem('hongseong-adventure-v1')), extra = JSON.parse(localStorage.getItem('hongseong-3d-v1'));
+    const r = { time: W.timeKey, cam: W.cam.mode, reduce: document.documentElement.classList.contains('reduce-motion'), actors: W.actors.reduced, speed: W.player.speedSetting, move: W.player.movementMode, saved: [saved.motion, saved.speed, saved.movementMode, extra.time, extra.camera], pressed: document.querySelector('[data-setting="time"] [data-value="night"]').getAttribute('aria-pressed') };
+    press('time', 'day'); press('camera', 'tilt'); press('motion', 'on'); press('speed', '1'); press('movement', 'roads');
+    r.after = [W.timeKey, W.cam.mode, document.documentElement.classList.contains('reduce-motion'), W.player.speedSetting, W.player.movementMode];
+    return r;
+  });
+  check(set.time === 'night' && set.cam === 'follow' && set.reduce && set.actors && set.speed === 1.4 && set.move === 'free' && set.pressed === 'true' && JSON.stringify(set.saved) === JSON.stringify([false, 1.4, 'free', 'night', 'follow']) && JSON.stringify(set.after) === JSON.stringify(['day', 'tilt', false, 1, 'roads']),
+    `${name}: 설정 time / camera / motion / speed / movement take effect live and are saved (${JSON.stringify(set)})`);
+  const reset = await page.evaluate(() => { document.getElementById('reset-progress').click(); const box = document.getElementById('reset-confirm'); return { shown: !box.hidden, focus: document.activeElement?.id }; });
+  await sleep(300);
+  await checkUi(page, name, 'menu reset confirm', touch);
+  await shot('menu-reset-confirm');
+  const cancelled = await page.evaluate(() => { document.getElementById('cancel-reset').click(); return { hidden: document.getElementById('reset-confirm').hidden, coins: window.__hs3d.world.state.coins }; });
+  check(reset.shown && reset.focus === 'backup-first' && cancelled.hidden && cancelled.coins === 50, `${name}: 기록 초기화 asks again in the page (focus on 파일 저장) and 취소 keeps the progress`);
+  // into play: the primary button
+  const play = await page.evaluate(() => { document.getElementById('menu-go').click(); return { open: !document.getElementById('menu').hidden, paused: window.__hs3d.ctl.paused(), screen: window.__hs3d.ctl.screen, focus: document.activeElement?.id, hudInert: document.querySelector('.hud-br').inert, hud: getComputedStyle(document.querySelector('.hud-br')).visibility }; });
+  check(!play.open && !play.paused && play.screen === 'play' && play.focus === 'c' && !play.hudInert && play.hud === 'visible', `${name}: 탐방 시작 closes the title into play, focus back on the map (${JSON.stringify(play)})`);
+  // the home button opens the same menu (이어하기); Escape closes it
+  await sleep(400);
+  const home = await page.evaluate(() => { document.getElementById('home-btn').click(); return { open: !document.getElementById('menu').hidden, paused: window.__hs3d.ctl.paused(), screen: window.__hs3d.ctl.screen, go: document.getElementById('menu-go').textContent }; });
+  await page.keyboard.press('Escape');
+  const esc = await page.evaluate(() => ({ open: !document.getElementById('menu').hidden, paused: window.__hs3d.ctl.paused() }));
+  check(home.open && home.paused && home.screen === 'play' && home.go === '이어하기' && !esc.open && !esc.paused, `${name}: the home button opens the menu (${home.go}) and Escape closes it into play`);
+  // a mission's 출발 closes the menu and heads for it
+  const go = await page.evaluate(() => {
+    document.getElementById('home-btn').click(); document.getElementById('tab-missions').click();
+    const b = document.querySelector('#pane-missions [data-mission]:not([disabled])'), W = window.__hs3d.world;
+    if (!b) return null;
+    b.click();
+    const r = { id: b.dataset.mission, open: !document.getElementById('menu').hidden, paused: W.ctl.paused(), target: !!W.target, active: W.state.dailyQuests?.active };
+    W.target = null; W.player.route = null;
+    return r;
+  });
+  check(!!go && !go.open && !go.paused && go.target && go.active === go.id, `${name}: a mission's 출발 closes the menu and heads there (${JSON.stringify(go)})`);
 }
 
 // The HUD's own pieces: the mission card folded and open, the vehicle picker (and a choice through it), the minimap
@@ -348,6 +449,7 @@ async function run(browser, base, spec) {
   await sleep(4000);
   const info = await page.evaluate(() => window.__hs3d.info());
   console.log(`  ${name} info: ${JSON.stringify(info)}`);
+  await checkMenu(page, name, spec, shot);
   check(info.buildings > 2000 && info.realBuildings >= 2000, `${name}: buildings ${info.buildings} (real ${info.realBuildings})`);
   check(info.places === 223, `${name}: 223 mapped places (${info.places})`);
   check(info.npcs >= 50, `${name}: NPCs placed (${info.npcs})`);

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { refreshMissions, missionView } from '../src/game/missions.js';
+import { refreshMissions, missionView, missionCards } from '../src/game/missions.js';
 import { freshState } from '#game/core.js';
 import { dayKey, DIRECT_BONUS } from '#game/quests.js';
 import { project, unproject } from '../src/frame.js';
@@ -86,4 +86,31 @@ test('missionView without missions', () => {
   const v = missionView(freshState(), places);
   assert.deepEqual(v.dots, []);
   assert.equal(v.target, null);
+});
+
+test('missionCards: the 2D mission list (number, kicker, button) for the three targets', () => {
+  const s = freshState();
+  s.dailyQuests = { day: dayKey(NOW), targets: ['p1', 'p2', 'p3'], active: 'p2', direct: true, started: true };
+  s.questLedger = [{ day: dayKey(NOW), place: 'p1', bonus: 50 }, { day: dayKey(YESTERDAY), place: 'p3', bonus: 0 }];
+  const v = missionCards(s, places);
+  assert.equal(v.bonus, DIRECT_BONUS);
+  assert.equal(v.allDone, false);
+  assert.deepEqual(v.cards.map((c) => [c.id, c.status, c.number]), [['p1', 'done', '✓'], ['p2', 'active', '2'], ['p3', 'open', '3']]);
+  assert.deepEqual(v.cards.map((c) => c.kicker), ['오늘의 첫 탐방 · 완료', '고장 탐방 미션 · 진행 중', '고장 탐방 미션 · 선택 가능']);
+  assert.deepEqual(v.cards.map((c) => c.action), ['미션 완료', '목표로 출발', '이 미션으로 출발']);
+  assert.deepEqual(v.cards[1], { id: 'p2', name: '장소2', area: '구역2', blurb: '설명2', number: '2', kicker: '고장 탐방 미션 · 진행 중', status: 'active', action: '목표로 출발' });
+  // yesterday's ledger does not count; all three done today -> allDone
+  s.questLedger.push({ day: dayKey(NOW), place: 'p2', bonus: 0 }, { day: dayKey(NOW), place: 'p3', bonus: 0 });
+  const all = missionCards(s, places);
+  assert.equal(all.allDone, true);
+  assert.ok(all.cards.every((c) => c.status === 'done' && c.action === '미션 완료'));
+});
+
+test('missionCards skips unknown targets and has nothing to show without missions', () => {
+  const s = freshState();
+  s.dailyQuests = { day: dayKey(NOW), targets: ['p4', 'gone', 'p5'], active: 'p4', direct: true, started: true };
+  assert.deepEqual(missionCards(s, places).cards.map((c) => [c.id, c.number]), [['p4', '1'], ['p5', '3']]);
+  const none = missionCards(freshState(), places);
+  assert.deepEqual(none.cards, []);
+  assert.equal(none.allDone, true);   // as the 2D list: every() of nothing offers 새 미션 받기
 });

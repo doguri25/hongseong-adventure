@@ -1,8 +1,8 @@
 // Hongseong Adventure 3D: boots the whole county world from the game's own data and runs the game's movement and
-// arrival rules under the pokju-style HUD (ui/hud.js, minimap.js, gauge.js). Boot: fetch data -> height field (+ water
-// carving) -> world layers -> road services -> actors, places, NPCs -> restore the session -> loop (simulate -> camera
-// -> actors/world -> ground, props, buildings -> post render -> HUD -> auto quality every 2 s -> save every 2 s while
-// moving).
+// arrival rules under the pokju-style HUD (ui/hud.js, minimap.js, gauge.js) and title menu (ui/menu.js). Boot: fetch
+// data -> height field (+ water carving) -> world layers -> road services -> actors, places, NPCs -> restore the
+// session -> the title menu (paused) -> loop (simulate -> camera -> actors/world -> ground, props, buildings -> post
+// render -> HUD -> auto quality every 2 s -> save every 2 s while moving).
 import * as THREE from 'three';
 import { BOUNDS, M_LON, M_LAT, project, unproject, toRender, fromRender } from './frame.js';
 import { decodeFeatures, decodeBuildings, terrariumHeight } from './data/decode.js';
@@ -26,13 +26,15 @@ import { createCamera, stepCamera } from './sim/camera.js';
 import { arrivals, nearestVisitable, CAR_REACH, CONTACT } from './sim/arrival.js';
 import { haltCar } from './sim/car.js';
 import { createControls } from './input/controls.js';
-import { loadSession, saveSession, startPosition, restoreTravel, MODES } from './game/session.js';
+import { loadSession, saveSession, resetSession, startPosition, restoreTravel, MODES } from './game/session.js';
 import { ferryDocks, startVoyage, advanceVoyage } from './game/ferry.js';
 import { createHud, josa } from './ui/hud.js';
 import { createMinimap } from './ui/minimap.js';
 import { createController } from './game/controller.js';
 import { missionView } from './game/missions.js';
 import { createPlaceDialog, createNpcDialog } from './ui/place-dialog.js';
+import { createMenu } from './ui/menu.js';
+import { createThumbs } from './ui/thumbs.js';
 import { PLACES } from '#game/content.js';
 import { districtAt, distance, canVisit } from '#game/geography.js';
 import { RoadNavigator } from '#game/navigation.js';
@@ -64,6 +66,8 @@ const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const FLASH = { ok: '#35e08a', danger: '#ff5468' };
 const MINIMAP_IMAGE = new URL('#game/assets/map-view-county-v13.webp', import.meta.url).href;   // covers [0,W] x [0,H]
 const NO_VISIT = '장소 가까이에서 탐방할 수 있어요';
+const HINT = '왼쪽을 누른 채 끌면 움직여요. 오른쪽을 끌면 화면을 돌리고 기울이고, 두 손가락으로 확대해요.';
+const SPEEDS = [0.75, 1, 1.4];
 const FINE_POINTER = matchMedia('(pointer: fine)');
 
 // localStorage can be missing or throw (private mode, blocked site data): fall back to memory for this run
@@ -80,7 +84,7 @@ const hud = createHud(document, {
   onTilt: (d) => { if (live()) G.view.pitchAdj = clamp(G.view.pitchAdj + d, -70, 70); },
   onTurn: (side) => { if (live() && isCar(G.player.mode)) G.turn = side; },
   onTalk: () => talk(), onFerry: () => boardFerry(), onVisit: () => visit(),
-  // the county map (Task 7) and the menu (Task 4) have no renderer yet: the controller drops them without pausing
+  // the county map (Task 7) has no renderer yet: the controller drops it without pausing
   onMap: () => { if (live() && !G.ctl.paused()) G.ctl.open('map'); },
   onHome: () => { if (live() && !G.ctl.paused()) G.ctl.open('menu'); },
   onGuide: (id) => { if (live() && id) G.ctl.goTo(id); },
@@ -164,6 +168,7 @@ async function boot() {
   const lakeLevels = carveWater(field, { sea: null, lakes });
 
   const session = loadSession(storage), state = session.state, extra = session.extra;
+  const fresh = !state.locations.county && !state.discovered.length;   // the title says 탐방 시작 instead of 이어하기
   // automatic quality starts lighter on touch and low-memory devices (render/quality.js autoStartKey)
   // (window.navigator: boot() has its own `navigator`, the walking-road navigator)
   const autoKey = autoStartKey({ coarse: matchMedia('(pointer: coarse)').matches, deviceMemory: window.navigator.deviceMemory });
@@ -243,6 +248,14 @@ async function boot() {
   });
   G.npcDialog = createNpcDialog(document, { onClose: () => ctl.close() });
   const ctl = G.ctl = createController({ state, places, services: controllerServices(), save });
+  G.thumbs = createThumbs(renderer, actors);
+  G.menu = createMenu(document, {
+    root: $('app'), returnFocus: canvas, getState: () => state, places, ctl, thumbs: G.thumbs,
+    current: () => ({ mode: G.voyage ? 'boat' : player.mode, pending: player.pending }),
+    settings: settingsView, setting: applySetting, dress, reset: resetProgress,
+    changed: () => { refreshStats(); refreshMission(); save(); },
+    onClose: () => ctl.close(),
+  });
 
   // restore the travel mode: the shared travelSpeed wins over a stale 3D-only one (falls back to walking when, say, a
   // car has no road nearby)
@@ -251,7 +264,7 @@ async function boot() {
   ctl.dayTick();   // a new KST day (or a first run) gets its three missions
   hud.setMode(player.mode, player.pending);
   hud.setCamera(cam.mode);
-  document.documentElement.classList.toggle('reduce-motion', reduced);   // the game's own motion setting, as REDUCED
+  applyMotion();   // html.reduce-motion and the layers' bobbing follow the game's own motion setting (and REDUCED)
   refreshStats();
   refreshMission();
 
@@ -271,6 +284,8 @@ async function boot() {
   await step('첫 화면을 그리는 중');
   hud.loading('첫 화면을 그리는 중', 1);
   G.booted = true;
+  G.hintPending = true;   // the controls hint waits until the title closes into play
+  ctl.open('menu', { title: true, fresh });   // the title: paused, the world renders behind it
   start();
 }
 
@@ -317,7 +332,7 @@ function tick(dt, t) {
   // spike fog, capped inside the terrain's 14 km streaming radius so dropped chunks never show the sea plane through
   fog.far = Math.min(6000 + G.cam.dist * 7 + G.flyH * 14, FOG_MAX); fog.near = Math.min(1300 + G.cam.dist * 2 + G.flyH * 4, fog.far * 0.6);
   const fast = player.mode === 'plane' ? clamp(player.speed / (78 * 16), 0, 1) : isCar(player.mode) ? clamp(player.speed / (78 * 8), 0, 1) * 0.4 : 0;
-  G.speedFx = REDUCED ? 0 : damp(G.speedFx, fast * 0.85, 3, dt);
+  G.speedFx = reducedMotion() ? 0 : damp(G.speedFx, fast * 0.85, 3, dt);
   G.post.current.setSpeed(G.speedFx);
   hud.compass(G.cam.yaw);
   hud.speed(player.speed, gaugeMax(), G.voyage ? 'boat' : player.mode);
@@ -389,7 +404,7 @@ function onEvent(e) {
 function openPlace(place, physical) { G.ctl.open('place', { place, physical }); }
 
 // The effects the game controller (game/controller.js) asks for; its JSDoc lists the hooks. Dialog kinds without a
-// renderer yet (map, search, nearby, help, menu, ferry) return false and are dropped without pausing.
+// renderer yet (map, search, nearby, help, ferry) return false and are dropped without pausing.
 function controllerServices() {
   return {
     stopPlayer: () => { clearTarget(); Object.assign(G.player, { speed: 0, vx: 0, vy: 0, turnRate: 0 }); if (G.player.car) haltCar(G.player.car); G.turn = null; },
@@ -397,14 +412,16 @@ function controllerServices() {
     showDialog: (kind, data) => {
       if (kind === 'place') rewardNotice(data.place, G.dialog.open(data.place, { physical: !!data.physical }));
       else if (kind === 'npc') G.npcDialog.open(data.npc);
+      else if (kind === 'menu') G.menu.open(data);
       else return false;
       return true;
     },
-    hideDialog: (kind) => { if (kind === 'place') G.dialog.close(); else if (kind === 'npc') G.npcDialog.close(); },
+    hideDialog: (kind) => { if (kind === 'place') G.dialog.close(); else if (kind === 'npc') G.npcDialog.close(); else if (kind === 'menu') G.menu.hide(); },
     onPause: (paused) => {
       if (paused) return;
       G.last = 0; G.frameTimes = []; G.lastCheck = performance.now();   // the slow paused frames must not look like a slow device
-      refreshStats();
+      refreshStats(); refreshMission();
+      if (G.hintPending) { G.hintPending = false; hud.toast(HINT, 4200); }
     },
     setTarget: (point, place) => { setTarget(point); if (place) hud.toast(`${place.name}${josa(place.name, 'to')} 가요`); },
     setMode: (mode) => chooseMode(mode),
@@ -421,7 +438,7 @@ function controllerServices() {
 // The big centre notice (ui/hud.js) and the grade pass's green / red flash (skipped when motion is reduced).
 function notify(title, sub, tone = 'ok') {
   hud.notice(title, sub, tone);
-  if (!(REDUCED || G.state.motion === false)) G.post.current?.flash(FLASH[tone] || FLASH.ok);
+  if (!reducedMotion()) G.post.current?.flash(FLASH[tone] || FLASH.ok);
 }
 // what a visit earned, as the place dialog opens (2D rewardLine order): a mission first, then a new discovery
 function rewardNotice(place, r) {
@@ -505,17 +522,18 @@ function talk() {
   G.ctl.onNpc(npc);
 }
 
-// ---------- camera, time, quality
-function toggleCamera() {
+// ---------- camera, time, quality (the C / T / Q keys cycle them with a toast; the menu's 설정 sets them quietly)
+function toggleCamera(quiet = false) {
   if (!live()) return;
   const c = G.cam;
   c.mode = c.mode === 'tilt' ? 'follow' : 'tilt'; c.base = null;
   G.view.userYaw = 0; G.view.pitchAdj = 0;
   G.extra.camera = c.mode;
   hud.setCamera(c.mode);
-  hud.toast(c.mode === 'tilt' ? '북쪽이 위인 지도 화면이에요. 화면을 끌면 돌리고 기울여요.' : '탐험가 뒤를 따라가는 화면이에요. 화면을 끌면 둘러봐요.');
+  if (quiet !== true) hud.toast(c.mode === 'tilt' ? '북쪽이 위인 지도 화면이에요. 화면을 끌면 돌리고 기울여요.' : '탐험가 뒤를 따라가는 화면이에요. 화면을 끌면 둘러봐요.');
   save();
 }
+function setCamera(mode) { if (live() && (mode === 'tilt' || mode === 'follow') && G.cam.mode !== mode) toggleCamera(true); }
 
 function applyTime(key) {
   if (!G) return null;
@@ -527,11 +545,15 @@ function applyTime(key) {
   G.timeKey = k; G.extra.time = k;
   return T;
 }
-function cycleTime() {
-  if (!live()) return;
-  const T = applyTime(TIME_ORDER[(TIME_ORDER.indexOf(G.timeKey) + 1) % TIME_ORDER.length]);
-  if (T) hud.toast(`시간: ${T.label}`);
+function setTime(key) {
+  if (!live() || !TIME_ORDER.includes(key)) return null;
+  const T = applyTime(key);
   save();
+  return T;
+}
+function cycleTime() {
+  const T = setTime(TIME_ORDER[(TIME_ORDER.indexOf(G?.timeKey) + 1) % TIME_ORDER.length]);
+  if (T) hud.toast(`시간: ${T.label}`);
 }
 
 function qualityLabel() { return G.qstate.mode === 'auto' ? '자동' : QUALITY[G.qstate.mode].label; }
@@ -559,13 +581,56 @@ function applyQuality(next) {
   if (rebuild || next.scale !== prev.scale || next.key !== prev.key) resize();
 }
 
-function cycleQuality() {
-  if (!live()) return;
-  const mode = QUALITY_ORDER[(QUALITY_ORDER.indexOf(G.qstate.mode) + 1) % QUALITY_ORDER.length];
+function setQuality(mode) {
+  if (!live() || !QUALITY_ORDER.includes(mode)) return false;
   G.extra.quality = mode;
   applyQuality(qualityState(mode, G.autoKey));
-  hud.toast(`화질: ${qualityLabel()}. 땅 그림 해상도는 다시 불러오면 바뀌어요.`);
   save();
+  return true;
+}
+function cycleQuality() {
+  if (live() && setQuality(QUALITY_ORDER[(QUALITY_ORDER.indexOf(G.qstate.mode) + 1) % QUALITY_ORDER.length])) hud.toast(`화질: ${qualityLabel()}. 땅 그림 해상도는 다시 불러오면 바뀌어요.`);
+}
+
+// ---------- the menu's 설정 and 꾸미기 effects (ui/menu.js ctx)
+const reducedMotion = () => REDUCED || G?.state.motion === false;
+function applyMotion() {
+  const r = reducedMotion();
+  G.actors.reduced = G.placeLayer.reduced = G.npcLayer.reduced = r;
+  document.documentElement.classList.toggle('reduce-motion', r);
+}
+function settingsView() {
+  const s = G.state;
+  return {
+    sound: s.sound ? 'on' : 'off', music: s.music ? 'on' : 'off', volume: s.volume, voice: s.voiceURI, motion: s.motion ? 'on' : 'off',
+    speed: String(s.speed), movement: s.movementMode, quality: G.qstate.mode, camera: G.cam.mode, time: G.timeKey,
+  };
+}
+// one 설정 change, with the 2D rules (dist/game.js showHelp: music on turns the sound on); the sound and voice values
+// are saved now and heard once GameAudio / Narrator are wired (Task 8)
+function applySetting(key, value) {
+  const s = G.state, p = G.player;
+  if (key === 'quality') return setQuality(value);
+  if (key === 'camera') return setCamera(value);
+  if (key === 'time') return setTime(value);
+  if (key === 'sound') s.sound = value === 'on';
+  else if (key === 'music') { s.music = value === 'on'; if (s.music) s.sound = true; }
+  else if (key === 'volume') s.volume = clamp(Number(value) || 0, 0, 1);
+  else if (key === 'voice') { s.voiceURI = String(value).slice(0, 300); G.ctl.narrator.cancel(); }
+  else if (key === 'motion') { s.motion = value !== 'off'; applyMotion(); }
+  else if (key === 'speed') { const v = Number(value); if (SPEEDS.includes(v)) s.speed = p.speedSetting = v; }
+  else if (key === 'movement') { s.movementMode = p.movementMode = value === 'free' ? 'free' : 'roads'; clearTarget(); p.roadCursor = null; }
+  else return false;
+  save();
+  return true;
+}
+// a character chosen or an outfit put on in 꾸미기: the explorer changes at once
+function dress() { G.actors.setCharacter(G.state.character); G.actors.setOutfit(G.state.equipped.outfit || 'default'); }
+// 기록 지우고 처음부터 (2D reset): a fresh save keeping the 3D view settings, then a reload; nothing saves the old state after
+function resetProgress() {
+  G.resetting = true;
+  resetSession(storage, G.extra);
+  location.reload();
 }
 
 function resize() {
@@ -685,15 +750,17 @@ function gaugeMax() {
 }
 
 function save() {
-  if (!G) return;
+  if (!G || G.resetting) return;
   saveSession(storage, G.state, G.extra, G.player, G.voyage);
 }
 
 // ---------- ready: exposed once the first frame has rendered
 function ready() {
   hud.loaded();
-  try { G.renderer.domElement.focus({ preventScroll: true }); } catch {}
-  hud.toast('왼쪽을 누른 채 끌면 움직여요. 오른쪽을 끌면 화면을 돌리고 기울이고, 두 손가락으로 확대해요.', 4200);
+  if (!G.ctl.paused()) {   // the title menu keeps the focus it was given
+    try { G.renderer.domElement.focus({ preventScroll: true }); } catch {}
+  }
+  if (G.hintPending && !G.ctl.paused()) { G.hintPending = false; hud.toast(HINT, 4200); }
   window.__hs3d = {
     ready: true,
     player: G.player,
@@ -703,6 +770,7 @@ function ready() {
     openPlace: (id) => { const p = G.byId.get(id); if (p) openPlace(p, reachable(p)); return !!p; },
     closeDialogs: () => G.ctl.close(),
     ctl: G.ctl,
+    menu: G.menu,
     // debug/smoke hook: put the player (walking) at a game-frame point, on dry land outside buildings, camera snapped
     teleport: (x, y) => {
       if (G.voyage) return false;

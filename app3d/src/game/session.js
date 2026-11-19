@@ -87,4 +87,16 @@ export function saveSession(storage, state, extra, player, voyage = null) {
   } catch { return false; }
 }
 
+// 이 기기 기록 초기화 (the 2D reset: state = freshState(), saved without a position): a fresh shared save. The 3D view
+// settings (camera, time, quality; from `extra`, else the stored ones) stay; the travel mode goes with the progress.
+// The caller reloads and must not save the old state after this.
+export function resetSession(storage, extra = null) {
+  try {
+    const keep = cleanExtra(extra || read(storage, EXTRA_KEY));
+    storage.setItem(STORAGE_KEY, JSON.stringify(freshState()));
+    storage.setItem(EXTRA_KEY, JSON.stringify({ ...keep, travel: null }));
+    return true;
+  } catch { return false; }
+}
+
 export { freshState };
