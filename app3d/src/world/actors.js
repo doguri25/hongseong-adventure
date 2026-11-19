@@ -3,7 +3,7 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { toRender } from '../frame.js';
-import { CHARACTERS, OUTFIT_FILTERS } from '../../../dist/wardrobe.js';
+import { CHARACTERS, OUTFIT_FILTERS } from '#game/wardrobe.js';
 import { outfitMatrix, applyOutfit } from './outfit.js';
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));

@@ -1,6 +1,6 @@
 // Arrival rules (pure, game frame metres). Places carry `point` [x,y] and, when the point lies in a building, `ring`.
 // Walk/bike use the 2D game's updateEncounters; car/supercar reach 110 m; any ground mode also fires on building contact.
-import { updateEncounters, segmentDistance, placeRadius, distance } from '../../../dist/geography.js';
+import { updateEncounters, segmentDistance, placeRadius, distance } from '#game/geography.js';
 
 export const CAR_REACH = 110;
 export const CAR_REARM = 80;          // extra metres beyond the reach before a place re-arms for a car

@@ -1,5 +1,5 @@
 // Street lamp placement and the forest / urban / water masks behind tree scattering (pure, game frame: x east, y south, metres).
-import { SpatialIndex } from '../../../dist/geography.js';
+import { SpatialIndex } from '#game/geography.js';
 import { inRing, bboxOf } from './collider.js';
 import { roadClearance } from './roads.js';
 

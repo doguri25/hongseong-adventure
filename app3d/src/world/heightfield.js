@@ -1,7 +1,7 @@
 // Pure height grid (no Three.js). Node (i, j) sits at game-frame x = i*cell, y = j*cell (metres).
 // Data is row-major, row 0 = north (y = 0). `data` stays writable so water carving can lower it.
 import { VEX, BOUNDS, M_LON, M_LAT } from '../frame.js';
-import { blocksWater } from '../../../dist/water.js';
+import { blocksWater } from '#game/water.js';
 
 export class HeightField {
   constructor(grid, data) {

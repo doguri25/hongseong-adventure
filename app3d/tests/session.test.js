@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import { loadSession, saveSession, startPosition } from '../src/game/session.js';
 import { startVoyage, advanceVoyage } from '../src/game/ferry.js';
 import { createCollider } from '../src/sim/collider.js';
-import { WaterGuard } from '../../dist/water.js';
-import { freshState, discover, STORAGE_KEY } from '../../dist/core.js';
+import { WaterGuard } from '#game/water.js';
+import { freshState, discover, STORAGE_KEY } from '#game/core.js';
 import { project, unproject, BOUNDS } from '../src/frame.js';
 
 const fakeStorage = () => { const m = new Map(); return { m, getItem: (k) => (m.has(k) ? m.get(k) : null), setItem: (k, v) => void m.set(k, String(v)) }; };

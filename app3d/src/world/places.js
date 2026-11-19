@@ -12,7 +12,7 @@ export const mappedPlaces = (all) => all.filter((p) => Number.isFinite(p.lon) &&
 // Brand font for the labels; resolves whether or not the fonts load (labels then fall back to sans-serif).
 export function loadLabelFonts() {
   if (typeof FontFace === 'undefined' || typeof document === 'undefined') return Promise.resolve(false);
-  const faces = [['400', new URL('../../../dist/assets/NanumSquareRoundR.woff2', import.meta.url).href], ['700', new URL('../../../dist/assets/NanumSquareRoundB.woff2', import.meta.url).href]];
+  const faces = [['400', new URL('#game/assets/NanumSquareRoundR.woff2', import.meta.url).href], ['700', new URL('#game/assets/NanumSquareRoundB.woff2', import.meta.url).href]];
   return Promise.all(faces.map(([weight, url]) => new FontFace('NanumRound', `url(${url})`, { weight }).load().then((f) => document.fonts.add(f)))).then(() => true, () => false);
 }
 

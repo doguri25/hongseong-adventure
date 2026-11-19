@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import { HeightField } from '../src/world/heightfield.js';
 import { createCollider } from '../src/sim/collider.js';
 import { buildRoadGraph } from '../src/sim/roadgraph.js';
-import { WaterGuard } from '../../dist/water.js';
-import { RoadNavigator } from '../../dist/navigation.js';
+import { WaterGuard } from '#game/water.js';
+import { RoadNavigator } from '#game/navigation.js';
 import { createPlayer, stepPlayer, setMode } from '../src/sim/player.js';
 
 const DT = 1 / 30;

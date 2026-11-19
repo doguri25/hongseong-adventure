@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { outfitMatrix, applyMatrix } from '../src/world/outfit.js';
-import { OUTFIT_FILTERS } from '../../dist/wardrobe.js';
+import { OUTFIT_FILTERS } from '#game/wardrobe.js';
 
 const close = (a, b, e = 1e-9) => a.every((v, i) => Math.abs(v - b[i]) < e);
 

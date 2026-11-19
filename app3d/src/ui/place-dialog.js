@@ -1,9 +1,9 @@
 // Plain place dialog (phase 2 restyles it): story pages -> discovery quiz -> reward line, plus the small NPC talk panel.
 // Rewards use the game's own rules unchanged: discover/answer from dist/core.js, recordQuestVisit from dist/quests.js.
 // Pages and quiz options are HTML strings from the game's own content (trusted repository content), inserted as HTML.
-import { discover, answer, quizCoins } from '../../../dist/core.js';
-import { recordQuestVisit } from '../../../dist/quests.js';
-import { Narrator } from '../../../dist/audio.js';
+import { discover, answer, quizCoins } from '#game/core.js';
+import { recordQuestVisit } from '#game/quests.js';
+import { Narrator } from '#game/audio.js';
 
 const TYPE_LABEL = { public: '공공시설', nature: '자연', heritage: '문화유산', daily: '생활', school: '학교', culture: '문화', intangible: '무형유산', food: '먹거리' };
 const el = (doc, tag, props = {}, html) => { const e = Object.assign(doc.createElement(tag), props); if (html !== undefined) e.innerHTML = html; return e; };

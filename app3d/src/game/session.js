@@ -1,5 +1,5 @@
 // Save/load and the safe start position. `storage` is anything with getItem/setItem (localStorage in the browser).
-import { STORAGE_KEY, freshState, sanitizeState } from '../../../dist/core.js';
+import { STORAGE_KEY, freshState, sanitizeState } from '#game/core.js';
 import { project, unproject } from '../frame.js';
 
 export const EXTRA_KEY = 'hongseong-3d-v1';

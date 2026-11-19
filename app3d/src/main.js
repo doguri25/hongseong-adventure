@@ -28,10 +28,10 @@ import { loadSession, saveSession, startPosition, MODES } from './game/session.j
 import { ferryDocks, startVoyage, advanceVoyage } from './game/ferry.js';
 import { createHud, josa } from './ui/hud.js';
 import { createPlaceDialog, createNpcDialog } from './ui/place-dialog.js';
-import { PLACES } from '../../dist/content.js';
-import { districtAt, distance, canVisit } from '../../dist/geography.js';
-import { RoadNavigator } from '../../dist/navigation.js';
-import { WaterGuard, blocksWater } from '../../dist/water.js';
+import { PLACES } from '#game/content.js';
+import { districtAt, distance, canVisit } from '#game/geography.js';
+import { RoadNavigator } from '#game/navigation.js';
+import { WaterGuard, blocksWater } from '#game/water.js';
 
 const $ = (id) => document.getElementById(id);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));

@@ -1,6 +1,6 @@
 // The 58 village NPC billboards (20 m tall) with a "···" bubble. Positions come from dist/npcs.js createNpcs (game frame).
 import * as THREE from 'three';
-import { createNpcs } from '../../../dist/npcs.js';
+import { createNpcs } from '#game/npcs.js';
 import { project, toRender } from '../frame.js';
 import { RESIDENT_ROLES } from './actor-assets.js';
 import { showCell } from './actors.js';

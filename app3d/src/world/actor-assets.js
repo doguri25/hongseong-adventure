@@ -1,20 +1,20 @@
 // Loads and prepares everything the actors need: chroma-keyed sprite sheets, their cell tables, and the two pokju car models.
-// Sheets come from dist/assets through Vite (hashed into the build); the GLBs live in public/models.
+// Sheets come from the 2D game's assets (`#game/assets`, hashed into the build by Vite); the GLBs live in public/models.
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { WALK_CELLS } from '../../../dist/walk-cells.js';
-import { MOTION_CELLS } from '../../../dist/motion-cells.js';
-import { SPRITE_CELLS } from '../../../dist/sprite-cells.js';
-import { isChroma } from '../../../dist/sprites.js';
-import { measureSpriteCells } from '../../../dist/sprite-ground.js';
+import { WALK_CELLS } from '#game/walk-cells.js';
+import { MOTION_CELLS } from '#game/motion-cells.js';
+import { SPRITE_CELLS } from '#game/sprite-cells.js';
+import { isChroma } from '#game/sprites.js';
+import { measureSpriteCells } from '#game/sprite-ground.js';
 
 const URLS = {
-  walk: new URL('../../../dist/assets/walk-cycle-explorer.png', import.meta.url).href,
-  boy: new URL('../../../dist/assets/walk-cycle-boy.png', import.meta.url).href,
-  raccoon: new URL('../../../dist/assets/walk-cycle-raccoon.png', import.meta.url).href,
-  bike: new URL('../../../dist/assets/motion-bike.png', import.meta.url).href,
-  npc: new URL('../../../dist/assets/npc-v12.png', import.meta.url).href,
-  atlas: new URL('../../../dist/assets/game-sprites-chroma-atlas.png', import.meta.url).href,
+  walk: new URL('#game/assets/walk-cycle-explorer.png', import.meta.url).href,
+  boy: new URL('#game/assets/walk-cycle-boy.png', import.meta.url).href,
+  raccoon: new URL('#game/assets/walk-cycle-raccoon.png', import.meta.url).href,
+  bike: new URL('#game/assets/motion-bike.png', import.meta.url).href,
+  npc: new URL('#game/assets/npc-v12.png', import.meta.url).href,
+  atlas: new URL('#game/assets/game-sprites-chroma-atlas.png', import.meta.url).href,
 };
 const BASE = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.BASE_URL) || './';
 
