@@ -15,6 +15,11 @@ export function createCar(graph, x, y, heading, maxR = 600) {
   return car;
 }
 
+// Bring a car to rest and forget what it was doing (dialogs open at speed): no coasting, route, goal or booked turn.
+export function haltCar(car) {
+  Object.assign(car, { speed: 0, route: null, goal: null, goalTarget: null, intent: null, intentLeft: 0, intentT: 0, backT: 0, turned: false, turnRate: 0 });
+}
+
 function pose(car, dt) {
   const G = car.graph, p = G.at(car.edge, car.s), tg = G.tangent(car.edge, car.s, car.dir), lane = car.edge.oneway ? 0 : car.edge.half * 0.5;
   car.lane = car.lane === null || !dt ? lane : damp(car.lane, lane, 3, dt);

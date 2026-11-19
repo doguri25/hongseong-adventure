@@ -199,6 +199,42 @@ async function run(browser, base, spec) {
   await shot('5b-quiz-step');
   await page.evaluate(() => document.getElementById('place-close').click());
 
+  // arrival while driving: the dialog stops player and car, and closing it fires nothing again
+  const drive = await page.evaluate(() => {
+    const W = window.__hs3d.world;
+    for (const p of W.places) {
+      const n = W.graph.nearest(p.point[0], p.point[1], 120);
+      if (!n || n.edge.len < 700) continue;
+      const s0 = n.s > n.edge.len / 2 ? n.s - 320 : n.s + 320, at = W.graph.at(n.edge, s0);
+      window.__hs3d.closeDialogs();
+      if (!window.__hs3d.teleport(at[0], at[1])) continue;
+      if (!window.__hs3d.setMode('car').ok) continue;
+      W.target = [p.point[0], p.point[1]];
+      return { id: p.id };
+    }
+    return null;
+  });
+  if (!drive) check(false, `${name}: found a road-side place to drive to`);
+  else {
+    let opened = null;
+    for (let i = 0; i < 120 && !opened; i++) {
+      await sleep(500);
+      opened = await page.evaluate(() => { const W = window.__hs3d.world; return W.dialog.isOpen ? { id: W.dialog.place?.id, speed: W.player.speed, carSpeed: W.player.car ? W.player.car.speed : null, hasCar: !!W.player.car, paused: W.ctl.paused() } : null; });
+    }
+    check(!!opened && opened.hasCar && opened.paused, `${name}: driving into a place opens its dialog and pauses (${opened ? opened.id : 'never opened'})`);
+    if (opened) {
+      await sleep(600);
+      const still = await page.evaluate(() => { const W = window.__hs3d.world; return { speed: W.player.speed, carSpeed: W.player.car.speed, target: W.target }; });
+      check(still.speed === 0 && still.carSpeed === 0 && !still.target, `${name}: player and car are at rest behind the dialog (${JSON.stringify(still)})`);
+      const closed = await page.evaluate(() => { const W = window.__hs3d.world; document.getElementById('place-close').click(); return { open: W.dialog.isOpen, paused: W.ctl.paused(), carSpeed: W.player.car.speed }; });
+      check(!closed.open && !closed.paused && closed.carSpeed === 0, `${name}: closing resumes play with the car at 0 (${JSON.stringify(closed)})`);
+      await sleep(4000);
+      const after = await page.evaluate(() => { const W = window.__hs3d.world; return { open: W.dialog.isOpen, id: W.dialog.place?.id ?? null, carSpeed: W.player.car ? W.player.car.speed : null }; });
+      check(!(after.open && after.id === opened.id) && !after.open && after.carSpeed === 0, `${name}: the same place does not reopen and the car stays at rest (${JSON.stringify(after)})`);
+    }
+  }
+  await page.evaluate(() => { window.__hs3d.closeDialogs(); window.__hs3d.setMode('walk'); });
+
   if (spec.tour) {
     // the west coast at 남당항 (sea to the west, ferry button) and the town of 홍성읍 from further out
     const coast = await page.evaluate(() => { const W = window.__hs3d.world; return window.__hs3d.teleport(W.docks.namdang[0] + 30, W.docks.namdang[1]); });

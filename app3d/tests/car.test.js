@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { buildRoadGraph } from '../src/sim/roadgraph.js';
-import { createCar, driveCar } from '../src/sim/car.js';
+import { createCar, driveCar, haltCar } from '../src/sim/car.js';
 
 const DT = 1 / 30, HALF = Math.PI / 2;
 const road = (points, extra = {}, highway = 'tertiary') => ({ kind: 'road', tags: { highway, ...extra }, points });
@@ -119,4 +119,18 @@ test('graph skips footways and shares nodes at 0.5 m', () => {
   assert.equal(g.edges.length, 4);
   assert.equal(g.nodes.size, 5);
   assert.equal(g.edges[0].way, 0);
+});
+
+test('haltCar stops a moving car and clears its route, goal and booked turn; it stays put afterwards', () => {
+  const g = buildRoadGraph([road([[0, 0], [2000, 0]])]);
+  const car = createCar(g, 100, 0, HALF);
+  for (let i = 0; i < 90; i++) driveCar(car, { throttle: 1, turn: 'left', stickHeading: null, target: null }, 300, DT, null);
+  assert.ok(car.speed > 10);
+  car.goal = { edge: car.edge, s: 1500 }; car.route = [1];
+  haltCar(car);
+  assert.equal(car.speed, 0);
+  assert.equal(car.goal, null); assert.equal(car.route, null); assert.equal(car.intent, null);
+  const s0 = car.s;
+  for (let i = 0; i < 30; i++) driveCar(car, idle, 300, DT, null);
+  assert.equal(car.s, s0);
 });

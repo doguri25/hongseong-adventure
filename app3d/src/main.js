@@ -23,6 +23,7 @@ import { buildRoadGraph } from './sim/roadgraph.js';
 import { createPlayer, stepPlayer, setMode as setPlayerMode, TOAST } from './sim/player.js';
 import { createCamera, stepCamera } from './sim/camera.js';
 import { arrivals, CAR_REACH, CONTACT } from './sim/arrival.js';
+import { haltCar } from './sim/car.js';
 import { createControls } from './input/controls.js';
 import { loadSession, saveSession, startPosition, restoreTravel, MODES } from './game/session.js';
 import { ferryDocks, startVoyage, advanceVoyage } from './game/ferry.js';
@@ -373,7 +374,7 @@ function openPlace(place, physical) { G.ctl.open('place', { place, physical }); 
 // renderer yet (map, search, nearby, help, menu, ferry) return false and are dropped without pausing.
 function controllerServices() {
   return {
-    stopPlayer: () => { clearTarget(); Object.assign(G.player, { speed: 0, vx: 0, vy: 0 }); G.turn = null; },
+    stopPlayer: () => { clearTarget(); Object.assign(G.player, { speed: 0, vx: 0, vy: 0, turnRate: 0 }); if (G.player.car) haltCar(G.player.car); G.turn = null; },
     resetInput: () => { G.controls.reset(); hud.stick({ visible: false }); },
     showDialog: (kind, data) => {
       if (kind === 'place') G.dialog.open(data.place, { physical: !!data.physical });
