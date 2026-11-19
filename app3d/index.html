@@ -2,17 +2,235 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>홍성 모험 3D</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#2c4636">
+<title>홍성 탐험대 3D</title>
 <style>
-html,body{margin:0;height:100%;background:#0b1620;overflow:hidden}
-#c{display:block;width:100%;height:100%}
-#loading{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;font:16px sans-serif;background:#0b1620}
+/* Temporary phase-1 HUD (phase 2 restyles everything): the spike's journal-paper panels over a full-screen 3D view.
+   Brand, place and stats top-left; tools top-right; compass and camera pad on the right; travel modes bottom-right;
+   floating stick bottom-left; actions (talk, ferry, car turns) bottom-centre; dialogs centred. */
+:root{
+  --paper:#fbf6e6; --paper-strong:#fffaf0; --ink:#233629; --ink-soft:#56685a; --field:#2f6b4f; --sun:#e1702c; --line:#d9cfb2; --wrong:#b5523b;
+  --font:'NanumRound','Apple SD Gothic Neo','Noto Sans KR',system-ui,sans-serif;
+  --safe-t:env(safe-area-inset-top,0px); --safe-r:env(safe-area-inset-right,0px); --safe-b:env(safe-area-inset-bottom,0px); --safe-l:env(safe-area-inset-left,0px);
+  color-scheme:light;
+}
+[hidden]{display:none!important}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:#2c4636;color:var(--ink);font-family:var(--font);font-size:15px;overflow:hidden;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:none;-webkit-text-size-adjust:100%}
+#app{position:fixed;inset:0;overflow:hidden}
+#c{position:absolute;inset:0;width:100%;height:100%;display:block;outline:none;touch-action:none}
+.panel{background:color-mix(in srgb,var(--paper) 93%,transparent);border:1px solid var(--line);border-radius:14px;box-shadow:0 6px 18px #1d2b2133;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+button{font:inherit;color:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+button:focus-visible,summary:focus-visible{outline:3px solid var(--sun);outline-offset:2px}
+button:disabled{opacity:.45;cursor:default}
+
+/* top row */
+.hud-top{position:absolute;top:calc(10px + var(--safe-t));left:calc(12px + var(--safe-l));right:calc(12px + var(--safe-r));display:flex;gap:8px;align-items:flex-start;pointer-events:none}
+.hud-top>*{pointer-events:auto}
+.chip{padding:7px 12px 8px;display:flex;flex-direction:column;gap:3px;min-width:0;max-width:min(320px,48vw)}
+.chip b{font-weight:700;font-size:16px;color:var(--field);white-space:nowrap}
+#where{font-size:14px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stats{display:flex;gap:12px;font-size:14px;color:var(--ink-soft);font-variant-numeric:tabular-nums;white-space:nowrap}
+.stats strong{color:var(--ink)}
+.tools{margin-left:auto;display:flex;gap:2px;padding:3px;flex-wrap:wrap;justify-content:flex-end}
+.tools button{border:0;background:transparent;border-radius:10px;min-height:44px;padding:6px 10px;font-size:14px;display:flex;gap:6px;align-items:center;white-space:nowrap}
+.tools button:hover{background:#efe6cc}
+.tools button b{font-weight:700;color:var(--field)}
+#fps{font-size:12px;color:var(--ink-soft);align-self:center;padding:0 6px;font-variant-numeric:tabular-nums;min-width:44px}
+
+/* right column: compass and camera pad */
+.compass{position:absolute;right:calc(14px + var(--safe-r));top:calc(74px + var(--safe-t));width:48px;height:48px;border-radius:50%;display:grid;place-items:center;padding:0}
+.compass svg{width:36px;height:36px}
+.cam-pad{position:absolute;right:calc(14px + var(--safe-r));top:calc(130px + var(--safe-t));display:flex;flex-direction:column;gap:2px;padding:2px;border-radius:26px}
+.cam-pad button{width:44px;height:44px;border:0;border-radius:50%;background:transparent;font-size:22px;font-weight:700;line-height:1;display:grid;place-items:center;color:var(--field)}
+.cam-pad button:hover{background:#efe6cc}
+.cam-pad svg{width:22px;height:22px}
+
+/* travel modes */
+.travel{position:absolute;right:calc(12px + var(--safe-r));bottom:calc(12px + var(--safe-b));display:flex;gap:2px;padding:4px}
+.travel button{border:0;background:transparent;border-radius:11px;min-height:52px;padding:5px 8px 4px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;min-width:62px}
+.travel button svg{width:24px;height:24px}
+.travel button span{font-size:13px;font-weight:700;white-space:nowrap}
+.travel button small{font-size:12px;color:var(--ink-soft);font-variant-numeric:tabular-nums}
+.travel button[aria-pressed="true"]{background:var(--field);color:var(--paper-strong)}
+.travel button[aria-pressed="true"] small{color:#d8ead9}
+.travel button.landing{outline:2px dashed var(--field);outline-offset:-3px}
+
+/* actions above the travel bar */
+.actions{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(84px + var(--safe-b));display:flex;gap:8px;align-items:center;pointer-events:none}
+.actions>*{pointer-events:auto}
+.act{border:1px solid var(--line);background:var(--paper-strong);border-radius:22px;min-height:44px;padding:8px 16px;font-size:15px;font-weight:700;color:var(--field);box-shadow:0 4px 12px #1d2b2133;white-space:nowrap}
+.act:hover{background:#efe6cc}
+.act.turn{min-width:52px;padding:8px 12px}
+#turn-hint{position:absolute;left:50%;bottom:calc(140px + var(--safe-b));transform:translateX(-50%);padding:8px 14px;font-size:15px;font-weight:700;color:var(--field);white-space:nowrap;pointer-events:none}
+
+/* stick */
+#stick{position:absolute;width:132px;height:132px;margin:-66px 0 0 -66px;border-radius:50%;background:#fffaf033;border:2px solid #fffaf099;box-shadow:0 0 0 1px #23362922 inset;pointer-events:none;z-index:2}
+#knob{position:absolute;left:50%;top:50%;width:56px;height:56px;margin:-28px 0 0 -28px;border-radius:50%;background:var(--paper-strong);box-shadow:0 4px 12px #0004;border:2px solid var(--field)}
+
+
+/* messages */
+#toast{position:absolute;left:50%;top:calc(78px + var(--safe-t));transform:translateX(-50%);padding:10px 16px;font-size:15px;line-height:1.45;opacity:0;transition:opacity .25s;pointer-events:none;width:max-content;max-width:min(520px,82vw);text-align:center;z-index:4}
+#toast.show{opacity:1}
+#arrive{position:absolute;left:50%;bottom:calc(140px + var(--safe-b));transform:translateX(-50%);padding:12px 18px;display:flex;flex-direction:column;align-items:center;gap:3px;width:max-content;max-width:min(460px,88vw);text-align:center;pointer-events:none}
+#arrive b{font-size:18px;color:var(--field)}
+#arrive span{font-size:15px;color:var(--ink-soft)}
+
+/* bottom-left corner: how to move, and the credit line (an attribution block on wide screens, a toggle on phones) */
+.corner{position:absolute;left:calc(12px + var(--safe-l));bottom:calc(12px + var(--safe-b));display:flex;flex-direction:column;align-items:flex-start;gap:8px;max-width:min(560px,calc(100vw - 480px));pointer-events:none}
+.corner>*{pointer-events:auto}
+.hint{margin:0;font-size:14px;color:#fffaf0;text-shadow:0 1px 3px #000c;line-height:1.45;pointer-events:none}
+@media (pointer:coarse){.hint-mouse{display:none}}
+@media not (pointer:coarse){.hint-touch{display:none}}
+.credit{font-size:13px;line-height:1.5;color:var(--ink-soft);padding:0;border-radius:12px}
+.credit summary{list-style:none;cursor:pointer;min-height:44px;min-width:44px;display:flex;align-items:center;gap:6px;padding:6px 12px;font-weight:700;color:var(--field)}
+.credit summary::-webkit-details-marker{display:none}
+.credit p{margin:0;padding:0 12px 8px}
+.credit p.lead{color:var(--ink);font-size:14px;padding-top:8px}
+@media (min-width:721px){.credit summary{display:none}}
+
+/* dialogs */
+.scrim{position:absolute;inset:0;background:#10201866;z-index:6;display:grid;place-items:center;padding:calc(12px + var(--safe-t)) calc(12px + var(--safe-r)) calc(12px + var(--safe-b)) calc(12px + var(--safe-l))}
+.dialog{width:min(560px,100%);max-height:100%;display:flex;flex-direction:column;background:var(--paper-strong);border:1px solid var(--line);border-radius:18px;box-shadow:0 18px 48px #0006;overflow:hidden;-webkit-user-select:text;user-select:text}
+.dialog header{display:flex;align-items:flex-start;gap:10px;padding:14px 14px 10px 18px;border-bottom:1px solid var(--line)}
+.dialog header .titles{flex:1;min-width:0}
+.dialog h2{margin:2px 0 0;font-size:20px;color:var(--field)}
+.dialog .tag{display:inline-block;font-size:13px;color:var(--paper-strong);background:var(--field);border-radius:8px;padding:2px 8px}
+.dialog .blurb{margin:4px 0 0;font-size:15px;color:var(--ink-soft)}
+.dialog .close{flex:none;width:44px;height:44px;border:0;border-radius:50%;background:transparent;font-size:24px;line-height:1;color:var(--ink-soft)}
+.dialog .close:hover{background:#efe6cc}
+.dialog .body{padding:14px 18px;overflow:auto;touch-action:pan-y;-webkit-overflow-scrolling:touch;font-size:16px;line-height:1.65}
+.dialog .body strong{color:var(--field)}
+.dialog .meta{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:14px;color:var(--ink-soft);margin-bottom:6px}
+.dialog .reward{margin:12px 0 0;font-size:15px;font-weight:700;color:var(--sun)}
+.dialog footer{display:flex;flex-wrap:wrap;gap:8px;padding:10px 14px calc(12px + 0px);border-top:1px solid var(--line);align-items:center}
+.dialog footer .spacer{flex:1}
+.btn{border:1px solid var(--line);background:var(--paper);border-radius:12px;min-height:44px;padding:8px 14px;font-size:15px;font-weight:700}
+.btn:hover:not(:disabled){background:#efe6cc}
+.btn.primary{background:var(--field);border-color:var(--field);color:var(--paper-strong)}
+.btn.primary:hover:not(:disabled){background:#285c43}
+.quiz h3{margin:0 0 10px;font-size:17px;line-height:1.5}
+.quiz .options{display:flex;flex-direction:column;gap:8px}
+.quiz .options button{display:flex;gap:10px;align-items:flex-start;text-align:left;border:1px solid var(--line);background:var(--paper);border-radius:12px;min-height:48px;padding:10px 12px;font-size:16px;line-height:1.45}
+.quiz .options button b{flex:none;width:26px;height:26px;border-radius:50%;background:var(--field);color:var(--paper-strong);display:grid;place-items:center;font-size:14px}
+.quiz .options button.wrong{border-color:var(--wrong);background:#f6e2dc}
+.quiz .options button.correct{border-color:var(--field);background:#dcefe0}
+.quiz .feedback{margin:12px 0 0;padding:10px 12px;border-radius:12px;background:#f2ecd9;font-size:15px}
+.npc .who{font-size:14px;color:var(--ink-soft)}
+.npc p{margin:0 0 10px}
+
+/* overlays */
+#loading,#lost,#fatal{position:absolute;inset:0;display:grid;place-items:center;background:#2c4636;color:var(--paper-strong);font-size:17px;z-index:8;text-align:center;padding-inline:calc(16px + var(--safe-l)) calc(16px + var(--safe-r))}
+#loading p,#lost p,#fatal p{margin:10px auto 0;font-size:15px;color:#cfe0d2;max-width:420px;line-height:1.5}
+#loading-bar{width:min(280px,70vw);height:6px;margin:14px auto 0;border-radius:3px;background:#ffffff26;overflow:hidden}
+#loading-bar i{display:block;height:100%;width:0;background:var(--paper);transition:width .2s}
+#lost button{margin-top:16px;border:0;border-radius:12px;min-height:44px;padding:10px 18px;background:var(--paper);color:var(--ink);font-weight:700}
+
+@media (max-width:720px){
+  .chip{max-width:52vw;padding:6px 10px 7px}
+  .chip b{font-size:15px}
+  .stats{gap:8px;font-size:13px}
+  .tools{flex-wrap:nowrap;gap:0;padding:2px}
+  .tools button{padding:6px 7px;font-size:13px}
+  .tools .lbl,#fps{display:none}
+  .travel{left:calc(8px + var(--safe-l));right:calc(8px + var(--safe-r));justify-content:space-between;padding:3px;gap:0}
+  .travel button{min-width:0;flex:1;padding:5px 2px 4px}
+  .travel button span{font-size:12px}
+  .travel button small{font-size:11px}
+  .hint{display:none}
+  .actions{bottom:calc(80px + var(--safe-b))}
+  #turn-hint,#arrive{bottom:calc(136px + var(--safe-b))}
+  .corner{top:calc(84px + var(--safe-t));bottom:auto;left:calc(12px + var(--safe-l));max-width:min(320px,calc(100vw - 96px))}
+  .credit p.lead{padding-top:0}
+}
+@media (max-height:460px){.compass{top:calc(62px + var(--safe-t))}.cam-pad{top:calc(116px + var(--safe-t));flex-direction:row}.hint{display:none}.corner{top:calc(80px + var(--safe-t));bottom:auto}}
+@media (prefers-reduced-motion:reduce){#toast,#loading-bar i{transition:none}}
 </style>
 </head>
 <body>
-<canvas id="c"></canvas>
-<div id="loading">불러오는 중…</div>
+<div id="app">
+  <canvas id="c" tabindex="0" aria-label="홍성군 3D 탐방 지도. 왼쪽을 누른 채 끌면 움직이고, 오른쪽을 끌면 화면을 돌려요."></canvas>
+  <div id="stick" hidden><div id="knob"></div></div>
+
+  <header class="hud-top">
+    <div class="chip panel">
+      <b>홍성 탐험대 3D</b>
+      <span id="where">홍성군</span>
+      <span class="stats"><span>금화 <strong id="coins">0</strong></span><span>발견 <strong id="found">0</strong> / <span id="found-total">223</span></span></span>
+    </div>
+    <div class="tools panel">
+      <button id="cam-btn" title="카메라 바꾸기 (C)"><span class="lbl">카메라</span> <b id="cam-label">비스듬히</b></button>
+      <button id="time-btn" title="시간 바꾸기 (T)"><span class="lbl">시간</span> <b id="time-label">낮</b></button>
+      <button id="q-btn" title="화질 바꾸기 (Q)"><span class="lbl">화질</span> <b id="q-label">자동</b></button>
+      <span id="fps" aria-hidden="true"></span>
+    </div>
+  </header>
+
+  <button class="compass panel" id="compass" title="북쪽 보기" aria-label="북쪽이 위로 오게 보기"><svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="17" fill="none" stroke="#d9cfb2" stroke-width="1.5"/><path d="M20 5 25 20H15Z" fill="#e1702c"/><path d="M20 35 25 20H15Z" fill="#9aa79a"/><text x="20" y="13.5" font-size="7" text-anchor="middle" fill="#fffaf0" font-weight="700" font-family="sans-serif">N</text></svg></button>
+  <div class="cam-pad panel" role="group" aria-label="카메라 조절">
+    <button id="zoom-in" title="가까이 (+)" aria-label="가까이">+</button>
+    <button id="zoom-out" title="멀리 (-)" aria-label="멀리">−</button>
+    <button id="tilt-up" title="위에서 내려다보기 (R)" aria-label="위에서 내려다보기"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 14 6-6 6 6"/></svg></button>
+    <button id="tilt-down" title="옆에서 보기 (F)" aria-label="옆에서 보기"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 10 6 6 6-6"/></svg></button>
+  </div>
+
+  <div class="corner">
+    <p class="hint"><span class="hint-touch">왼쪽을 누른 채 끌면 움직여요 · 오른쪽을 끌면 돌리고 기울여요 · 땅을 누르면 그곳으로 가요</span><span class="hint-mouse">WASD·화살표로 움직여요 · 끌면 돌리고 기울여요 · 휠로 확대 · 땅을 누르면 그곳으로 가요</span></p>
+    <details class="credit panel" id="credit">
+      <summary aria-label="지도 자료 안내">ⓘ 지도 자료</summary>
+      <p class="lead">실제 고도·도로·물길·건물·장소 좌표 위에 만든 3D 지도예요. 나무, 가로등, 일부 집은 분위기를 위한 장식이에요.</p>
+      <p id="credit-list">지도 © OpenStreetMap 기여자(ODbL) · 지형 Terrain Tiles(Mapzen · USGS SRTM·GMTED2010 · NOAA ETOPO1) · 행정 경계 통계청 SGIS 가공(vuski/admdongkor, CC BY 4.0)</p>
+    </details>
+  </div>
+
+  <div class="actions" id="actions">
+    <button class="act turn" id="turn-left" hidden title="다음 갈림길에서 좌회전" aria-label="다음 갈림길에서 좌회전">← 좌회전</button>
+    <button class="act" id="npc-talk" hidden></button>
+    <button class="act" id="ferry-btn" hidden>배 타기</button>
+    <button class="act turn" id="turn-right" hidden title="다음 갈림길에서 우회전" aria-label="다음 갈림길에서 우회전">우회전 →</button>
+  </div>
+
+  <nav class="travel panel" aria-label="이동 수단">
+    <button data-mode="walk" aria-pressed="true" title="걷기 (1)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="13" cy="4.5" r="2"/><path d="m9 21 3-7 3 2 1 5M12 14l-1-5 4 1 2 3M11 9l-3 2-1 3"/></svg><span>걷기</span><small>×1</small></button>
+    <button data-mode="bike" aria-pressed="false" title="자전거 (2)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="5.5" cy="16.5" r="3.5"/><circle cx="18.5" cy="16.5" r="3.5"/><path d="M5.5 16.5 9 9h6l3.5 7.5M9 9l3 7.5 3-7.5M8 6h3M15 9l-1-3h2"/></svg><span>자전거</span><small>×2</small></button>
+    <button data-mode="car" aria-pressed="false" title="자동차 (3)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 15v-3l2-5h11l3 5h2v3"/><path d="M3 15h18"/><circle cx="7" cy="16.5" r="2"/><circle cx="17" cy="16.5" r="2"/><path d="M6.5 11h12"/></svg><span>자동차</span><small>×4</small></button>
+    <button data-mode="supercar" aria-pressed="false" title="슈퍼카 (4)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 15.5v-2l3-1 4-3.5h6l4 3.5 3 1v2"/><path d="M2 15.5h20"/><circle cx="6.5" cy="16.5" r="1.8"/><circle cx="17.5" cy="16.5" r="1.8"/><path d="M9.5 12h7"/></svg><span>슈퍼카</span><small>×8</small></button>
+    <button data-mode="slowplane" aria-pressed="false" title="느린 비행기 (5)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M4 9h16M8 19h8"/><circle cx="12" cy="3" r="1"/></svg><span>느린 비행기</span><small>×4</small></button>
+    <button data-mode="plane" aria-pressed="false" title="비행기 (6)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2c1 1 1.4 3 1.4 5v3l7 4v2l-7-2v4l2.5 2v1.5L12 20.5 8.1 21.5V20l2.5-2v-4l-7 2v-2l7-4V7c0-2 .4-4 1.4-5Z"/></svg><span>비행기</span><small>×16</small></button>
+  </nav>
+
+  <div id="turn-hint" class="panel" hidden role="status"></div>
+  <div id="arrive" class="panel" hidden role="status"><b id="arrive-name"></b><span id="arrive-sub"></span></div>
+  <div id="toast" class="panel" role="status" aria-live="polite"></div>
+
+  <div class="scrim" id="place-dialog" hidden>
+    <section class="dialog" role="dialog" aria-modal="true" aria-labelledby="place-name">
+      <header>
+        <div class="titles"><span class="tag" id="place-tag"></span><h2 id="place-name"></h2><p class="blurb" id="place-blurb"></p></div>
+        <button class="close" id="place-close" aria-label="닫기" title="닫기 (Esc)">×</button>
+      </header>
+      <div class="body" id="place-body"></div>
+      <footer id="place-footer"></footer>
+    </section>
+  </div>
+
+  <div class="scrim" id="npc-dialog" hidden>
+    <section class="dialog npc" role="dialog" aria-modal="true" aria-labelledby="npc-name">
+      <header>
+        <div class="titles"><span class="tag" id="npc-area"></span><h2 id="npc-name"></h2></div>
+        <button class="close" id="npc-close" aria-label="닫기" title="닫기 (Esc)">×</button>
+      </header>
+      <div class="body" id="npc-body"></div>
+      <footer><span class="spacer"></span><button class="btn primary" id="npc-done">고마워요</button></footer>
+    </section>
+  </div>
+
+  <div id="loading"><div>홍성군을 3D로 짓고 있어요<p id="loading-step">지도 자료를 받는 중</p><div id="loading-bar"><i></i></div></div></div>
+  <div id="lost" hidden><div>그래픽이 잠시 멈췄어요<p>기기가 3D 화면을 쉬게 했어요. 다시 불러오면 화질을 낮춰서 시작해요.</p><button id="reload">다시 불러오기</button></div></div>
+  <div id="fatal" hidden><div>3D 화면을 열 수 없어요<p id="fatal-text">WebGL을 지원하는 최신 브라우저에서 열어 주세요.</p></div></div>
+</div>
 <script type="module" src="./src/main.js"></script>
 </body>
 </html>
