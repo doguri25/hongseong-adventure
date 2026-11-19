@@ -1,0 +1,82 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { createControls } from '../src/input/controls.js';
+
+function setup(extra = {}) {
+  const target = new EventTarget(); target.getBoundingClientRect = () => ({ left: 0, top: 0, width: 1000, height: 600 });
+  const env = new EventTarget(); env.innerWidth = 1000; env.navigator = { getGamepads: () => [] }; env.document = { hidden: false };
+  const calls = { taps: [], actions: [], sticks: [] };
+  const c = createControls(target, { onTap: (x, y) => calls.taps.push([x, y]), onAction: a => calls.actions.push(a), onStick: s => calls.sticks.push(s), ...extra }, env);
+  const fire = (t, type, props) => { const e = new Event(type, { cancelable: true }); for (const [k, v] of Object.entries(props)) Object.defineProperty(e, k, { value: v, configurable: true }); t.dispatchEvent(e); return e; };
+  return { target, env, calls, c, fire };
+}
+const touch = (id, x, y) => ({ pointerId: id, pointerType: 'touch', clientX: x, clientY: y });
+
+test('stick drag 52 px up gives y ~ 1 and follows past the edge', () => {
+  const { target, fire, c, calls } = setup();
+  fire(target, 'pointerdown', touch(1, 100, 300));
+  fire(target, 'pointermove', touch(1, 100, 248));
+  const r = c.read(); assert.ok(Math.abs(r.y - 1) < 1e-9 && Math.abs(r.x) < 1e-9);
+  fire(target, 'pointermove', touch(1, 100, 200));
+  assert.ok(Math.abs(c.read().y - 1) < 1e-9);
+  assert.equal(calls.sticks.at(-1).cy, 252);
+  fire(target, 'pointermove', touch(1, 100, 226)); // half stick
+  assert.ok(Math.abs(c.read().y - (0.5 - 0.12) / 0.88) < 1e-9);
+});
+
+test('dead zone: small drag gives zero', () => {
+  const { target, fire, c } = setup();
+  fire(target, 'pointerdown', touch(1, 100, 300)); fire(target, 'pointermove', touch(1, 100, 296));
+  assert.equal(c.read().y, 0);
+});
+
+test('inputResetsOnBlur', () => {
+  const { target, env, fire, c } = setup();
+  fire(target, 'pointerdown', touch(1, 100, 300)); fire(target, 'pointermove', touch(1, 100, 260));
+  fire(env, 'keydown', { code: 'KeyD' });
+  assert.ok(c.read().x > 0 && c.read().y > 0);
+  fire(env, 'blur', {});
+  const r = c.read(); assert.equal(r.x, 0); assert.equal(r.y, 0);
+  fire(target, 'pointerdown', touch(2, 100, 300)); fire(target, 'pointermove', touch(2, 100, 260));
+  env.document.hidden = true; fire(env, 'visibilitychange', {});
+  assert.equal(c.read().y, 0);
+});
+
+test('pointercancel and lostpointercapture end the stick', () => {
+  for (const type of ['pointercancel', 'lostpointercapture']) {
+    const { target, fire, c } = setup();
+    fire(target, 'pointerdown', touch(1, 100, 300)); fire(target, 'pointermove', touch(1, 100, 250));
+    fire(target, type, touch(1, 100, 250));
+    assert.equal(c.read().y, 0);
+  }
+});
+
+test('tap: short, still, single pointer; drags do not tap', () => {
+  const { target, fire, calls } = setup();
+  const mouse = (x, y) => ({ pointerId: 5, pointerType: 'mouse', clientX: x, clientY: y });
+  fire(target, 'pointerdown', mouse(700, 200)); fire(target, 'pointerup', mouse(703, 202));
+  assert.deepEqual(calls.taps, [[703, 202]]);
+  fire(target, 'pointerdown', mouse(700, 200)); fire(target, 'pointermove', mouse(740, 200)); fire(target, 'pointerup', mouse(740, 200));
+  assert.equal(calls.taps.length, 1);
+});
+
+test('mouse on the left side drags the view (no stick); drag rotates and tilts', () => {
+  const { target, fire, c } = setup();
+  const m = (x, y) => ({ pointerId: 1, pointerType: 'mouse', clientX: x, clientY: y });
+  fire(target, 'pointerdown', m(100, 300)); fire(target, 'pointermove', m(200, 350));
+  const { view } = c.read();
+  assert.ok(Math.abs(view.userYaw - 0.6) < 1e-9 && Math.abs(view.pitchAdj - 9) < 1e-9);
+});
+
+test('wheel zoom clamps, shift tilts; keys map and actions', () => {
+  const { target, env, fire, c, calls } = setup();
+  for (let i = 0; i < 100; i++) fire(target, 'wheel', { deltaY: -500, shiftKey: false });
+  assert.equal(c.read().view.zoom, 0.2);
+  fire(target, 'wheel', { deltaY: -100, shiftKey: true });
+  assert.ok(Math.abs(c.read().view.pitchAdj - 5) < 1e-9);
+  fire(env, 'keydown', { code: 'KeyW', target: {} }); assert.equal(c.read().y, 1);
+  fire(env, 'keyup', { code: 'KeyW' }); assert.equal(c.read().y, 0);
+  fire(env, 'keydown', { code: 'KeyE' }); fire(env, 'keydown', { code: 'Digit3' });
+  fire(env, 'keydown', { code: 'KeyE', target: { tagName: 'INPUT' } });
+  assert.deepEqual(calls.actions, ['interact', 'mode:car']);
+});
