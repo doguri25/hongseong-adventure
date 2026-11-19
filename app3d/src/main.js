@@ -27,6 +27,7 @@ import { createControls } from './input/controls.js';
 import { loadSession, saveSession, startPosition, restoreTravel, MODES } from './game/session.js';
 import { ferryDocks, startVoyage, advanceVoyage } from './game/ferry.js';
 import { createHud, josa } from './ui/hud.js';
+import { createController } from './game/controller.js';
 import { createPlaceDialog, createNpcDialog } from './ui/place-dialog.js';
 import { PLACES } from '#game/content.js';
 import { districtAt, distance, canVisit } from '#game/geography.js';
@@ -211,7 +212,7 @@ async function boot() {
     renderer, scene, camera, sky, lighting, ground, terrain, water, buildings, collider, props, placeLayer, places, npcLayer, actors,
     field, features, graph, navigator, waterGuard, services, world, state, extra, player, cam, held, docks, byId, post,
     Q, qstate, autoKey, view: null, target: null, turn: null, voyage: null, timeKey: extra.time, running: false,
-    frameTimes: [], lastCheck: 0, wide: null, fps: 0, saveAt: 0, hudAt: 0, waterNoteAt: -1e9, flyH: 0, speedFx: 0, tapRing: null, rendered: false,
+    frameTimes: [], lastCheck: 0, pausedAt: 0, announcedAt: -1, wide: null, fps: 0, saveAt: 0, hudAt: 0, waterNoteAt: -1e9, flyH: 0, speedFx: 0, tapRing: null, rendered: false,
   };
 
   // controls: the floating stick is drawn by the HUD; taps hit pins first, then the terrain
@@ -222,14 +223,16 @@ async function boot() {
   // dialogs pause the simulation; closing resumes play
   G.dialog = createPlaceDialog(document, {
     getState: () => state, onChange: () => { refreshStats(); save(); }, toast: (m) => hud.toast(m),
-    onGo: (p) => { setTarget(p.point); hud.toast(`${p.name}${josa(p.name, 'to')} 가요`); }, onClose: resume,
+    onGo: (p) => ctl.goTo(p.id), onClose: () => ctl.close(),
   });
-  G.npcDialog = createNpcDialog(document, { onClose: resume });
+  G.npcDialog = createNpcDialog(document, { onClose: () => ctl.close() });
+  const ctl = G.ctl = createController({ state, places, services: controllerServices(), save });
 
   // restore the travel mode: the shared travelSpeed wins over a stale 3D-only one (falls back to walking when, say, a
   // car has no road nearby)
   const travel = restoreTravel(state, extra);
   if (travel !== 'walk') { const r = setPlayerMode(player, travel, services); if (!r.ok) hud.toast(r.toast); }
+  ctl.dayTick();   // a new KST day (or a first run) gets its three missions
   hud.setMode(player.mode, player.pending);
   hud.setCamera(cam.mode);
   hud.setQuality(qualityLabel());
@@ -245,7 +248,7 @@ async function boot() {
     onLost: () => { G.running = false; hud.lost(true); save(); },
     onRestored: () => { hud.lost(false); applyTime(G.timeKey); start(); },
   });
-  document.addEventListener('visibilitychange', () => { if (document.hidden) save(); });
+  document.addEventListener('visibilitychange', () => { if (document.hidden) save(); else if (live()) ctl.dayTick(); });
   addEventListener('pagehide', save);
 
   await step('첫 화면을 그리는 중');
@@ -264,18 +267,25 @@ function start() {
 function frame(now) {
   if (!G.running) return;
   requestAnimationFrame(frame);
+  // behind a dialog or menu the picture barely changes: render at most 10 fps. Skipped and slowed frames stay out of
+  // the auto-quality sampler (frameTimes is cleared when play resumes, see controllerServices.onPause)
+  const paused = G.ctl.paused();
+  if (paused && now - G.pausedAt < 100) return;
+  G.pausedAt = now;
   const raw = G.last ? now - G.last : 16.7;
   G.last = now;
   const dt = clamp(raw / 1000, 0.001, 0.05), t = now / 1000;
   tick(dt, t);
-  G.frameTimes.push(raw);
-  if (now - G.lastCheck > 2000) { autoQuality(); G.lastCheck = now; }
+  if (!paused) {
+    G.frameTimes.push(raw);
+    if (now - G.lastCheck > 2000) { autoQuality(); G.lastCheck = now; }
+  }
   if (!G.rendered) { G.rendered = true; ready(); }
 }
 
 function tick(dt, t) {
   const { player, field, camera } = G;
-  if (!G.dialog.isOpen && !G.npcDialog.isOpen) simulate(dt);
+  if (!G.ctl.paused()) simulate(dt);
 
   // camera
   const cr = stepCamera(G.cam, player, dt, G.view, field);
@@ -340,9 +350,9 @@ function simulate(dt) {
       if ((player.mode === 'walk' || player.mode === 'bike') && (d < 12 || (player.movementMode === 'roads' && player.route && player.route.length === 0))) clearTarget();
       else if (isFlying(player.mode) && d < player.speed * 0.4 + 20) clearTarget();
     }
-    // arrivals (never while flying); a dialog opens only when none is open
+    // arrivals (never while flying): the controller opens the first and queues the rest behind it
     const entered = arrivals(G.places, from, [player.x, player.y], G.held, player.mode, G.collider);
-    if (entered.length) arrive(entered[0]);
+    for (const p of entered) G.ctl.onArrive(p, true);
   }
   if (player.mode !== modeBefore || player.pending !== pendingBefore) { hud.setMode(player.mode, player.pending); save(); }
 }
@@ -357,19 +367,38 @@ function onEvent(e) {
   else if (EVENT_TOAST[e]) hud.toast(EVENT_TOAST[e]);
 }
 
-function arrive(place, sub) {
-  const known = G.state.discovered.includes(place.id);
-  hud.arrive(`${place.name}에 도착했어요`, sub || (known ? '발견 수첩에 기록된 장소' : '새로운 장소를 찾았어요!'));
-  if (!G.dialog.isOpen && !G.npcDialog.isOpen) openPlace(place, true);
-}
+function openPlace(place, physical) { G.ctl.open('place', { place, physical }); }
 
-function openPlace(place, physical) {
-  if (G.npcDialog.isOpen) G.npcDialog.close();
-  G.controls.reset(); hud.stick({ visible: false });
-  G.dialog.open(place, { physical });
+// The effects the game controller (game/controller.js) asks for; its JSDoc lists the hooks. Dialog kinds without a
+// renderer yet (map, search, nearby, help, menu, ferry) return false and are dropped without pausing.
+function controllerServices() {
+  return {
+    stopPlayer: () => { clearTarget(); Object.assign(G.player, { speed: 0, vx: 0, vy: 0 }); G.turn = null; },
+    resetInput: () => { G.controls.reset(); hud.stick({ visible: false }); },
+    showDialog: (kind, data) => {
+      if (kind === 'place') G.dialog.open(data.place, { physical: !!data.physical });
+      else if (kind === 'npc') G.npcDialog.open(data.npc);
+      else return false;
+      return true;
+    },
+    hideDialog: (kind) => { if (kind === 'place') G.dialog.close(); else if (kind === 'npc') G.npcDialog.close(); },
+    onPause: (paused) => {
+      if (paused) return;
+      G.last = 0; G.frameTimes = []; G.lastCheck = performance.now();   // the slow paused frames must not look like a slow device
+      refreshStats();
+    },
+    setTarget: (point, place) => { setTarget(point); if (place) hud.toast(`${place.name}${josa(place.name, 'to')} 가요`); },
+    setMode: (mode) => chooseMode(mode),
+    reachable: (place) => reachable(place),
+    missionContext: () => ({ player: G.player, navigator: G.navigator }),
+    announce: (place) => {
+      if (G.announcedAt === G.last) return;   // several places entered in one step: one banner
+      G.announcedAt = G.last;
+      const known = G.state.discovered.includes(place.id);
+      hud.arrive(`${place.name}에 도착했어요`, known ? '발견 수첩에 기록된 장소' : '새로운 장소를 찾았어요!');
+    },
+  };
 }
-
-function resume() { G.controls.reset(); G.last = 0; refreshStats(); }
 
 function setTarget(p) {
   G.target = [p[0], p[1]];
@@ -412,7 +441,7 @@ function ferryOption() {
 }
 
 function boardFerry() {
-  if (!live() || G.dialog.isOpen || G.npcDialog.isOpen) return;
+  if (!live() || G.ctl.paused()) return;
   const opt = ferryOption(); if (!opt) return;
   const returning = opt === 'back', p = G.player;
   clearTarget();
@@ -436,16 +465,15 @@ function stepVoyage(dt) {
   arrivals(G.places, [p.x, p.y], [p.x, p.y], G.held, p.mode, G.collider);   // in reach on landing: held, as the 2D game does
   save();
   const place = G.byId.get(v.returning ? 'namdang' : 'tourmap-jukdo');
-  if (place) arrive(place);
+  if (place) G.ctl.onArrive(place, true);
 }
 
 // ---------- NPCs
 function nearNpc() { const n = G.npcLayer.nearest(G.player); return n ? n.npc : null; }
 function talk() {
-  if (!live() || G.dialog.isOpen) return;
+  if (!live() || G.ctl.paused()) return;
   const npc = nearNpc(); if (!npc) return;
-  G.controls.reset(); hud.stick({ visible: false });
-  G.npcDialog.open(npc);
+  G.ctl.onNpc(npc);
 }
 
 // ---------- camera, time, quality
@@ -535,7 +563,7 @@ function autoQuality() {
 // ---------- input
 const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
 function tap(cx, cy) {
-  if (!live() || G.dialog.isOpen || G.npcDialog.isOpen) return;
+  if (!live() || G.ctl.paused()) return;
   const rect = G.renderer.domElement.getBoundingClientRect();
   ndc.set(((cx - rect.left) / rect.width) * 2 - 1, -((cy - rect.top) / rect.height) * 2 + 1);
   ray.setFromCamera(ndc, G.camera);
@@ -574,7 +602,7 @@ function updateTapRing(dt) {
 }
 
 function action(a) {
-  if (!live() || G.dialog.isOpen || G.npcDialog.isOpen) return;
+  if (!live() || G.ctl.paused()) return;
   if (a === 'interact') { if (nearNpc()) talk(); else if (ferryOption()) boardFerry(); }
   else if (a === 'camera') toggleCamera();
   else if (a === 'time') cycleTime();
@@ -615,7 +643,8 @@ function ready() {
     applyTime: (k) => { const T = applyTime(k); save(); return T ? k : null; },
     toggleCamera,
     openPlace: (id) => { const p = G.byId.get(id); if (p) openPlace(p, reachable(p)); return !!p; },
-    closeDialogs: () => { G.dialog.close(); G.npcDialog.close(); },
+    closeDialogs: () => G.ctl.close(),
+    ctl: G.ctl,
     // debug/smoke hook: put the player (walking) at a game-frame point, on dry land outside buildings, camera snapped
     teleport: (x, y) => {
       if (G.voyage) return false;
