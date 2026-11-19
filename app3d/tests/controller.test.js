@@ -154,3 +154,26 @@ test('the title menu pauses with screen title; closing it (button or Escape) goe
   assert.equal(bare.c.screen, 'play');
   assert.equal(bare.c.paused(), false);
 });
+
+// P19: a story-only place (place.remote) has no point to head for: goTo opens its story instead, as the 2D goToPlace
+// calls visit() for one; from an open dialog (the menu, say) it replaces that dialog without a resume in between
+test('goTo a story-only place opens its place dialog (physical false) instead of setting a target', () => {
+  const story = { id: 'story1', name: '이야기 장소', remote: true, type: 'intangible' };
+  const { c, log, player } = setup({ opts: { stories: [story] } });
+  player.target = null;
+  c.open('menu');
+  assert.equal(c.goTo('story1'), true);
+  assert.equal(c.dialog.kind, 'place');
+  assert.equal(c.dialog.data.place, story);
+  assert.equal(c.dialog.data.physical, false);
+  assert.equal(player.target, null, 'no walk target');
+  assert.ok(!log.some((l) => l.startsWith('target:')));
+  assert.deepEqual(log.filter((l) => l === 'pause' || l === 'resume'), ['pause'], 'the menu is replaced: no resume in between');
+  assert.ok(log.indexOf('hide:menu') < log.indexOf('show:place:story1'));
+  c.close();
+  assert.equal(c.paused(), false);
+  // a mapped place still heads there
+  c.goTo('p4');
+  assert.deepEqual(player.target, places[4].point);
+  assert.equal(c.dialog, null);
+});

@@ -99,13 +99,73 @@ html.q-low .panel, html.q-low .dialog { background-color: rgba(12, 14, 28, .96);
 .dialog .reward { margin: 12px 0 0; font-size: 15px; font-weight: 700; color: var(--warn); }
 .dialog footer { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 14px 12px; border-top: 1px solid var(--line); align-items: center; }
 .dialog footer .spacer { flex: 1; }
-.quiz h3 { margin: 0 0 10px; font-size: 17px; line-height: 1.5; }
+/* ---- the place dialog (pokju #qbox look; ui/place-dialog.js sets data-view on the panel). The picture fills the left
+   column (above the story on a phone held upright) with the 2D kind label and caption over its foot; the story, quiz,
+   reward and sources views share the right column. The panel keeps one size while its pages turn, so the buttons stay
+   put; the picture steps back (narrower, shorter, or out) while the quiz, reward or sources show ---- */
+.dialog.place { width: min(740px, 100%); height: min(560px, 100%); display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); grid-template-rows: minmax(0, 1fr); }
+.dialog.place:not([data-view="story"]) { grid-template-columns: minmax(0, 3fr) minmax(0, 8fr); }
+.place-hero { position: relative; margin: 0; min-width: 0; min-height: 0; overflow: hidden; background: #161a33; border-right: 1px solid var(--line); }
+.place-hero img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.place-hero figcaption { position: absolute; left: 0; right: 0; bottom: 0; padding: 34px 12px 10px; background: linear-gradient(to top, rgba(6, 7, 18, .94), rgba(6, 7, 18, .66) 58%, rgba(6, 7, 18, 0)); font-size: 15px; line-height: 1.45; color: #fff; text-shadow: 0 1px 3px rgba(0, 0, 0, .85); word-break: keep-all; overflow-wrap: anywhere; }
+#place-kind { display: inline-block; margin: 0 6px 4px 0; padding: 1px 9px; border-radius: 999px; font-size: 13px; font-weight: 700; line-height: 1.5; background: rgba(255, 255, 255, .14); border: 1px solid rgba(255, 255, 255, .45); text-shadow: none; }
+#place-kind[data-kind="photo"] { background: rgba(53, 224, 138, .22); border-color: rgba(53, 224, 138, .75); color: #c6ffe0; }
+#place-kind[data-kind="map"] { background: rgba(34, 225, 255, .2); border-color: rgba(34, 225, 255, .75); color: #ccf7ff; }
+.place-main { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.dialog.place .body { flex: 1 1 auto; min-height: 0; overscroll-behavior: contain; }
+.dialog.place footer { flex: none; }
+#place-footer .break { flex-basis: 100%; height: 0; }
+#place-footer .btn.tool { padding: 6px 14px; font-size: 14px; background: rgba(255, 255, 255, .05); }
+.dialog .tag { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; }
+.dialog .tag .sym { flex: none; width: 20px; height: 20px; margin-left: -6px; border-radius: 50%; display: grid; place-items: center; background: var(--symbol-color, var(--accent)); }
+.dialog .tag svg { width: 14px; height: 14px; fill: none; stroke: #fff; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+/* story: the guide's line, the page count, the page in a speech card */
+.dialog .meta .guide { flex: none; width: 40px; height: 40px; border-radius: 50%; object-fit: cover; object-position: 50% 10%; background: #2a2f55; border: 2px solid rgba(255, 255, 255, .5); }
+.dialog .meta .speaker { flex: 1; min-width: 0; font-size: 14px; font-weight: 700; color: var(--chip-sub); }
+.dialog .meta .page-num { flex: none; padding: 1px 10px; border-radius: 999px; background: var(--track); font-family: var(--display); font-size: 16px; color: var(--cyan); font-variant-numeric: tabular-nums; }
+.speech { padding: 12px 14px; border-radius: 16px; background: rgba(255, 255, 255, .07); border: 1px solid var(--line); font-size: 17px; line-height: 1.7; word-break: keep-all; overflow-wrap: anywhere; }
+.speech small { display: block; margin-top: 8px; font-size: 15px; line-height: 1.55; color: var(--chip-sub); }
+.speech:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.voice-status { font-size: 13px; color: var(--chip-sub); }
+/* quiz (pokju #qbox: a small kicker, the question big in the display face, the why line under it in green or red) */
+.q-kick { display: block; font-size: 13px; font-weight: 700; color: var(--chip-sub); }
+.quiz .q-text { margin: 4px 0 12px; font-family: var(--display); font-weight: 400; font-size: 25px; line-height: 1.3; color: #fff; word-break: keep-all; overflow-wrap: anywhere; }
+.quiz .lead { margin: 8px 0 0; font-size: 16px; line-height: 1.6; }
 .quiz .options { display: flex; flex-direction: column; gap: 8px; }
-.quiz .options button { display: flex; gap: 10px; align-items: flex-start; text-align: left; border: 1px solid var(--line); background: rgba(255, 255, 255, .06); border-radius: 14px; min-height: 48px; padding: 10px 12px; font-size: 16px; line-height: 1.45; }
-.quiz .options button b { flex: none; width: 26px; height: 26px; border-radius: 50%; background: var(--accent); color: #fff; display: grid; place-items: center; font-size: 14px; }
+.quiz .options button { display: flex; gap: 12px; align-items: center; text-align: left; min-height: 56px; padding: 10px 14px; border: 2px solid rgba(255, 255, 255, .26); border-radius: 16px; background: rgba(255, 255, 255, .06); font-size: 17px; font-weight: 700; line-height: 1.4; word-break: keep-all; overflow-wrap: anywhere; color: #fff; }
+.quiz .options button:hover:not(:disabled) { border-color: var(--cyan); background: rgba(34, 225, 255, .1); }
+.quiz .options button b { flex: none; width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: var(--grad); font-family: var(--display); font-weight: 400; font-size: 18px; color: #fff; text-shadow: 0 1px 2px rgba(0, 0, 0, .5); }
 .quiz .options button.wrong { border-color: var(--danger); background: rgba(255, 84, 104, .16); }
-.quiz .options button.correct { border-color: var(--ok); background: rgba(53, 224, 138, .16); }
-.quiz .feedback { margin: 12px 0 0; padding: 10px 12px; border-radius: 14px; background: var(--track); font-size: 15px; }
+.quiz .options button.wrong b { background: var(--danger); }
+.quiz .options button.correct { border-color: var(--ok); background: rgba(53, 224, 138, .18); box-shadow: 0 0 18px rgba(53, 224, 138, .35); }
+.quiz .options button.correct b { background: var(--ok); color: #0b0c18; text-shadow: none; }
+.quiz .options button:disabled:not(.correct) { opacity: .5; }
+.quiz .options button.correct:disabled { opacity: 1; }
+.quiz .feedback { margin: 12px 0 0; padding: 10px 12px; border-radius: 14px; background: var(--track); border-left: 4px solid var(--line); font-size: 16px; font-weight: 700; line-height: 1.55; word-break: keep-all; }
+.quiz .feedback[data-tone="no"] { border-left-color: var(--danger); background: rgba(255, 84, 104, .12); color: #ffd3d9; }
+.quiz .feedback[data-tone="ok"] { border-left-color: var(--ok); background: rgba(53, 224, 138, .12); color: #cdffe4; }
+/* reward (pokju .result): the spark, the line, the coins and points as two big figures */
+.rv { min-height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; text-align: center; }
+.rv .spark { width: 34px; height: 34px; fill: #fff; filter: drop-shadow(0 0 8px #8a5cff) drop-shadow(0 0 16px rgba(34, 225, 255, .7)); }
+.rv h3 { margin: 0; font-family: var(--display); font-weight: 400; font-size: 26px; line-height: 1.25; color: #fff; word-break: keep-all; }
+.rv p { margin: 0; font-size: 15px; line-height: 1.6; color: var(--chip-sub); word-break: keep-all; }
+.rv p strong { color: #fff; }
+.rv .mission-line { font-weight: 700; color: var(--warn); }
+.rv .nums { display: flex; gap: 10px; width: min(360px, 100%); margin: 4px 0; }
+.rv .num { flex: 1; display: flex; flex-direction: column; align-items: center; padding: 8px 10px 10px; border-radius: 16px; background: var(--track); border: 1px solid var(--line); }
+.rv .num b { font-family: var(--display); font-weight: 400; font-size: 36px; line-height: 1.1; color: var(--warn); text-shadow: 0 0 18px rgba(255, 181, 46, .45); font-variant-numeric: tabular-nums; }
+.rv .num[data-num="xp"] b { color: var(--cyan); text-shadow: 0 0 18px rgba(34, 225, 255, .4); }
+.rv .num small { font-size: 15px; font-weight: 700; color: var(--chip-sub); }
+/* 사진·자료 출처 (ui/sources.js) */
+.src h3 { margin: 2px 0 10px; font-family: var(--display); font-weight: 400; font-size: 21px; color: #fff; }
+.src p { margin: 0 0 8px; font-size: 15px; line-height: 1.6; word-break: keep-all; overflow-wrap: anywhere; }
+.src p.sub { color: var(--chip-sub); }
+.src .where strong { color: var(--cyan); }
+.src .facts { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 8px; }
+.src .facts span { padding: 3px 10px; border-radius: 12px; background: var(--track); font-size: 15px; font-weight: 700; }
+.src .pic-credit { margin: 0 0 10px; padding: 10px 12px 2px; border-radius: 14px; background: var(--track); }
+.src .links { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 10px; }
+.src .links .btn { display: inline-flex; align-items: center; max-width: 100%; padding: 8px 14px; color: #fff; text-decoration: none; line-height: 1.35; text-align: left; word-break: keep-all; overflow-wrap: anywhere; }
 .npc p { margin: 0 0 10px; }
 
 /* ---- HUD (pokju #hud). Chips top-left, mission card top-centre, round minimap and camera pad top-right, speedometer
@@ -326,6 +386,54 @@ html.reduce-motion .mission .dots i.active { animation: none; }
   .notice b { font-size: 44px; }
   .notice span { font-size: 15px; margin-top: 6px; }
 }
+/* ---- the place dialog on phones. Held upright: a sheet from the bottom, the picture above the story (a short strip
+   for the quiz, reward and sources), the world and the big notice in view above it. On its side: the picture beside
+   the story, out of the way for the quiz (its three answers side by side), reward and sources ---- */
+@media (max-width: 720px) {
+  .scrim.place-scrim { place-items: end center; }
+  .dialog.place, .dialog.place:not([data-view="story"]) { width: 100%; height: min(660px, 100%); grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+  .place-hero { height: clamp(130px, 44vw, 230px); border-right: 0; border-bottom: 1px solid var(--line); }
+  .dialog.place:not([data-view="story"]) .place-hero { height: 76px; }
+  .dialog.place:not([data-view="story"]) .place-hero figcaption { display: flex; align-items: center; gap: 6px; padding: 18px 10px 6px; white-space: nowrap; }
+  .dialog.place:not([data-view="story"]) #place-kind { margin: 0; }
+  .dialog.place:not([data-view="story"]) #place-caption { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .dialog.place header { padding: 10px 8px 8px 16px; }
+  .dialog.place .body { padding: 12px 14px; }
+  .dialog.place footer { padding: 8px 10px 10px; }
+  .quiz .q-text { font-size: 22px; }
+  .rv h3 { font-size: 23px; }
+}
+@media (max-height: 460px) {
+  .scrim.place-scrim { place-items: center; }
+  .dialog.place, .dialog.place:not([data-view="story"]) { width: min(620px, 100%); height: 100%; grid-template-rows: minmax(0, 1fr); }
+  .dialog.place { grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); }
+  .dialog.place:not([data-view="story"]) { grid-template-columns: minmax(0, 1fr); }
+  .place-hero { height: auto; border-right: 1px solid var(--line); border-bottom: 0; }
+  .dialog.place:not([data-view="story"]) .place-hero { display: none; }
+  .place-hero figcaption { padding: 26px 10px 8px; }
+  .dialog.place header { padding: 6px 6px 6px 14px; gap: 6px; align-items: center; }
+  .dialog.place header .titles { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 10px; }
+  .dialog.place h2 { margin: 0; font-size: 20px; }
+  .dialog.place .blurb { display: none; }   /* one line of title on a short screen */
+  .dialog.place .body { padding: 8px 14px; }
+  .dialog.place footer { padding: 6px 10px 8px; gap: 6px; }
+  .dialog.place .meta { margin-bottom: 4px; }
+  .dialog .meta .guide { width: 32px; height: 32px; }
+  .speech { padding: 8px 12px; font-size: 16px; line-height: 1.6; }
+  .dialog.place .reward { margin-top: 8px; }
+  .quiz .q-text { font-size: 19px; margin: 2px 0 8px; }
+  .quiz .options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .quiz .options button { gap: 8px; padding: 6px 10px; font-size: 16px; }
+  .quiz .options button b { width: 28px; height: 28px; font-size: 16px; }
+  .quiz .feedback { margin-top: 8px; padding: 8px 10px; }
+  .rv { gap: 4px; }
+  .rv .spark { width: 24px; height: 24px; }
+  .rv h3 { font-size: 21px; }
+  .rv .nums { margin: 2px 0; }
+  .rv .num { padding: 4px 10px 6px; }
+  .rv .num b { font-size: 28px; }
+}
+
 /* ---- the title and menu (pokju #menu): a glass panel on the left over the world (which keeps rendering behind at
    <= 10 fps), a bottom sheet on a phone held upright. Brand row with the coins, tabs, one scrolling pane, the primary
    button in the foot. The scrim only darkens the left so the county stays in view ---- */

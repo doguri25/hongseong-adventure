@@ -11,9 +11,14 @@
 // a few settings take effect, the reset asks a second time in the page, and the menu closes into play (primary
 // button, home button + Escape, a mission's 출발). The 수첩 is checked at all four viewports too: opened from the HUD's
 // discovery chip, every filter (sizes, fonts, nothing overlapping), the stamp and 수첩 colour, the card actions, the
-// note across a reload, both downloads and the import (refused files, 취소, then accepted with a reload). Screenshots go
-// to OUT (SMOKE_OUT, default a folder in the system temp directory; SMOKE_ONLY=tablet,phone,landscape runs only those
-// passes).
+// note across a reload, both downloads and the import (refused files, 취소, then accepted with a reload). The place
+// dialog is checked at all four viewports on a driven arrival: focus moves in, the story with its picture and 2D kind
+// label, 사진·자료 출처 and back, paging, the quiz (a wrong answer's hint and retry sound, the right one's explanation and
+// correct sound), the reward (this visit's coins and points, the coin sound), Tab kept inside, and 계속 탐방하기 back
+// into play with the focus on the map; each view's sizes, fonts and layout (nothing overlapping, all inside the panel).
+// Desktop and phone also check the photo / terrain / illustration labels, a school's sources, Escape and 발견 수첩 보기.
+// Screenshots go to OUT (SMOKE_OUT, default a folder in the system temp directory; SMOKE_ONLY=tablet,phone,landscape
+// runs only those passes).
 import http from 'node:http';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -81,10 +86,12 @@ async function dragStick(page, label) {
 // reads is at least 15 px; short labels inside buttons and chips may be smaller (labels 13, factor / key labels 12).
 const TEXT_15 = ['#where', '.stats', '.hint', '.credit .lead', '.credit summary', '#toast', '.notice span', '#turn-hint', '.act', '#mission-detail', '#npc-body', '#place-body', '.dialog .blurb', '.dialog .meta', '.dialog .reward', '.quiz .feedback', '#loading-step', '#lost p',
   '.menu .lead', '.menu .note', '.menu .status', '.mis-card p', '.card .desc', '.product p', '.reset-confirm p', '.tally', '.wallet',
-  '#found-btn', '.tally dt', '.tally dd', '.tally small', '.j-desc', '.j-empty', '.j-note label', '#journal-note'];
+  '#found-btn', '.tally dt', '.tally dd', '.tally small', '.j-desc', '.j-empty', '.j-note label', '#journal-note',
+  '.place-hero figcaption', '#place-caption', '.speech', '.speech small', '.quiz .options button', '.quiz .q-text', '.quiz .lead', '.rv p', '.rv .num small', '.src p', '.src .facts span'];
 const LABEL_MIN = [['.travel button span', 13], ['.travel button small', 12], ['.dialog .tag', 13], ['.skill .lbl', 13], ['.skill small', 12], ['.mission-kick', 13], ['#mission-title', 13], ['.mission .badge', 13], ['.mission-foot .btn', 13], ['#speed-factor', 12], ['.cam-pad button', 13],
   ['.menu .tabs [role="tab"]', 13], ['.menu h3', 13], ['.mis-kick', 13], ['.mis-card h4', 13], ['.mis-card .btn', 13], ['.ride-head b', 13], ['.card .factor', 12], ['.shop-cats .cat', 13], ['.card.char b', 13], ['.card.char span', 13], ['.product h4', 13], ['.product .buy', 13], ['.opt-name', 13], ['.seg button', 13], ['.menu select', 13], ['.menu .settings > .btn', 13], ['.reset-confirm .btn', 13], ['.menu .go', 13],
-  ['.j-filters button', 13], ['.j-tag', 13], ['.j-stamp', 13], ['.j-card b', 13], ['.j-actions .btn', 13]];
+  ['.j-filters button', 13], ['.j-tag', 13], ['.j-stamp', 13], ['.j-card b', 13], ['.j-actions .btn', 13],
+  ['#place-kind', 13], ['.dialog .speaker', 13], ['.dialog .page-num', 13], ['#place-footer .btn', 13], ['.q-kick', 13], ['.quiz .options b', 13], ['.voice-status', 13], ['.src .btn', 13], ['.src h3', 13]];
 // touch screens: nothing interactive in the stick zone (left 42 % of the width, lower 45 % of the height) while
 // playing; the discovery chip (a button: the 수첩) clear of every other HUD piece; overlaps() as ui/dom.js: edges that
 // only touch do not count
@@ -256,10 +263,47 @@ async function checkJournalLayout(page, name, where) {
   check(r.nBad === 0 && r.nOut === 0, `${name} journal ${where}: ${r.parts} parts, none overlapping, every card's text inside its card${r.nBad ? ' — overlap: ' + r.bad.join(', ') : ''}${r.nOut ? ' — outside: ' + r.out.join(', ') : ''}`);
 }
 
+// The place dialog's layout in its current view (story, sources, quiz, reward): the panel inside the screen; its picture,
+// header, body and footer, the header's tag / name / line / close button and every footer button inside the panel and
+// clear of one another (overlaps() as ui/dom.js; parts nested in one another do not count); the scrolling body keeps
+// at least three lines of room.
+async function checkPlaceLayout(page, name, where) {
+  const r = await page.evaluate(() => {
+    const panel = document.getElementById('place-panel'), P = panel.getBoundingClientRect(), bad = [], out = [];
+    const overlaps = (a, b) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
+    const inside = (q, o) => q.left >= o.left - 0.5 && q.right <= o.right + 0.5 && q.top >= o.top - 0.5 && q.bottom <= o.bottom + 0.5;
+    const label = (e) => e.id || String(e.className).split(' ')[0] || e.tagName;
+    const parts = [...panel.querySelectorAll('#place-hero, .place-main > header, #place-body, #place-footer, header .titles > *, #place-close, #place-footer > :not(.spacer)')]
+      .map((e) => [e, e.getBoundingClientRect()]).filter(([e, q]) => q.width > 0 && q.height > 0 && getComputedStyle(e).display !== 'none' && getComputedStyle(e).visibility !== 'hidden');
+    for (let i = 0; i < parts.length; i++) for (let j = i + 1; j < parts.length; j++) {
+      const [a, ra] = parts[i], [b, rb] = parts[j];
+      if (!a.contains(b) && !b.contains(a) && overlaps(ra, rb)) bad.push(`${label(a)} / ${label(b)}`);
+    }
+    const screen = { left: 0, top: 0, right: innerWidth, bottom: innerHeight };
+    if (!inside(P, screen)) out.push('panel');
+    for (const [e, q] of parts) if (!inside(q, P)) out.push(label(e));
+    return { view: panel.dataset.view, parts: parts.length, bad: bad.slice(0, 6), nBad: bad.length, out, body: Math.round(document.getElementById('place-body').clientHeight) };
+  });
+  check(r.nBad === 0 && r.out.length === 0 && r.body >= 72, `${name} place ${where} (${r.view}): ${r.parts} parts inside the panel and screen, none overlapping, body ${r.body} px tall${r.nBad ? ' — overlap: ' + r.bad.join(', ') : ''}${r.out.length ? ' — outside: ' + r.out.join(', ') : ''}`);
+}
+
+// Records every sound the game asks for (ctl.sound is the controller's object, shared with the place dialog).
+async function watchSounds(page) {
+  await page.evaluate(() => {
+    window.__sounds = [];
+    const s = window.__hs3d.ctl.sound;
+    if (s.__watched) return;
+    const play = s.play;
+    s.play = function (kind) { window.__sounds.push(kind); return play.call(this, kind); };
+    s.__watched = true;
+  });
+}
+
 // The 수첩 (ui/journal.js) at this viewport. A found place (quiz solved), a worn stamp and 수첩 colour are seeded; the
 // HUD's discovery chip opens the menu at the 수첩 tab; every filter shows its cards (sizes, fonts, layout); a found
-// place replays its story and so does a story-only place, both without counting as found, and a place not found yet
-// becomes the walk target (all three close the menu); the note is saved as it is typed and is there after a reload;
+// place replays its story without counting as an arrival, a story-only place opens its story and is found by it (the
+// 2D visit; goTo one does the same), and a place not found yet becomes the walk target (all three close the menu); the
+// note is saved as it is typed and is there after a reload;
 // both downloads are the 2D files; the import refuses an oversized, a broken and a version 2 file with the 2D
 // messages (progress untouched), asks before a good one (취소 keeps the progress), then replaces it and reloads.
 const JOURNAL_FILTERS = [['all', '전체'], ['found', '발견'], ['heritage', '역사'], ['daily', '생활']];
@@ -311,17 +355,27 @@ async function checkJournal(page, name, spec, shot) {
     return r;
   });
   check(!replay.menu && replay.kind === 'place' && replay.place === 'library' && replay.physical === false && replay.paused && replay.same, `${name}: a found card closes the menu and replays the place's story, not as an arrival (${JSON.stringify(replay)})`);
-  // a story-only place, not found: its story too, and it is still not found afterwards
-  const remote = PLACES.find((p) => p.remote).id;
+  // a story-only place, not found: its story too, and opening it finds it (P19, the 2D visit)
+  const [remote, remote2] = PLACES.filter((p) => p.remote).map((p) => p.id);
   const story = await page.evaluate((id) => {
-    const W = window.__hs3d.world;
+    const W = window.__hs3d.world, before = W.state.discovered.includes(id);
     document.getElementById('found-btn').click();
     document.querySelector(`#journal-list [data-place="${id}"]`).click();
-    const r = { menu: !document.getElementById('menu').hidden, place: W.dialog.isOpen ? W.dialog.place?.id : null, physical: W.ctl.dialog?.data?.physical, found: W.state.discovered.includes(id) };
+    const r = { before, menu: !document.getElementById('menu').hidden, place: W.dialog.isOpen ? W.dialog.place?.id : null, physical: W.ctl.dialog?.data?.physical, found: W.state.discovered.includes(id) };
     window.__hs3d.closeDialogs();
     return r;
   }, remote);
-  check(!story.menu && story.place === remote && story.physical === false && !story.found, `${name}: a story-only card (${remote}) opens its story (${JSON.stringify(story)})`);
+  check(!story.before && !story.menu && story.place === remote && story.physical === false && story.found, `${name}: a story-only card (${remote}) opens its story and finds it (${JSON.stringify(story)})`);
+  // P19: heading for a story-only place (it has no point on the map) opens its story instead of setting a target
+  const told = await page.evaluate((id) => {
+    const W = window.__hs3d.world;
+    W.target = null;
+    const ok = W.ctl.goTo(id);
+    const r = { ok, place: W.dialog.isOpen ? W.dialog.place?.id : null, physical: W.ctl.dialog?.data?.physical, target: !!W.target, found: W.state.discovered.includes(id) };
+    window.__hs3d.closeDialogs();
+    return r;
+  }, remote2);
+  check(told.ok && told.place === remote2 && told.physical === false && !told.target && told.found, `${name}: goTo a story-only place (${remote2}) opens its story with no walk target (${JSON.stringify(told)})`);
   // a mapped place not found yet: the menu closes into play and the explorer heads there
   const away = PLACES.find((p) => !p.remote && p.id !== 'library').id;
   const go = await page.evaluate((id) => {
@@ -530,7 +584,7 @@ async function noticeShot(page, shot, file) {
 }
 
 // 정답! / 다시 생각해 봐요 in the open place dialog: page to its quiz, answer wrong, then right.
-async function quizNotices(page, name, shot) {
+async function quizNotices(page, name, shot, touch) {
   for (let i = 0; i < 10; i++) {
     const step = await page.evaluate(() => {
       if (document.querySelector('#place-body .quiz .options button')) return 'quiz';
@@ -541,26 +595,57 @@ async function quizNotices(page, name, shot) {
     if (step !== 'next') break;
     await sleep(300);
   }
+  const quiz = await page.evaluate(() => ({ view: document.getElementById('place-panel').dataset.view, options: document.querySelectorAll('#place-body .quiz .options button').length, kick: document.querySelector('#place-body .q-kick')?.textContent, later: document.getElementById('later')?.textContent, reread: document.getElementById('reread')?.textContent }));
+  check(quiz.view === 'quiz' && quiz.options === 3 && /^발견 퀴즈 · /.test(quiz.kick) && quiz.later === '나중에 풀기' && quiz.reread === '이야기 다시 보기', `${name}: the quiz shows three big options, ${quiz.later} and ${quiz.reread} (${JSON.stringify(quiz)})`);
+  await checkUi(page, name, 'quiz', touch);
+  await checkPlaceLayout(page, name, 'quiz');
+  await shot('9d-quiz');
+  // the feedback under the options: the hint after a wrong answer (red), the explanation after the right one (green)
   const answer = (right) => page.evaluate((right) => {
-    const a = window.__hs3d.world.dialog.place?.quiz?.answer;
-    const b = [...document.querySelectorAll('#place-body .quiz .options button')].find((o) => (Number(o.dataset.answer) === a) === right && !o.disabled);
-    if (!b) return false;
-    b.click(); return true;
+    const q = window.__hs3d.world.dialog.place?.quiz;
+    const b = [...document.querySelectorAll('#place-body .quiz .options button')].find((o) => (Number(o.dataset.answer) === q?.answer) === right && !o.disabled);
+    if (!b) return null;
+    window.__sounds.length = 0;
+    b.click();
+    const fb = document.querySelector('#place-body .quiz .feedback');
+    return { feedback: fb && !fb.hidden ? fb.textContent : '', tone: fb?.dataset.tone, hint: q.hint, explain: q.explain, sounds: window.__sounds.slice(), marked: b.classList.contains(right ? 'correct' : 'wrong'), locked: [...document.querySelectorAll('#place-body .quiz .options button')].every((o) => o.disabled), finish: document.getElementById('quiz-finish')?.textContent, focus: document.activeElement?.id };
   }, right);
   const wrong = await answer(false);
+  check(!!wrong && wrong.feedback === '괜찮아, 다시 생각해 보자! ' + wrong.hint && wrong.tone === 'no' && wrong.marked && !wrong.locked && wrong.sounds.includes('retry'), `${name}: a wrong answer plays retry and shows the hint in red (${JSON.stringify(wrong && { ...wrong, hint: undefined, explain: undefined })})`);
   await sleep(450); if (wrong) await noticeShot(page, shot, '9b-quiz-wrong-notice');
   await sleep(1500);
   const right = await answer(true);
+  check(!!right && right.feedback === right.explain && right.tone === 'ok' && right.marked && right.locked && right.sounds.includes('correct') && right.finish === '수첩에 정리하기 →' && right.focus === 'quiz-finish', `${name}: the right answer plays correct, shows the explanation in green and offers 수첩에 정리하기 → (${JSON.stringify(right && { ...right, hint: undefined, explain: undefined })})`);
   await sleep(450); if (right) await noticeShot(page, shot, '9c-quiz-right-notice');
   await sleep(1500);
   const seen = await page.evaluate(() => window.__notices.map((n) => n.title));
-  check(wrong && right && seen.includes('다시 생각해 봐요') && seen.includes('정답!'), `${name}: a wrong and a right quiz answer show 다시 생각해 봐요 and 정답! (${seen.join(' / ')})`);
+  check(!!wrong && !!right && seen.includes('다시 생각해 봐요') && seen.includes('정답!'), `${name}: a wrong and a right quiz answer show 다시 생각해 봐요 and 정답! (${seen.join(' / ')})`);
+  await checkUi(page, name, 'quiz answered', touch);
+  await checkPlaceLayout(page, name, 'quiz answered');
+  await shot('9e-quiz-answered');
+  return !!right;
+}
+
+// Tab and Shift+Tab move only among the open dialog's controls: never to the HUD, the menu or the page behind.
+async function tabStaysIn(page, name, where) {
+  const seen = [];
+  for (const key of [...Array(14).fill('Tab'), ...Array(6).fill('Shift+Tab')]) {
+    await page.keyboard.press(key);
+    seen.push(await page.evaluate(() => { const a = document.activeElement; return { id: a?.id || a?.className || a?.tagName, inside: !!a?.closest('#place-dialog [role="dialog"]'), body: a === document.body || a === null } ; }));
+  }
+  const outside = seen.filter((s) => !s.inside && !s.body).map((s) => s.id);
+  const visited = new Set(seen.filter((s) => s.inside).map((s) => s.id));
+  check(outside.length === 0 && visited.size >= 2, `${name}: Tab stays inside the ${where} (${visited.size} controls visited${outside.length ? ' — reached ' + outside.join(', ') : ''})`);
 }
 
 // Arrival while driving: the dialog stops player and car, closing it fires nothing again, and the arrival shows the
-// big notice (도착! / 새로운 발견! / 직행 미션 성공! / 탐방 미션 완료!).
-async function driveArrival(page, name, shot) {
+// big notice (도착! / 새로운 발견! / 직행 미션 성공! / 탐방 미션 완료!). The whole place dialog on the way: focus moves in,
+// the story (the picture with its 2D kind label, the page count, 사진·자료 출처 and back), paging to the quiz, a wrong
+// and a right answer, the reward (the coins and points this visit earned: discovery + quiz + mission bonus) with the
+// coin sound, Tab kept inside, then 계속 탐방하기 closes into play with the focus back on the map.
+async function driveArrival(page, name, shot, touch) {
   await watchNotices(page);
+  await watchSounds(page);
   const drive = await page.evaluate(() => {
     const W = window.__hs3d.world;
     for (const p of W.places) {
@@ -571,7 +656,7 @@ async function driveArrival(page, name, shot) {
       if (!window.__hs3d.teleport(at[0], at[1])) continue;
       if (!window.__hs3d.setMode('car').ok) continue;
       W.target = [p.point[0], p.point[1]];
-      return { id: p.id };
+      return { id: p.id, coins: W.state.coins, xp: W.state.xp };
     }
     return null;
   });
@@ -579,10 +664,11 @@ async function driveArrival(page, name, shot) {
   let opened = null;
   for (let i = 0; i < 120 && !opened; i++) {
     await sleep(500);
-    opened = await page.evaluate(() => { const W = window.__hs3d.world; return W.dialog.isOpen ? { id: W.dialog.place?.id, speed: W.player.speed, carSpeed: W.player.car ? W.player.car.speed : null, hasCar: !!W.player.car, paused: W.ctl.paused() } : null; });
+    opened = await page.evaluate(() => { const W = window.__hs3d.world; return W.dialog.isOpen ? { id: W.dialog.place?.id, speed: W.player.speed, carSpeed: W.player.car ? W.player.car.speed : null, hasCar: !!W.player.car, paused: W.ctl.paused(), focusIn: !!document.activeElement?.closest('#place-dialog [role="dialog"]'), focus: document.activeElement?.id } : null; });
   }
   check(!!opened && opened.hasCar && opened.paused, `${name}: driving into a place opens its dialog and pauses (${opened ? opened.id : 'never opened'})`);
   if (!opened) return;
+  check(opened.focusIn && opened.focus === 'next-page', `${name}: focus moves into the place dialog, on 다음 이야기 (${opened.focus})`);
   await noticeShot(page, shot, '9-arrival-notice');
   const notices = await page.evaluate(() => window.__notices.slice());
   const arrival = notices.find((n) => ['도착!', '새로운 발견!', '직행 미션 성공!', '탐방 미션 완료!'].includes(n.title));
@@ -591,11 +677,68 @@ async function driveArrival(page, name, shot) {
   const still = await page.evaluate(() => { const W = window.__hs3d.world; return { speed: W.player.speed, carSpeed: W.player.car.speed, target: W.target }; });
   check(still.speed === 0 && still.carSpeed === 0 && !still.target, `${name}: player and car are at rest behind the dialog (${JSON.stringify(still)})`);
   await sleep(1200);   // the arrival notice runs out
-  await quizNotices(page, name, shot);
+  // the story: the picture (bundled, loaded) with the 2D kind label and caption, the tag, the page count, the tools
+  await page.waitForFunction(() => { const i = document.getElementById('place-img'); return i && i.complete; }, null, { timeout: 20000, polling: 200 }).catch(() => {});
+  const story = await page.evaluate(() => {
+    const p = window.__hs3d.world.dialog.place, img = document.getElementById('place-img');
+    return {
+      view: document.getElementById('place-panel').dataset.view, kind: document.getElementById('place-kind').textContent, want: p.photo ? '실제 사진' : p.mediaType === 'map' ? '실제 지형 자료' : '이해를 돕는 삽화',
+      caption: document.getElementById('place-caption').textContent, wantCaption: p.caption, img: img.naturalWidth, alt: img.alt, tag: document.getElementById('place-tag').textContent, area: p.area,
+      page: document.querySelector('#place-body .page-num')?.textContent, pages: p.pages.length, speech: (() => { const t = document.createElement('template'); t.innerHTML = p.pages[0]; return document.querySelector('#place-body .speech')?.textContent === t.content.textContent; })(),
+      prev: document.getElementById('previous-story')?.disabled, next: document.getElementById('next-page')?.textContent, read: document.getElementById('read-aloud')?.textContent,
+      sources: document.getElementById('place-sources')?.textContent, wantSources: p.schoolStory ? '학교 사진·자료' : '사진·자료 출처',
+    };
+  });
+  check(story.view === 'story' && story.kind === story.want && story.caption === story.wantCaption && story.img > 0 && story.alt === story.wantCaption && story.tag.startsWith(story.area + ' · ') && story.page === `1 / ${story.pages}` && story.speech
+    && story.prev === true && story.next === '다음 이야기 →' && story.read === '▷ 설명 읽기' && story.sources === story.wantSources,
+  `${name}: the story shows the picture (${story.img}px, "${story.kind} · ${story.caption}"), "${story.tag}", page ${story.page}, ← 이전 / ${story.next} / ${story.read} / ${story.sources}`);
+  await checkUi(page, name, 'place story', touch);
+  await checkPlaceLayout(page, name, 'story');
+  await shot('9a-place-story');
+  // 사진·자료 출처: the 2D sources (credit, links that open a new tab), back to the same page of the story
+  const src = await page.evaluate(() => {
+    window.__sounds.length = 0;
+    document.getElementById('place-sources').click();
+    const links = [...document.querySelectorAll('#place-body .src a')];
+    return { view: document.getElementById('place-panel').dataset.view, links: links.length, safe: links.every((a) => /^https?:/.test(a.href) && a.target === '_blank' && /noopener/.test(a.rel)), origin: links.some((a) => a.textContent === '장소 자료 원문 ↗'), credit: document.querySelector('#place-body .src .pic-credit')?.textContent || '', back: document.getElementById('back-to-story')?.textContent, focus: document.activeElement?.id, sounds: window.__sounds.slice() };
+  });
+  check(src.view === 'sources' && src.links > 0 && src.safe && src.origin && src.credit.length > 0 && src.back === '이야기로 돌아가기' && src.focus === 'back-to-story' && src.sounds.includes('click'), `${name}: 사진·자료 출처 shows the credit and ${src.links} source links (new tab) with 이야기로 돌아가기 (${JSON.stringify(src)})`);
+  await checkUi(page, name, 'place sources', touch);
+  await checkPlaceLayout(page, name, 'sources');
+  await shot('9s-place-sources');
+  const back = await page.evaluate(() => { document.getElementById('back-to-story').click(); return { view: document.getElementById('place-panel').dataset.view, page: document.querySelector('#place-body .page-num')?.textContent, focus: document.activeElement?.id }; });
+  check(back.view === 'story' && back.page === `1 / ${story.pages}` && back.focus === 'place-sources', `${name}: 이야기로 돌아가기 returns to the same page (${JSON.stringify(back)})`);
+  // paging: 다음 이야기 -> ... -> 발견 퀴즈 -> (the quiz); ← 이전 steps back
+  const paging = await page.evaluate(() => {
+    const seen = [], P = () => document.querySelector('#place-body .page-num')?.textContent;
+    window.__sounds.length = 0;
+    document.getElementById('next-page').click(); seen.push(P());
+    document.getElementById('previous-story').click(); seen.push(P());
+    return { seen, sounds: window.__sounds.slice(), focus: document.activeElement?.id };
+  });
+  check(paging.seen[0] === `2 / ${story.pages}` && paging.seen[1] === `1 / ${story.pages}` && paging.sounds.filter((s) => s === 'click').length === 2, `${name}: 다음 이야기 and ← 이전 turn the pages with a click sound (${JSON.stringify(paging)})`);
+  const answered = await quizNotices(page, name, shot, touch);
   const clear = await page.evaluate(() => ({ ...window.__noticeCheck }));
   check(clear.samples > 0 && clear.bad.length === 0, `${name}: the notice never covers the dialog's title, text or buttons (${clear.samples} samples with both visible${clear.bad.length ? ' — ' + clear.bad.join(', ') : ''})`);
-  const closed = await page.evaluate(() => { const W = window.__hs3d.world; document.getElementById('place-close').click(); return { open: W.dialog.isOpen, paused: W.ctl.paused(), carSpeed: W.player.car.speed }; });
-  check(!closed.open && !closed.paused && closed.carSpeed === 0, `${name}: closing resumes play with the car at 0 (${JSON.stringify(closed)})`);
+  // the reward: what this visit earned in all (the state's own change since before the drive), the coin sound
+  if (answered) {
+    const reward = await page.evaluate(() => {
+      const W = window.__hs3d.world;
+      window.__sounds.length = 0;
+      document.getElementById('quiz-finish').click();
+      const num = (k) => document.querySelector(`#place-body .rv [data-num="${k}"] b`)?.textContent;
+      return { view: document.getElementById('place-panel').dataset.view, coins: num('coins'), xp: num('xp'), stateCoins: W.state.coins, stateXp: W.state.xp, title: document.querySelector('#place-body .rv h3')?.textContent, journal: document.getElementById('reward-journal')?.textContent, go: document.getElementById('continue-walk')?.textContent, focus: document.activeElement?.id, sounds: window.__sounds.slice() };
+    });
+    const earned = { coins: reward.stateCoins - drive.coins, xp: reward.stateXp - drive.xp };
+    check(reward.view === 'reward' && reward.coins === `+${earned.coins}` && reward.xp === `+${earned.xp}` && reward.title.length > 0 && reward.journal === '발견 수첩 보기' && reward.go === '계속 탐방하기' && reward.focus === 'continue-walk' && reward.sounds.includes('coin'),
+      `${name}: the reward shows this visit's ${reward.coins} 금화 and ${reward.xp} 탐험 점수 (the save gained ${earned.coins} / ${earned.xp}) with the coin sound, 발견 수첩 보기 / 계속 탐방하기 (${JSON.stringify({ ...reward, stateCoins: undefined, stateXp: undefined })})`);
+    await checkUi(page, name, 'reward', touch);
+    await checkPlaceLayout(page, name, 'reward');
+    await shot('9f-reward');
+    await tabStaysIn(page, name, 'reward view');
+  }
+  const closed = await page.evaluate(() => { const W = window.__hs3d.world; (document.getElementById('continue-walk') || document.getElementById('place-close')).click(); return { open: W.dialog.isOpen, paused: W.ctl.paused(), carSpeed: W.player.car.speed, focus: document.activeElement?.id, hudInert: document.querySelector('.hud-br').inert }; });
+  check(!closed.open && !closed.paused && closed.carSpeed === 0 && closed.focus === 'c' && !closed.hudInert, `${name}: 계속 탐방하기 resumes play with the car at 0 and the focus back on the map (${JSON.stringify(closed)})`);
   await sleep(4000);
   const after = await page.evaluate(() => { const W = window.__hs3d.world; return { open: W.dialog.isOpen, id: W.dialog.place?.id ?? null, carSpeed: W.player.car ? W.player.car.speed : null }; });
   check(!(after.open && after.id === opened.id) && !after.open && after.carSpeed === 0, `${name}: the same place does not reopen and the car stays at rest (${JSON.stringify(after)})`);
@@ -671,7 +814,7 @@ async function run(browser, base, spec) {
     const car = await page.evaluate(() => window.__hs3d.setMode('car').ok);
     await sleep(2500);
     if (car) { await checkUi(page, name, 'car (turn buttons)', spec.touch); await shot('3-mode-car'); }
-    await driveArrival(page, name, shot);
+    await driveArrival(page, name, shot, spec.touch);
     await page.evaluate(() => { window.__hs3d.closeDialogs(); window.__hs3d.setMode('walk'); });
     check(errors.length === 0, `${name}: no pageerror${errors.length ? ' — ' + errors.join(' | ').slice(0, 600) : ''}`);
     await ctx.close();
@@ -701,22 +844,57 @@ async function run(browser, base, spec) {
   await shot('4-plane-follow-night');
   await page.evaluate(() => { window.__hs3d.toggleCamera(); window.__hs3d.applyTime('day'); window.__hs3d.setMode('walk'); });
   await sleep(9000);
-  // the place dialog (opened as a tap on a pin would)
-  const dialog = await page.evaluate(() => { window.__hs3d.openPlace('library'); const d = document.getElementById('place-dialog'); return { open: !d.hidden, text: d.textContent.slice(0, 80) }; });
-  check(dialog.open, `${name}: place dialog opens (${dialog.text.replace(/\s+/g, ' ')})`);
+  // the place dialog (opened as a tap on a pin would): a real photo, then Escape closes it with the focus back on the map
+  const pin = await page.evaluate(() => { window.__hs3d.openPlace('library'); const d = document.getElementById('place-dialog'); return { open: !d.hidden, text: d.textContent.slice(0, 80), kind: document.getElementById('place-kind').textContent }; });
+  check(pin.open && pin.kind === '실제 사진', `${name}: place dialog opens with "${pin.kind}" (${pin.text.replace(/\s+/g, ' ')})`);
   await sleep(1500);
   await shot('5-place-dialog');
   await checkUi(page, name, 'place dialog');
-  for (let i = 0; i < 8; i++) {   // page through to the quiz step (read-only here: the quiz screen offers "여기로 가기")
+  await page.keyboard.press('Escape');
+  const esc = await page.evaluate(() => ({ open: window.__hs3d.world.dialog.isOpen, paused: window.__hs3d.ctl.paused(), focus: document.activeElement?.id }));
+  check(!esc.open && !esc.paused && esc.focus === 'c', `${name}: Escape closes the place dialog into play, focus on the map (${JSON.stringify(esc)})`);
+  // real terrain data (a place not found yet: its quiz asks to go there first)
+  const terrain = await page.evaluate(() => { window.__hs3d.openPlace('sanga-stream'); return document.getElementById('place-kind').textContent; });
+  for (let i = 0; i < 8; i++) {   // page through to the quiz step
     const label = await page.evaluate(() => { const b = document.querySelector('#place-footer .btn.primary'); if (!b) return ''; const t = b.textContent; if (/다음|퀴즈/.test(t)) b.click(); return t; });
     if (!/다음|퀴즈/.test(label)) break;
     await sleep(300);
   }
+  const step = await page.evaluate(() => ({ view: document.getElementById('place-panel').dataset.view, go: document.querySelector('#place-footer .btn.primary')?.textContent, options: document.querySelectorAll('#place-body .quiz .options button').length }));
+  check(terrain === '실제 지형 자료' && step.view === 'quiz' && step.go === '여기로 가기' && step.options === 0, `${name}: "${terrain}" on a terrain picture; a place not found yet asks to go there before its quiz (${JSON.stringify(step)})`);
   await checkUi(page, name, 'quiz step');
+  await checkPlaceLayout(page, name, 'quiz step');
   await shot('5b-quiz-step');
-  await page.evaluate(() => document.getElementById('place-close').click());
+  // a school: an illustration, 학교 사진·자료 with the school's facts and links
+  const SCHOOL = PLACES.find((p) => p.schoolStory && !p.remote);
+  const school = await page.evaluate((id) => {
+    window.__hs3d.openPlace(id);
+    const r = { kind: document.getElementById('place-kind').textContent, button: document.getElementById('place-sources').textContent };
+    document.getElementById('place-sources').click();
+    return { ...r, facts: [...document.querySelectorAll('#place-body .src .facts span')].map((e) => e.textContent), links: [...document.querySelectorAll('#place-body .src a')].map((a) => a.textContent) };
+  }, SCHOOL.id);
+  check(school.kind === '이해를 돕는 삽화' && school.button === '학교 사진·자료' && school.facts.length > 0 && school.links.includes('학교 누리집 ↗') && school.links.includes('장소 자료 원문 ↗'), `${name}: a school (${SCHOOL.name}) shows "${school.kind}" and 학교 사진·자료 with ${school.facts.join(' / ')} and ${school.links.length} links`);
+  await sleep(300);
+  await checkUi(page, name, 'school sources');
+  await checkPlaceLayout(page, name, 'school sources');
+  await shot('5c-school-sources');
+  // 발견 수첩 보기 on the reward opens the menu at the 수첩 (a found place, replayed: its quiz answered right)
+  const toJournal = await page.evaluate(async () => {
+    const W = window.__hs3d.world;
+    window.__hs3d.openPlace('library');
+    for (let i = 0; i < 8 && !document.querySelector('#place-body .quiz .options button'); i++) document.querySelector('#place-footer .btn.primary')?.click();
+    const q = W.dialog.place.quiz;
+    document.querySelector(`#place-body .quiz .options button[data-answer="${q.answer}"]`)?.click();
+    document.getElementById('quiz-finish')?.click();
+    const reward = document.getElementById('place-panel').dataset.view;
+    document.getElementById('reward-journal')?.click();
+    const r = { reward, place: W.dialog.isOpen, menu: !document.getElementById('menu').hidden, tab: document.getElementById('tab-journal').getAttribute('aria-selected'), paused: W.ctl.paused() };
+    document.getElementById('menu-go').click();
+    return r;
+  });
+  check(toJournal.reward === 'reward' && !toJournal.place && toJournal.menu && toJournal.tab === 'true' && toJournal.paused, `${name}: 발견 수첩 보기 on the reward opens the menu at the 수첩 (${JSON.stringify(toJournal)})`);
   await checkHud(page, name, spec, shot);
-  await driveArrival(page, name, shot);
+  await driveArrival(page, name, shot, spec.touch);
   await page.evaluate(() => { window.__hs3d.closeDialogs(); window.__hs3d.setMode('walk'); });
 
   if (spec.tour) {

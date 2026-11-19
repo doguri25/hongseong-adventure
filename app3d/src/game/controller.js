@@ -1,7 +1,7 @@
 // Game controller (pure: no DOM, no three.js, no window). It owns which dialog is open, the arrival queue, pausing and
 // the daily-mission calls; main.js supplies every effect through `services`.
 //
-// createController({state, places, services, save, sound, narrator, clock}) -> {
+// createController({state, places, stories, services, save, sound, narrator, clock}) -> {
 //   screen: 'title'|'play' (starts 'play'; 'title' while open('menu', {title: true}) is showing, the boot title menu),
 //   dialog: null|{kind, data}, paused(), open(kind, data), close(),
 //   onArrive(place, physical), onNpc(npc), startMission(id), goTo(placeId), setMode(mode), dayTick(now, force) }
@@ -19,7 +19,9 @@
 //   reachable(place) -> bool     player is already close enough to visit the place (2D canVisit rule)
 //   missionContext() -> {player:{x,y,mode,movementMode}, navigator}   input for refreshMissions
 //   announce(place)              the "arrived" banner, shown even when the dialog has to wait in the queue
-// sound: {play(kind)}; narrator: {speak(text), cancel()}; both default to no-ops. clock() -> ms (default Date.now).
+// places: the mapped places (each with a game-frame point); stories: the story-only places (place.remote, no point):
+// goTo one opens its story (P19, the 2D goToPlace -> visit). sound: {play(kind)}; narrator: {speak(text), cancel()};
+// both default to no-ops. clock() -> ms (default Date.now).
 import { selectQuest } from '#game/quests.js';
 import { refreshMissions } from './missions.js';
 
@@ -27,8 +29,8 @@ const noop = () => {};
 const QUIET_SOUND = { play: noop };
 const QUIET_NARRATOR = { speak: noop, cancel: noop };
 
-export function createController({ state, places, services = {}, save = noop, sound = QUIET_SOUND, narrator = QUIET_NARRATOR, clock = Date.now, random = Math.random } = {}) {
-  const byId = new Map(places.map((p) => [p.id, p]));
+export function createController({ state, places, stories = [], services = {}, save = noop, sound = QUIET_SOUND, narrator = QUIET_NARRATOR, clock = Date.now, random = Math.random } = {}) {
+  const byId = new Map(places.map((p) => [p.id, p])), storyById = new Map(stories.map((p) => [p.id, p]));
   const queue = [];   // arrivals that came in while a dialog was open: {kind:'place', data}
   const call = (name, ...args) => services[name]?.(...args);
 
@@ -86,7 +88,11 @@ export function createController({ state, places, services = {}, save = noop, so
       return true;
     },
 
+    // head for a mapped place (closing any dialog first); a story-only place has no point: its story opens instead,
+    // replacing any dialog (no resume in between)
     goTo(placeId) {
+      const story = storyById.get(placeId);
+      if (story) return ctl.open('place', { place: story, physical: false });
       const place = byId.get(placeId);
       if (!place) return false;
       if (ctl.dialog) ctl.close();

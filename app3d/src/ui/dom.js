@@ -28,11 +28,14 @@ export function fits44(rect) { const { w, h } = size(rect); return w >= 44 && h 
 export function overlaps(a, b) { return a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom; }
 
 const open = new WeakMap();   // dialogEl -> {inerted, handler, doc, returnFocus}
+const stack = [];             // open dialogs, the topmost last: only its Escape closes it (P22)
 
 /**
  * Make `dialogEl` modal: every child of `root` that does not contain the dialog gets `inert` (remembering only the
  * ones it changed), focus moves to the first focusable control inside, and Escape calls `onClose` (the caller's close
  * path, which should call closeModal). `returnFocus` (the canvas in the app) gets focus again on closeModal.
+ * Dialogs opened over one another stack: Escape closes the topmost one only, and not at all when the key was already
+ * handled (defaultPrevented, e.g. by an input) or ends a Korean IME composition.
  */
 export function openModal(dialogEl, { root, returnFocus, onClose } = {}) {
   if (open.has(dialogEl)) closeModal(dialogEl);
@@ -42,9 +45,14 @@ export function openModal(dialogEl, { root, returnFocus, onClose } = {}) {
     child.inert = true; inerted.push(child);
   }
   const doc = dialogEl.ownerDocument || globalThis.document;
-  const handler = (e) => { if (e.key === 'Escape') { e.preventDefault?.(); onClose?.(); } };
+  const handler = (e) => {
+    if (e.key !== 'Escape' || e.defaultPrevented || e.isComposing || stack[stack.length - 1] !== dialogEl) return;
+    e.preventDefault?.();
+    onClose?.();
+  };
   doc?.addEventListener('keydown', handler);
   open.set(dialogEl, { inerted, handler, doc, returnFocus });
+  stack.push(dialogEl);
   const first = dialogEl.querySelectorAll?.(FOCUSABLE)[0] || dialogEl;
   try { first.focus({ preventScroll: true }); } catch { /* not focusable yet */ }
 }
@@ -54,6 +62,7 @@ export function closeModal(dialogEl) {
   const st = open.get(dialogEl);
   if (!st) return;
   open.delete(dialogEl);
+  stack.splice(stack.lastIndexOf(dialogEl), 1);
   for (const n of st.inerted) n.inert = false;
   st.doc?.removeEventListener('keydown', st.handler);
   try { st.returnFocus?.focus({ preventScroll: true }); } catch { /* canvas gone */ }

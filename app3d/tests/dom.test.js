@@ -86,3 +86,51 @@ test('closeModal on a dialog that is not open is a no-op', () => {
   closeModal(s.dialog);
   assert.equal(s.canvas.focused, 0);
 });
+
+// P22: dialogs opened on top of one another (an import confirm over the menu, say): Escape closes the top one only
+function stacked() {
+  const doc = fakeDoc();
+  doc.press = (key) => {   // a real keydown: one event object, defaultPrevented once a handler called preventDefault
+    const e = { key, defaultPrevented: false, preventDefault() { this.defaultPrevented = true; } };
+    for (const [t, f] of [...doc.handlers]) if (t === 'keydown') f(e);
+    return e.defaultPrevented;
+  };
+  const a = fakeNode('a', { focusables: [fakeNode('a1')], ownerDocument: doc }), b = fakeNode('b', { focusables: [fakeNode('b1')], ownerDocument: doc });
+  const canvas = fakeNode('canvas'), root = fakeNode('root', { children: [canvas, a, b] });
+  const closed = [];
+  const open = (d) => openModal(d, { root, returnFocus: canvas, onClose: () => { closed.push(d.name); closeModal(d); } });
+  return { doc, a, b, canvas, root, closed, open };
+}
+
+test('Escape closes only the topmost open dialog, then the one under it', () => {
+  const s = stacked();
+  s.open(s.a); s.open(s.b);
+  assert.equal(s.doc.press('Escape'), true);
+  assert.deepEqual(s.closed, ['b'], 'one press closes the top dialog only');
+  assert.equal(s.doc.press('Escape'), true);
+  assert.deepEqual(s.closed, ['b', 'a']);
+  assert.equal(s.doc.press('Escape'), false, 'nothing open: Escape is left alone');
+  assert.equal(s.doc.handlers.length, 0);
+});
+
+test('Escape follows the stack when a dialog is reopened on top, and skips a key already handled', () => {
+  const s = stacked();
+  s.open(s.a); s.open(s.b); s.open(s.a);   // a again: now above b
+  s.doc.press('Escape');
+  assert.deepEqual(s.closed, ['a']);
+  // closing the top one without Escape (its own button): the next Escape goes to the one under it
+  s.open(s.a); closeModal(s.a);
+  s.doc.press('Escape');
+  assert.deepEqual(s.closed, ['a', 'b']);
+  // a handler that ran first (an input's own Escape, an IME composition) marks the key handled: no dialog closes
+  s.open(s.a);
+  s.doc.handlers.unshift(['keydown', (e) => e.preventDefault()]);
+  s.doc.press('Escape');
+  assert.deepEqual(s.closed, ['a', 'b']);
+  s.doc.handlers.shift();
+  const composing = { key: 'Escape', isComposing: true, defaultPrevented: false, preventDefault() { this.defaultPrevented = true; } };
+  for (const [, f] of [...s.doc.handlers]) f(composing);
+  assert.deepEqual(s.closed, ['a', 'b'], 'Escape while composing Korean text cancels the composition only');
+  s.doc.press('Escape');
+  assert.deepEqual(s.closed, ['a', 'b', 'a']);
+});

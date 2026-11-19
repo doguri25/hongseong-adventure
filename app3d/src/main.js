@@ -242,14 +242,15 @@ async function boot() {
   G.controls = controls;
   G.view = controls.read().view;   // live object: the camera eases userYaw in follow mode
 
-  // dialogs pause the simulation; closing resumes play
+  // dialogs pause the simulation; closing resumes play. Story-only places (no point) open their story on goTo (P19)
+  const ctl = G.ctl = createController({ state, places, stories: PLACES.filter((p) => p.remote), services: controllerServices(), save });
   G.dialog = createPlaceDialog(document, {
-    getState: () => state, onChange: () => { refreshStats(); save(); }, toast: (m) => hud.toast(m),
-    onGo: (p) => ctl.goTo(p.id), onClose: () => ctl.close(),
+    root: $('app'), returnFocus: canvas, getState: () => state, onChange: () => { refreshStats(); save(); },
+    onGo: (p) => ctl.goTo(p.id), onJournal: () => ctl.open('menu', { tab: 'journal' }), onClose: () => ctl.close(),
     onAnswer: (r) => (r.correct ? notify('정답!', r.coins ? `+${r.coins}금화` : '복습 완료', 'ok') : notify('다시 생각해 봐요', '', 'danger')),
+    sound: ctl.sound, narrator: ctl.narrator,   // P21: one wiring point for GameAudio / Narrator (Task 8)
   });
   G.npcDialog = createNpcDialog(document, { onClose: () => ctl.close() });
-  const ctl = G.ctl = createController({ state, places, services: controllerServices(), save });
   G.thumbs = createThumbs(renderer, actors);
   G.menu = createMenu(document, {
     root: $('app'), returnFocus: canvas, getState: () => state, places, ctl, thumbs: G.thumbs,
@@ -418,7 +419,7 @@ function controllerServices() {
       else return false;
       return true;
     },
-    hideDialog: (kind) => { if (kind === 'place') G.dialog.close(); else if (kind === 'npc') G.npcDialog.close(); else if (kind === 'menu') G.menu.hide(); },
+    hideDialog: (kind) => { if (kind === 'place') G.dialog.hide(); else if (kind === 'npc') G.npcDialog.close(); else if (kind === 'menu') G.menu.hide(); },
     onPause: (paused) => {
       if (paused) return;
       G.last = 0; G.frameTimes = []; G.lastCheck = performance.now();   // the slow paused frames must not look like a slow device
