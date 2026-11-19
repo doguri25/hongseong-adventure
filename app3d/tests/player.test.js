@@ -5,7 +5,7 @@ import { createCollider } from '../src/sim/collider.js';
 import { buildRoadGraph } from '../src/sim/roadgraph.js';
 import { WaterGuard } from '#game/water.js';
 import { RoadNavigator } from '#game/navigation.js';
-import { createPlayer, stepPlayer, setMode } from '../src/sim/player.js';
+import { createPlayer, stepPlayer, setMode, TOAST } from '../src/sim/player.js';
 
 const DT = 1 / 30;
 const ring = (x0, y0, x1, y1) => [[x0, y0], [x1, y0], [x1, y1], [x0, y1]];
@@ -153,4 +153,72 @@ test('free walk: diagonal stick is capped at vmax, half stick settles at half', 
   const q = createPlayer({ x: -2000, y: -2000, movementMode: 'free', speedSetting: 1 });
   run(q, { x: 0.5, y: 0, camYaw: 0, camMode: 'tilt', target: null }, s, 150);
   assert.ok(Math.abs(q.speed - 39) < 0.5, `half ${q.speed}`);
+});
+
+// I1: a sea south of y = 1000 (dry land north of it)
+const seaWorld = () => world([poly({ natural: 'water', water: 'sea' }, ring(-3000, 1000, 3000, 2990))]);
+const flyingSouth = (s, mode, x, y) => {
+  const p = createPlayer({ x, y, mode: 'walk', movementMode: 'free', speedSetting: 1 });
+  setMode(p, mode, s); stepPlayer(p, { x: 0, y: 0, camYaw: 0, camMode: 'tilt' }, s, DT);
+  p.heading = Math.PI; p.speed = 78 * (mode === 'plane' ? 16 : 4); p.alt = s.field.renderY(x, y) + (mode === 'plane' ? 600 : 270);
+  p.x = x; p.y = y;
+  return p;
+};
+const land = (p, s, input, max = 1200) => {
+  const out = { events: [], toasts: [] };
+  for (let i = 0; i < max && p.pending; i++) { const r = stepPlayer(p, input, s, DT); out.events.push(...r.events); if (r.toast) out.toasts.push(r.toast); }
+  return out;
+};
+const still = { x: 0, y: 0, camYaw: Math.PI, camMode: 'follow', target: null };
+
+test('landing with the stick released brakes and touches down near where it was chosen, on land', () => {
+  const s = seaWorld();
+  for (const [mode, reach] of [['slowplane', 70], ['plane', 190]]) {
+    const p = flyingSouth(s, mode, -1000, 800);           // 200 m before the coast, at full speed toward the sea
+    assert.ok(setMode(p, 'walk', s).ok, mode);
+    const r = land(p, s, still);
+    assert.equal(p.mode, 'walk', mode); assert.ok(r.events.includes('landed'), mode);
+    assert.ok(Math.hypot(p.x + 1000, p.y - 800) < reach, `${mode} landed ${Math.round(p.y - 800)} m on`);
+    assert.ok(!s.water.blocked([p.x, p.y]), `${mode} on land`);
+    const at = [p.x, p.y];
+    run(p, { x: 0.7, y: 0.7, camYaw: 0, camMode: 'tilt', target: null }, s, 60);   // and can walk away
+    assert.ok(Math.hypot(p.x - at[0], p.y - at[1]) > 30, `${mode} walker moves`);
+  }
+});
+
+test('touch-down over water calls the landing off and climbs back (WaterGuard decides)', () => {
+  const s = seaWorld(), p = flyingSouth(s, 'slowplane', -1000, 900);
+  assert.ok(setMode(p, 'walk', s).ok); assert.equal(p.pending, 'walk');
+  // the stick held forward keeps the plane flying out over the sea while it descends
+  const r = land(p, s, { x: 0, y: 1, camYaw: Math.PI, camMode: 'follow', target: null });
+  assert.equal(p.pending, null); assert.equal(p.mode, 'slowplane');
+  assert.ok(r.events.includes('landing-cancelled') && !r.events.includes('landed'));
+  assert.deepEqual(r.toasts, [TOAST.water]);
+  assert.ok(s.water.blocked([p.x, p.y]));
+  assert.ok(p.speed >= 78 * 4 * 0.25 - 1e-6, `flies on: ${p.speed}`);
+  const low = p.alt;
+  run(p, still, s, 150);
+  assert.ok(p.alt > low + 100, `climbs back: ${p.alt - low}`);
+  assert.equal(p.mode, 'slowplane');
+});
+
+test('landing is refused only where WaterGuard says water, not on low dry land', () => {
+  const s = seaWorld();
+  s.field.data.fill(0.3);                                  // dry coast the carve left at its 0.3 m floor
+  const p = flyingSouth(s, 'slowplane', 0, -500);
+  assert.ok(setMode(p, 'walk', s).ok, 'low dry land accepts a landing');
+  const q = flyingSouth(s, 'slowplane', 0, 1500);
+  const r = setMode(q, 'walk', s);
+  assert.equal(r.ok, false); assert.equal(r.toast, TOAST.water); assert.equal(q.pending, null);
+});
+
+test('a walker standing on water walks toward land instead of freezing, never further out', () => {
+  for (const movementMode of ['free', 'roads']) {
+    const s = world(), p = createPlayer({ x: 0, y: 340, movementMode, speedSetting: 1 });   // 40 m into the pond, on the x = 0 road line
+    assert.ok(s.water.blocked([p.x, p.y]));
+    run(p, { x: 0, y: -1, camYaw: 0, camMode: 'tilt', target: null }, s, 30);    // south: further out
+    assert.ok(p.y <= 340 + 1e-6, `${movementMode} not further out: ${p.y}`);
+    run(p, north, s, 90);                                                          // north: toward the shore
+    assert.ok(!s.water.blocked([p.x, p.y]) && p.y < 300, `${movementMode} reached land: ${p.x},${p.y}`);
+  }
 });

@@ -8,9 +8,10 @@ const wrapAngle = a => { a = (a + Math.PI) % (2 * Math.PI); if (a < 0) a += 2 * 
 const TAU = Math.PI * 2;
 
 export const FACTOR = { walk: 1, bike: 2, car: 4, supercar: 8, slowplane: 4, plane: 16, boat: 0 };
+// land: braking rate while a landing descends with the stick released (the jet stops within ~160 m, the slow plane ~50 m)
 const FLIGHT = {
-  slowplane: { accel: 0.75, brake: 0.95, turn: 0.95, altitude: 270 },
-  plane: { accel: 0.55, brake: 0.75, turn: 0.65, altitude: 600 },
+  slowplane: { accel: 0.75, brake: 0.95, turn: 0.95, altitude: 270, land: 6 },
+  plane: { accel: 0.55, brake: 0.75, turn: 0.65, altitude: 600, land: 8 },
 };
 const isFlying = m => m === 'slowplane' || m === 'plane';
 const isCar = m => m === 'car' || m === 'supercar';
@@ -26,7 +27,7 @@ export function createPlayer({ x, y, mode = 'walk', movementMode = 'roads', spee
   return {
     x, y, h: 0, heading: 0, speed: 0, vx: 0, vy: 0, mode, pending: null, alt: 0, bank: 0, climb: 0, turnRate: 0,
     phase: 0, moving: false, car: null, hint: null, movementMode, speedSetting,
-    roadCursor: null, route: null, routeKey: null, tookOff: false,
+    roadCursor: null, route: null, routeKey: null, tookOff: false, shore: null,
   };
 }
 
@@ -38,7 +39,8 @@ function groundH(p, s) { return s.field.renderY(p.x, p.y); }
 function snapToRoad(p, s) {
   if (p.movementMode !== 'roads' || (p.mode !== 'walk' && p.mode !== 'bike')) return;
   const n = s.navigator.nearest([p.x, p.y], null, SNAP_RANGE);
-  if (n && !s.water.clip([p.x, p.y], n.p).blocked) { p.x = n.p[0]; p.y = n.p[1]; }
+  // never across water; a walker already standing on water may snap to a dry road (wetStepOk)
+  if (n && (s.water.blocked([p.x, p.y]) ? wetStepOk(p, s, n.p) : !s.water.clip([p.x, p.y], n.p).blocked)) { p.x = n.p[0]; p.y = n.p[1]; }
   p.roadCursor = null; p.route = null; p.routeKey = null;
 }
 
@@ -54,8 +56,8 @@ export function setMode(p, mode, s) {
     p.mode = mode;
     return { ok: true };
   }
-  if (wasFlying) {   // landing: descend first, switch on touch-down
-    if (s.water.blocked([p.x, p.y]) || s.field.isSea(p.x, p.y)) return { ok: false, toast: TOAST.water };
+  if (wasFlying) {   // landing: descend first, switch on touch-down (WaterGuard decides water, here and at touch-down)
+    if (s.water.blocked([p.x, p.y])) return { ok: false, toast: TOAST.water };
     p.pending = mode;
     return { ok: true };
   }
@@ -118,6 +120,8 @@ export function stepPlayer(p, input, s, dt) {
       if (d >= stop) { ndx = tx / d; ndy = ty / d; nmag = clamp(d / 30, 0.35, 1); } else { nmag = 0; }
     }
     let steer = 0, throttle = 0;
+    const landing = !!p.pending && !manual;   // a landing with the stick released brakes hard and comes straight down
+    if (landing) nmag = 0;
     const h = p.heading, along = ndx * Math.sin(h) - ndy * Math.cos(h), lateral = ndx * Math.cos(h) + ndy * Math.sin(h), angle = Math.atan2(lateral, along);
     if (manual && input.camMode === 'follow') { steer = clamp(st.ix, -1, 1); throttle = st.iy; }
     else if (manual) {
@@ -128,7 +132,8 @@ export function stepPlayer(p, input, s, dt) {
       throttle = nmag * Math.max(0.3, Math.cos(Math.min(Math.abs(angle), 1.4)));
     }
     p.turnRate = damp(p.turnRate || 0, steer * V.turn, 10, dt); p.heading = wrapAngle(p.heading + p.turnRate * dt);
-    if (throttle > 0.01) { const t = vmax * Math.min(1, throttle); p.speed = damp(p.speed, t, p.speed < t ? V.accel : V.brake, dt); }
+    if (landing) p.speed = Math.max(0, damp(p.speed, 0, V.land, dt) - 4 * dt);
+    else if (throttle > 0.01) { const t = vmax * Math.min(1, throttle); p.speed = damp(p.speed, t, p.speed < t ? V.accel : V.brake, dt); }
     else if (throttle < -0.01) p.speed = Math.max(0, damp(p.speed, 0, V.brake * (1.5 + 2.5 * -throttle), dt) - 2 * dt);
     else p.speed = damp(p.speed, 0, V.brake * 0.6, dt);
     p.vx = Math.sin(p.heading) * p.speed; p.vy = -Math.cos(p.heading) * p.speed;
@@ -141,7 +146,11 @@ export function stepPlayer(p, input, s, dt) {
     p.alt = Math.max(p.alt, ground + (p.pending ? 0 : 3));
     p.climb = (p.alt - prev) / dt;
     p.bank = damp(p.bank, clamp(-(p.turnRate || 0) * 0.55, -0.75, 0.75), 3, dt);
-    if (p.pending && p.alt - ground < 1.5) {
+    if (p.pending && p.alt - ground < 1.5 && s.water.blocked([p.x, p.y])) {
+      // came down over water (the stick carried it out to sea): call the landing off and climb back
+      p.pending = null; p.speed = Math.max(p.speed, vmax * 0.25);
+      events.push('landing-cancelled'); toast = TOAST.water;
+    } else if (p.pending && p.alt - ground < 1.5) {
       let m = p.pending; p.pending = null; p.speed *= 0.2;
       p.vx *= 0.2; p.vy *= 0.2; p.bank = 0; p.climb = 0; p.turnRate = 0;
       if (isCar(m)) {
@@ -180,7 +189,9 @@ function walkStep(p, s, input, st, manual, target, vmax, dt, events) {
         while (budget > 0 && p.route.length) {
           const d0 = p.route[0], d = Math.hypot(d0[0] - p.x, d0[1] - p.y);
           const step = d <= budget ? [d0[0], d0[1]] : [p.x + (d0[0] - p.x) * budget / d, p.y + (d0[1] - p.y) * budget / d];
-          const clip = s.water.clip([p.x, p.y], step);
+          let clip;
+          if (wet(p, s)) { const ok = wetStepOk(p, s, step); clip = { position: ok ? step : [p.x, p.y], blocked: !ok }; }
+          else clip = s.water.clip([p.x, p.y], step);
           p.x = clip.position[0]; p.y = clip.position[1];
           if (clip.blocked) { p.route = null; events.push('water'); break; }
           if (d <= budget) { p.route.shift(); budget -= d; } else budget = 0;
@@ -190,7 +201,8 @@ function walkStep(p, s, input, st, manual, target, vmax, dt, events) {
       const m = Math.max(1, Math.hypot(dx, dy)); dx /= m; dy /= m;
       const res = s.navigator.move([p.x, p.y], [dx, dy], vmax * dt * Math.min(1, mag), p.roadCursor);
       let at = before, ok = true;
-      for (const q of res.trace || [res.position]) {
+      if (wet(p, s)) { ok = wetStepOk(p, s, res.position); if (ok) at = res.position; }
+      else for (const q of res.trace || [res.position]) {
         const clip = s.water.clip(at, q); at = clip.position;
         if (clip.blocked) { ok = false; break; }
       }
@@ -218,6 +230,12 @@ function walkStep(p, s, input, st, manual, target, vmax, dt, events) {
       const into = p.vx * r.nx + p.vy * r.ny;   // slide: drop the part of the motion that goes into the wall
       if (into < 0) { p.vx -= r.nx * into; p.vy -= r.ny * into; }
     }
+    if (wet(p, s)) {   // standing on water: any step toward land is allowed, none further out
+      if (!wetStepOk(p, s, [nx, ny])) { events.push('water'); nx = p.x; ny = p.y; p.vx *= 0.3; p.vy *= 0.3; p.speed *= 0.3; }
+      p.x = nx; p.y = ny;
+      if (s.bounds) { p.x = clamp(p.x, s.bounds[0], s.bounds[2]); p.y = clamp(p.y, s.bounds[1], s.bounds[3]); }
+      return;
+    }
     const clip = s.water.clip([p.x, p.y], [nx, ny]);
     if (clip.blocked) {
       events.push('water');
@@ -229,4 +247,17 @@ function walkStep(p, s, input, st, manual, target, vmax, dt, events) {
     p.x = nx; p.y = ny;
   }
   if (s.bounds) { p.x = clamp(p.x, s.bounds[0], s.bounds[2]); p.y = clamp(p.y, s.bounds[1], s.bounds[3]); }
+}
+
+// A walker should never stand on water, but an old save or a bug can put one there: rather than freeze (every step
+// from water is blocked), let them take any step that brings them closer to the nearest land, and none further out.
+const wet = (p, s) => s.water.blocked([p.x, p.y]);
+function wetStepOk(p, s, to) {
+  if (!s.water.blocked(to)) return true;
+  if (!p.shore || Math.hypot(p.x - p.shore.at[0], p.y - p.shore.at[1]) > 100) {
+    p.shore = { at: [p.x, p.y], land: s.water.nearestLand ? s.water.nearestLand([p.x, p.y]) : null };
+  }
+  const land = p.shore.land;
+  if (!land) return true;   // no land within reach: moving is better than freezing
+  return Math.hypot(to[0] - land[0], to[1] - land[1]) < Math.hypot(p.x - land[0], p.y - land[1]) - 1e-6;
 }
