@@ -277,10 +277,10 @@ function addBuilding(out, ring, height, color, seed) {
   }
 }
 
-function roadIndex() {
+function roadIndex(skip = ['track', 'path', 'footway', 'cycleway', 'steps']) {
   const C = 60, grid = new Map(), key = (i, j) => i * 100000 + j;
   for (const f of D.features) {
-    const r = ROAD[f.t.highway]; if (!r || ['track', 'path', 'footway', 'cycleway', 'steps'].includes(f.t.highway)) continue;
+    const r = ROAD[f.t.highway]; if (!r || skip.includes(f.t.highway)) continue;
     for (let i = 1; i < f.p.length; i++) {
       const a = f.p[i - 1], b = f.p[i], s = [a[0], a[1], b[0], b[1], r[0] / 2, f.t.highway];
       const i0 = Math.floor(Math.min(a[0], b[0]) / C), i1 = Math.floor(Math.max(a[0], b[0]) / C), j0 = Math.floor(Math.min(a[1], b[1]) / C), j1 = Math.floor(Math.max(a[1], b[1]) / C);
@@ -288,6 +288,21 @@ function roadIndex() {
     }
   }
   return {
+    // nearest point on any indexed road centreline, searching outward ring by ring up to maxR metres
+    nearest(x, z, maxR = 120) {
+      const i0 = Math.floor(x / C), j0 = Math.floor(z / C); let best = null;
+      for (let ring = 0; ring * C <= maxR + C; ring++) {
+        for (let ii = i0 - ring; ii <= i0 + ring; ii++) for (let jj = j0 - ring; jj <= j0 + ring; jj++) {
+          if (Math.max(Math.abs(ii - i0), Math.abs(jj - j0)) !== ring) continue;
+          for (const s of grid.get(key(ii, jj)) || []) {
+            const dx = s[2] - s[0], dz = s[3] - s[1], l = dx * dx + dz * dz, t = l ? clamp(((x - s[0]) * dx + (z - s[1]) * dz) / l, 0, 1) : 0, qx = s[0] + dx * t, qz = s[1] + dz * t, d = Math.hypot(x - qx, z - qz);
+            if (!best || d < best.d) { const ll = Math.sqrt(l) || 1; best = {qx, qz, d, half: s[4], ux: dx / ll, uz: dz / ll}; }
+          }
+        }
+        if (best && best.d < ring * C) break;
+      }
+      return best && best.d <= maxR ? best : null;
+    },
     clearance(x, z) {
       let best = 1e9; const i = Math.floor(x / C), j = Math.floor(z / C);
       for (let ii = i - 1; ii <= i + 1; ii++) for (let jj = j - 1; jj <= j + 1; jj++) for (const s of grid.get(key(ii, jj)) || []) {
@@ -565,7 +580,7 @@ function makeCar() {
   const wheels = [];
   for (const [x, z] of [[-.95, -1.45], [.95, -1.45], [-.95, 1.45], [.95, 1.45]]) { const w = wheel(.4, .3); w.position.set(x, .4, z); g.add(w); wheels.push(w); }
   [lower, cabin, glass].forEach(m => { m.castShadow = true; g.add(m); });
-  g.scale.setScalar(6.5); return {group: g, wheels};
+  g.scale.setScalar(9); return {group: g, wheels};
 }
 function lathe(points, segs = 20) { return new THREE.LatheGeometry(points.map(p => new THREE.Vector2(p[0], p[1])), segs).rotateX(-Math.PI / 2); }   // axis along -Z (nose forward)
 function makeSlowPlane() {
@@ -584,7 +599,7 @@ function makeSlowPlane() {
   const nl = new THREE.Mesh(new THREE.SphereGeometry(.09, 8, 6), nav); nl.position.set(-6.3, 1.05, -.9); const nr = new THREE.Mesh(new THREE.SphereGeometry(.09, 8, 6), navG); nr.position.set(6.3, 1.05, -.9);
   g.add(fus, stripe, canopy, wing, ...tips, stab, fin, ...struts, spinner, ...gear, nl, nr);
   g.traverse(o => { if (o.isMesh) o.castShadow = true; });
-  g.scale.setScalar(5.6); return {group: g, prop: null, disc: null};
+  g.scale.setScalar(9); return {group: g, prop: null, disc: null};
 }
 function makeJet() {
   const g = new THREE.Group(), white = paintMat(0xf6f7f9), blue = paintMat(0x2266c4), orange = paintMat(0xf07a2a);
@@ -602,7 +617,7 @@ function makeJet() {
   const engines = [-1, 1].map(s => { const e = new THREE.Group(); const can = new THREE.Mesh(lathe([[.55, -1.6], [.62, -1.1], [.6, 1.2], [.45, 1.7]], 16), orange); const noz = new THREE.Mesh(new THREE.CircleGeometry(.42, 16), glow); noz.position.z = 1.71; e.add(can, noz); e.position.set(s * 3.2, -.75, 1.0); return e; });
   g.add(fus, canopy, ...wings, ...stabs, fin, stripe, ...engines);
   g.traverse(o => { if (o.isMesh) o.castShadow = true; });
-  g.scale.setScalar(5.6); return {group: g, glow};
+  g.scale.setScalar(8.5); return {group: g, glow};
 }
 
 // pokju-edu car (exported from its own builder) when the payload carries one
@@ -610,7 +625,7 @@ async function loadPokjuCar() {
   if (!A.car) return null;
   const gltf = await new GLTFLoader().parseAsync(Uint8Array.from(atob(A.car), c => c.charCodeAt(0)).buffer, '');
   const g = new THREE.Group(), m = gltf.scene; m.traverse(o => { if (o.isMesh) { o.castShadow = true; if (o.material?.name?.includes('light')) vehicles.lights.push(o.material); } });
-  g.add(m); g.scale.setScalar(6.5); return {group: g, wheels: []};
+  g.add(m); g.scale.setScalar(9); return {group: g, wheels: []};
 }
 
 // ---------- places: floating pins with a light column and a name label
@@ -650,9 +665,9 @@ const VEH = {
   // sizes and speeds are game-scale, not real-scale: the explorer stands 8 m tall and walks 40 m/s so places are minutes apart, not hours
   // the 2D game's own speeds (walk 78 m/s, x4, x16); the camera stands about twice as far back as v2 (a smaller-scale view)
   walk: {label: '걷기', speed: 78, accel: 6, turn: 14, alt: 0, cam: {tilt: [185, 50], follow: [82, 17]}, lead: .28},
-  car: {label: '자동차', speed: 312, accel: 1.0, brake: 2.4, turn: 2.4, alt: 0, cam: {tilt: [390, 48], follow: [150, 15]}, lead: .28},
-  slowplane: {label: '느린 비행기', speed: 312, accel: .75, brake: .95, turn: .95, alt: 230, cam: {tilt: [540, 46], follow: [235, 16]}, lead: .3},
-  plane: {label: '비행기', speed: 1248, accel: .55, brake: .75, turn: .65, alt: 520, cam: {tilt: [1150, 52], follow: [430, 18]}, lead: .15}
+  car: {label: '자동차', speed: 312, accel: 1.0, brake: 2.4, turn: 2.4, alt: 0, cam: {tilt: [500, 48], follow: [200, 15]}, lead: .28},
+  slowplane: {label: '느린 비행기', speed: 312, accel: .75, brake: .95, turn: .95, alt: 270, cam: {tilt: [760, 46], follow: [340, 16]}, lead: .3},
+  plane: {label: '비행기', speed: 1248, accel: .55, brake: .75, turn: .65, alt: 600, cam: {tilt: [1500, 52], follow: [600, 18]}, lead: .15}
 };
 const CAM = {mode: 'tilt', yaw: 0, userYaw: 0, userTime: -9, zoom: 1, x: 0, y: 0, z: 0, tx: 0, ty: 0, tz: 0, fov: 52};
 
@@ -694,6 +709,7 @@ async function build() {
   world.classes = classMaps();
   await step('건물을 세우는 중');
   world.buildings = makeBuildings(facadeTextures()); scene.add(world.buildings.mesh);
+  world.carRoads = roadIndex(['path', 'footway', 'cycleway', 'steps', 'pedestrian']);   // cars keep to carriageways, farm tracks included
   await step('나무를 심는 중');
   world.trees = makeTrees(world.classes, Q.trees); world.trees.forEach(t => scene.add(t));
   world.lamps = makeLamps(world.buildings.roads, world.buildings.collider, world.classes); world.lamps.group.forEach(m => scene.add(m));
@@ -782,6 +798,12 @@ function readInput() {
 }
 
 // ---------- modes, camera, time, quality buttons
+function snapToRoad() {
+  const n = world.carRoads.nearest(PLAYER.x, PLAYER.z, 600); if (!n) return false;
+  PLAYER.x = n.qx; PLAYER.z = n.qz; PLAYER.y = heightAt(n.qx, n.qz);
+  const h = Math.atan2(n.ux, -n.uz); PLAYER.heading = Math.abs(wrapAngle(h - PLAYER.heading)) < Math.PI / 2 ? h : h + Math.PI; PLAYER.speed = 0;
+  return true;
+}
 function setMode(mode) {
   if (mode === PLAYER.mode && !PLAYER.pending) return;
   const flying = m => m === 'slowplane' || m === 'plane';
@@ -790,6 +812,7 @@ function setMode(mode) {
     PLAYER.pending = mode; toast('천천히 내려앉는 중이에요'); markMode(mode); return;
   }
   PLAYER.pending = null;
+  if (mode === 'car' && !flying(PLAYER.mode)) { if (!snapToRoad()) { toast('가까운 차도가 없어요. 도로 가까이 가서 타요.'); markMode(PLAYER.mode); return; } toast('가까운 차도에서 출발해요. 자동차는 도로로만 다녀요.'); }
   if (flying(mode) && !flying(PLAYER.mode)) { PLAYER.alt = PLAYER.y; PLAYER.speed = Math.max(PLAYER.speed, VEH[mode].speed * .25); toast(mode === 'slowplane' ? '느린 비행기로 천천히 떠올라요. 마을을 내려다보기 좋아요.' : '비행기로 높이 날아올라요!'); }
   else if (flying(mode)) toast(mode === 'slowplane' ? '느린 비행기로 바꿨어요' : '빠른 비행기로 바꿨어요');
   PLAYER.mode = mode; markMode(mode);
@@ -840,10 +863,17 @@ function simulate(dt) {
     PLAYER.vx = Math.sin(PLAYER.heading) * PLAYER.speed; PLAYER.vz = -Math.cos(PLAYER.heading) * PLAYER.speed;
   }
   let nx = PLAYER.x, nz = PLAYER.z;
-  const steps = Math.max(1, Math.ceil(Math.hypot(PLAYER.vx, PLAYER.vz) * dt / 3)), solid = !flying && !PLAYER.pending, rad = PLAYER.mode === 'car' ? 7 : 5;
+  const steps = Math.max(1, Math.ceil(Math.hypot(PLAYER.vx, PLAYER.vz) * dt / 3)), solid = !flying && !PLAYER.pending, rad = PLAYER.mode === 'car' ? 6 : 5;
   for (let k = 0; k < steps; k++) {
     nx = clamp(nx + PLAYER.vx * dt / steps, -BOUND[0], BOUND[0]); nz = clamp(nz + PLAYER.vz * dt / steps, -BOUND[1], BOUND[1]);
     if (!solid) continue;
+    if (PLAYER.mode === 'car') {
+      const n = world.carRoads.nearest(nx, nz, 400), limit = n ? Math.max(1.5, n.half - 1) : 0;
+      if (n && n.d > limit) {
+        const ox = (nx - n.qx) / n.d, oz = (nz - n.qz) / n.d; nx = n.qx + ox * limit; nz = n.qz + oz * limit;
+        const out = Math.sin(PLAYER.heading) * ox - Math.cos(PLAYER.heading) * oz; if (out > .2) PLAYER.speed *= 1 - .5 * out * dt * 8;
+      }
+    }
     const r = world.buildings.collider.resolve(nx, nz, rad); if (!r.hit) continue;
     nx = r.x; nz = r.z;
     const into = PLAYER.vx * r.nx + PLAYER.vz * r.nz;   // slide: drop the part of the motion that goes into the wall
@@ -863,7 +893,11 @@ function simulate(dt) {
     const prev = PLAYER.alt; PLAYER.alt = damp(PLAYER.alt, desired, PLAYER.pending ? 1.4 : .9, dt); PLAYER.alt = Math.max(PLAYER.alt, ground + (PLAYER.pending ? 0 : 3));
     PLAYER.climb = (PLAYER.alt - prev) / dt; PLAYER.y = PLAYER.alt;
     PLAYER.bank = damp(PLAYER.bank, clamp(-(PLAYER.turnRate || 0) * .55, -.75, .75), 3, dt);
-    if (PLAYER.pending && PLAYER.alt - ground < 1.5) { const m = PLAYER.pending; PLAYER.pending = null; PLAYER.mode = m; PLAYER.speed *= .2; toast(m === 'walk' ? '땅에 내렸어요' : '자동차로 바꿨어요'); }
+    if (PLAYER.pending && PLAYER.alt - ground < 1.5) {
+      let m = PLAYER.pending; PLAYER.pending = null; PLAYER.speed *= .2;
+      if (m === 'car' && !snapToRoad()) { m = 'walk'; markMode('walk'); toast('가까운 차도가 없어서 걸어서 내렸어요'); } else toast(m === 'walk' ? '땅에 내렸어요' : '도로에 내려 자동차로 바꿨어요');
+      PLAYER.mode = m; PLAYER.y = heightAt(PLAYER.x, PLAYER.z);
+    }
   } else PLAYER.y = ground;
   const moved = Math.hypot(PLAYER.x - before[0], PLAYER.z - before[1]);
   PLAYER.phase = (PLAYER.phase + moved / 24 * Math.PI * 2) % (Math.PI * 2);
@@ -913,7 +947,7 @@ function updateActors(dt, t) {
   if (v && v.group.visible) {
     const g = v.group; g.position.set(PLAYER.x, PLAYER.y, PLAYER.z); g.rotation.y = -PLAYER.heading;
     if (PLAYER.mode === 'car') {
-      const f = 12, a = heightAt(PLAYER.x + Math.sin(PLAYER.heading) * f, PLAYER.z - Math.cos(PLAYER.heading) * f), b = heightAt(PLAYER.x - Math.sin(PLAYER.heading) * f, PLAYER.z + Math.cos(PLAYER.heading) * f);
+      const f = 16, a = heightAt(PLAYER.x + Math.sin(PLAYER.heading) * f, PLAYER.z - Math.cos(PLAYER.heading) * f), b = heightAt(PLAYER.x - Math.sin(PLAYER.heading) * f, PLAYER.z + Math.cos(PLAYER.heading) * f);
       g.rotation.x = Math.atan2(a - b, 2 * f); g.rotation.z = damp(g.rotation.z, clamp(-(PLAYER.turnRate || 0) * PLAYER.speed * .004, -.06, .06), 6, dt);
       for (const w of v.wheels) w.children.forEach(c => c.rotation.x -= PLAYER.speed * dt / .4);
     } else {
@@ -922,7 +956,7 @@ function updateActors(dt, t) {
       if (v.prop) { v.prop.rotation.z += dt * (18 + PLAYER.speed * .8); v.disc.material.opacity = clamp(PLAYER.speed / 30, .05, .2); }
       if (v.glow) v.glow.emissiveIntensity = 1.2 + PLAYER.speed / VEH.plane.speed * 4;
     }
-    const size = PLAYER.mode === 'car' ? 34 : PLAYER.mode === 'slowplane' ? 90 : 125, h = PLAYER.y - groundY, s = size * (1 + h / 200);
+    const size = PLAYER.mode === 'car' ? 48 : PLAYER.mode === 'slowplane' ? 140 : 190, h = PLAYER.y - groundY, s = size * (1 + h / 200);
     world.vehShadow.visible = true; world.vehShadow.scale.set(s, 1, s * .7); world.vehShadow.material.opacity = clamp(1 - h / 400, .15, 1);
     world.vehShadow.position.set(PLAYER.x, groundY + .3, PLAYER.z); world.vehShadow.rotation.y = -PLAYER.heading;
   } else world.vehShadow.visible = false;
@@ -979,7 +1013,7 @@ function frame(now) {
   const t = now / 1000;
   simulate(dt); updateCamera(dt); updateActors(dt, t); updateNear(dt);
   sky.position.copy(camera.position); skyUniforms.uTime.value = t;
-  { const H = world.buildings.material.userData.hole; H.cam.value.copy(camera.position); H.player.value.set(PLAYER.x, PLAYER.y + (PLAYER.mode === 'walk' ? 12 : 7), PLAYER.z); H.radius.value = PLAYER.mode === 'walk' ? 34 : PLAYER.mode === 'car' ? 46 : 70; }
+  { const H = world.buildings.material.userData.hole; H.cam.value.copy(camera.position); H.player.value.set(PLAYER.x, PLAYER.y + (PLAYER.mode === 'walk' ? 12 : 7), PLAYER.z); H.radius.value = PLAYER.mode === 'walk' ? 34 : PLAYER.mode === 'car' ? 62 : 110; }
   world.waterNormal.offset.set(t * .012, t * .007);
   if (post) { post.grade.uniforms.uTime.value = t; post.composer.render(dt); } else renderer.render(scene, camera);
   frameTimes.push(dt * 1000);
