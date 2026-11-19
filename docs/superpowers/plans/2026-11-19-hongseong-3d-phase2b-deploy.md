@@ -196,3 +196,22 @@
 - [ ] **Step 3: Record first-load bytes.** Log the bytes fetched until the 3D is ready on the desktop viewport (spec §13-1 aims at about 10 MB; record the number, no gate).
 - [ ] **Step 4: Update the README section.**
 - [ ] **Step 5: Commit** `docs: how the 3D and 2D games are built and served`.
+
+---
+
+## 진행 상황 (2026-11-20 05:40 KST, 사용자 요청으로 멈춤)
+
+- **Task 1 완료** (커밋 22108d8..87277b2, 리뷰 1회 수정 후 통과): 같은 장소로 길 안내를 다시 누르면 경로를 새로 짬, 가만히 둔 손가락이 다른 손 탭을 막지 않음(막대 쪽·오른쪽 모두), 배 타기 창 자체는 "배 타러 가는 길을 멈췄어요"를 남기지 않음.
+- **Task 2 완료** (커밋 87277b2..dfa5404, 리뷰 통과): 2D판 `dist/` → `app2d/` (135개 R100), `npm run build`가 3D를 `dist/`에, 2D를 `dist/2d/`에 만든다. 스모크는 `/hongseong-adventure/` 아래에서 1503 ok.
+- **Task 3부터 이어서 한다.** 손대기 전에 멈췄다(바뀐 파일 없음). 주의: Vite가 동적 청크에 `modulepreload`를 붙이면 2D 경로에서도 3D 청크를 받으므로 꺼야 한다.
+- **주의:** Task 4 전까지 `vercel.json`·`deploy-pages.yml`은 커밋된 `dist/`를 기대하므로, 이 브랜치의 Vercel 미리보기 빌드는 실패한다(실제 사이트 main은 영향 없음).
+
+### 결정 (2b)
+- Ruling Q1: 도움말 내려받기 링크는 `./2d/<파일>`을 가리키고 빌드된 `dist/`에서만 검사한다(`vite dev`에서는 404) — 틀리면: 개발용 별칭 추가.
+- Ruling Q2: 얼린 2D판에는 3D로 돌아가는 단추를 두지 않는다. `?view=3d`로 돌아오고, 설정 줄 옆에 적는다 — 틀리면: 2D 쪽 링크 추가.
+- Ruling Q3: 예전 일회용 작업 흐름(apply-v1.3.5/6, import-source)은 그대로 둔다(자기 파일이 바뀌거나 수동 실행 때만 돌고, 체크섬이 다르면 거부) — 틀리면: 누가 실행하면 무해하게 실패.
+- Ruling Q4: 전체 스모크는 Task 2·3·5에서만 돌린다 — 틀리면: Task 1·4의 화면 문제를 한 작업 늦게 발견.
+
+### 미뤄 둔 작은 문제 (2b)
+- 배 타기 창 안내 수정(Task 1)은 자동 시험이 없다 → Task 5 스모크에 "부두까지 걷기 → 배 타기 창 → 닫기 → 멈춤 안내 없음"을 넣는다.
+- `.gitignore`의 `dist/`를 `/dist/`로 좁힌다. 스모크의 요청 누락 검사가 전체 1회뿐이다. `check2d`의 1500 ms 고정 대기. `scripts/` 자료 스크립트 5개는 경로만 바꾸고 실행해 보지 않았다.
