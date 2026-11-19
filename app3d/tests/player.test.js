@@ -145,3 +145,12 @@ test('boat is left alone', () => {
   const s = world(), p = createPlayer({ x: 5, y: 5, mode: 'boat' });
   stepPlayer(p, east, s, DT); assert.equal(p.x, 5);
 });
+
+test('free walk: diagonal stick is capped at vmax, half stick settles at half', () => {
+  const s = world(), p = createPlayer({ x: -2000, y: -2000, movementMode: 'free', speedSetting: 1 });
+  run(p, { x: 1, y: 1, camYaw: 0, camMode: 'tilt', target: null }, s, 150);
+  assert.ok(Math.abs(p.speed - 78) < 0.5, `diagonal ${p.speed}`);
+  const q = createPlayer({ x: -2000, y: -2000, movementMode: 'free', speedSetting: 1 });
+  run(q, { x: 0.5, y: 0, camYaw: 0, camMode: 'tilt', target: null }, s, 150);
+  assert.ok(Math.abs(q.speed - 39) < 0.5, `half ${q.speed}`);
+});

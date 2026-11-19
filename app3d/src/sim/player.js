@@ -77,7 +77,9 @@ export function setMode(p, mode, s) {
 function stickDir(input) {
   const yaw = input.camYaw || 0, ix = input.x || 0, iy = input.y || 0;
   const dx = Math.cos(yaw) * ix + Math.sin(yaw) * iy, dy = Math.sin(yaw) * ix - Math.cos(yaw) * iy;
-  return { dx, dy, mag: Math.min(1, Math.hypot(dx, dy)), ix, iy };
+  const len = Math.hypot(dx, dy), mag = Math.min(1, len);
+  // unit direction + clamped magnitude: response is linear in the stick and a diagonal never exceeds the cap
+  return len > 1e-9 ? { dx: dx / len, dy: dy / len, mag, ix, iy } : { dx: 0, dy: 0, mag: 0, ix, iy };
 }
 
 export function stepPlayer(p, input, s, dt) {
