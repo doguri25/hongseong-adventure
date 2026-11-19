@@ -4,13 +4,14 @@ const STICK_MAX = 52, DEAD = 0.12, TAP_MOVE = 8, TAP_MS = 400;
 const KEYMAP = { ArrowUp: 'u', KeyW: 'u', ArrowDown: 'd', KeyS: 'd', ArrowLeft: 'l', KeyA: 'l', ArrowRight: 'r', KeyD: 'r' };
 const ACTIONS = { KeyE: 'interact', KeyC: 'camera', KeyT: 'time', KeyQ: 'quality',
   Digit1: 'mode:walk', Digit2: 'mode:bike', Digit3: 'mode:car', Digit4: 'mode:supercar', Digit5: 'mode:slowplane', Digit6: 'mode:plane' };
-const now = () => (globalThis.performance ? performance.now() : Date.now());
 
 export function createControls(target, { onTap, onAction, onStick } = {}, env = globalThis) {
+  const now = () => (env.performance ? env.performance.now() : globalThis.performance ? performance.now() : Date.now());
   const view = { userYaw: 0, pitchAdj: 0, zoom: 1 };
   const keys = new Set();
   const pointers = new Map();
-  const stick = { id: null, ox: 0, oy: 0, x: 0, y: 0 };
+  // sx, sy, t, moved: where and when the stick touch began, so a short still touch there still counts as a tap
+  const stick = { id: null, ox: 0, oy: 0, x: 0, y: 0, sx: 0, sy: 0, t: 0, moved: false };
   let pinchDist = 0;
 
   const zoomBy = k => { view.zoom = clamp(view.zoom * k, 0.2, 4); };
@@ -31,7 +32,8 @@ export function createControls(target, { onTap, onAction, onStick } = {}, env = 
     try { target.setPointerCapture?.(e.pointerId); } catch {}
     const leftSide = e.clientX < (env.innerWidth || 0) * 0.42 && e.pointerType !== 'mouse';
     if (leftSide && stick.id === null) {
-      stick.id = e.pointerId; stick.ox = e.clientX; stick.oy = e.clientY; stick.x = stick.y = 0;
+      stick.id = e.pointerId; stick.ox = stick.sx = e.clientX; stick.oy = stick.sy = e.clientY; stick.x = stick.y = 0;
+      stick.t = now(); stick.moved = false;
       emitStick(true); return;
     }
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY, t: now(), moved: false });
@@ -40,6 +42,7 @@ export function createControls(target, { onTap, onAction, onStick } = {}, env = 
 
   function move(e) {
     if (e.pointerId === stick.id) {
+      if (Math.hypot(e.clientX - stick.sx, e.clientY - stick.sy) > TAP_MOVE) stick.moved = true;
       let dx = e.clientX - stick.ox, dy = e.clientY - stick.oy;
       const m = Math.hypot(dx, dy);
       if (m > STICK_MAX) { // the stick follows a thumb that slides past its edge
@@ -63,7 +66,14 @@ export function createControls(target, { onTap, onAction, onStick } = {}, env = 
   }
 
   function up(e) {
-    if (e.pointerId === stick.id) { endStick(); return; }
+    if (e.pointerId === stick.id) {
+      // a short, still touch in the stick zone is a tap (pins and NPCs on the left half must be tappable too)
+      const tap = e.type === 'pointerup' && !stick.moved && pointers.size === 0 && now() - stick.t < TAP_MS
+        && Math.hypot(e.clientX - stick.sx, e.clientY - stick.sy) <= TAP_MOVE;
+      endStick();
+      if (tap) onTap?.(e.clientX, e.clientY);
+      return;
+    }
     const p = pointers.get(e.pointerId); pointers.delete(e.pointerId); if (!p) return;
     if (e.type === 'pointerup' && !p.moved && pointers.size === 0 && now() - p.t < TAP_MS) onTap?.(e.clientX, e.clientY);
   }

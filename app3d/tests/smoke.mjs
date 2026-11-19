@@ -1,9 +1,12 @@
 // Headless browser smoke check for the built 3D app (run: npm run build:3d && node app3d/tests/smoke.mjs).
 // Serves build/app3d with a tiny static server, opens it in Chromium (SwiftShader WebGL) at a desktop and a phone
 // viewport, waits for window.__hs3d.ready, then checks: no page errors, all six travel modes are accepted or refused
-// with a toast, the floating stick moves the player, and a lost WebGL context shows #lost. Screenshots go to OUT.
+// with a toast, the floating stick moves the player, and a lost WebGL context shows #lost. A quick touch-tablet pass
+// checks the credit stays collapsed and a short touch in the stick zone taps. Screenshots go to OUT (SMOKE_OUT,
+// default a folder in the system temp directory; SMOKE_ONLY=tablet,phone runs only those passes).
 import http from 'node:http';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
@@ -13,7 +16,7 @@ const { chromium } = require('playwright');
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(here, '../../build/app3d');
-const OUT = process.env.SMOKE_OUT || '/tmp/claude-0/-home-user-hongseong-adventure/67f4d963-6afa-55b8-a39e-ca038e7fb2bc/scratchpad/p1-smoke';
+const OUT = process.env.SMOKE_OUT || path.join(os.tmpdir(), 'hongseong-3d-smoke');
 const READY_MS = Number(process.env.SMOKE_READY_MS) || 240000;
 const MODES = ['walk', 'bike', 'car', 'supercar', 'slowplane', 'plane'];
 const MIME = {
@@ -120,6 +123,23 @@ async function run(browser, base, spec) {
   check(info.lamps > 0, `${name}: street lamps (${info.lamps})`);
   check(info.terrainChunks > 0, `${name}: terrain chunks built (${info.terrainChunks})`);
   await shot('1-start');
+  if (spec.quick) {
+    // touch tablet: the credit stays a collapsed toggle, and a short still touch in the stick zone taps the map
+    const credit = await page.evaluate(() => { const d = document.getElementById('credit'), r = d.querySelector('summary').getBoundingClientRect(); return { open: d.open, w: r.width, h: r.height }; });
+    check(!credit.open && credit.w >= 44 && credit.h >= 44, `${name}: credit collapsed behind its ${credit.w.toFixed(0)}x${credit.h.toFixed(0)} toggle`);
+    const tapped = await page.evaluate(() => {
+      const c = document.getElementById('c'), x = Math.round(innerWidth * 0.2), y = Math.round(innerHeight * 0.62), W = window.__hs3d.world;
+      const ev = (type) => c.dispatchEvent(new PointerEvent(type, { pointerId: 51, pointerType: 'touch', isPrimary: true, clientX: x, clientY: y, bubbles: true, cancelable: true }));
+      W.target = null;
+      ev('pointerdown'); ev('pointerup');   // back to back: a SwiftShader frame can outlast the 400 ms tap window
+      return { target: !!W.target, dialog: !document.getElementById('place-dialog').hidden };
+    });
+    check(tapped.target || tapped.dialog, `${name}: a short touch in the stick zone reached the map (${tapped.target ? 'walk target set' : tapped.dialog ? 'place opened' : 'nothing'})`);
+    await checkUi(page, name, 'start');
+    check(errors.length === 0, `${name}: no pageerror${errors.length ? ' — ' + errors.join(' | ').slice(0, 600) : ''}`);
+    await ctx.close();
+    return;
+  }
   await checkUi(page, name, 'start');
   if (spec.touch) { await page.evaluate(() => { document.getElementById('credit').open = true; }); await sleep(300); await checkUi(page, name, 'credit open'); await shot('1b-credit-open'); await page.evaluate(() => { document.getElementById('credit').open = false; }); }
 
@@ -206,7 +226,8 @@ async function main() {
     for (const spec of [
       { name: 'desktop', viewport: { width: 1280, height: 760 }, touch: false, tour: true },
       { name: 'phone', viewport: { width: 390, height: 844 }, touch: true, tour: true },
-    ]) await run(browser, base, spec);
+      { name: 'tablet', viewport: { width: 1024, height: 768 }, touch: true, quick: true },
+    ].filter((s) => !process.env.SMOKE_ONLY || process.env.SMOKE_ONLY.split(',').includes(s.name))) await run(browser, base, spec);
   } finally {
     await browser.close();
     server.close();

@@ -80,3 +80,22 @@ test('wheel zoom clamps, shift tilts; keys map and actions', () => {
   fire(env, 'keydown', { code: 'KeyE', target: { tagName: 'INPUT' } });
   assert.deepEqual(calls.actions, ['interact', 'mode:car']);
 });
+
+test('a short still touch in the stick zone is forwarded as a tap; held, dragged or two-finger ones are not', () => {
+  const { target, env, fire, calls, c } = setup();
+  let t = 1000; env.performance = { now: () => t };
+  fire(target, 'pointerdown', touch(1, 100, 300)); t += 120; fire(target, 'pointerup', touch(1, 102, 301));
+  assert.deepEqual(calls.taps, [[102, 301]]);
+  assert.equal(calls.sticks.at(-1).visible, false, 'stick hidden again');
+  // held longer than 400 ms
+  fire(target, 'pointerdown', touch(2, 100, 300)); t += 450; fire(target, 'pointerup', touch(2, 100, 300));
+  // moved past the tap slop (and back)
+  fire(target, 'pointerdown', touch(3, 100, 300)); fire(target, 'pointermove', touch(3, 100, 270)); fire(target, 'pointermove', touch(3, 100, 300));
+  t += 100; fire(target, 'pointerup', touch(3, 100, 300));
+  // cancelled
+  fire(target, 'pointerdown', touch(4, 100, 300)); fire(target, 'pointercancel', touch(4, 100, 300));
+  // a second finger is down on the right side
+  fire(target, 'pointerdown', touch(5, 100, 300)); fire(target, 'pointerdown', touch(6, 800, 300)); t += 50; fire(target, 'pointerup', touch(5, 100, 300));
+  assert.equal(calls.taps.length, 1);
+  assert.equal(c.read().x, 0); assert.equal(c.read().y, 0);
+});

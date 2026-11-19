@@ -78,7 +78,8 @@ button:disabled{opacity:.45;cursor:default}
 #arrive b{font-size:18px;color:var(--field)}
 #arrive span{font-size:15px;color:var(--ink-soft)}
 
-/* bottom-left corner: how to move, and the credit line (an attribution block on wide screens, a toggle on phones) */
+/* bottom-left corner: how to move, and the credit line (an attribution block on wide mouse screens, a toggle on touch
+   screens so it never covers the stick corner) */
 .corner{position:absolute;left:calc(12px + var(--safe-l));bottom:calc(12px + var(--safe-b));display:flex;flex-direction:column;align-items:flex-start;gap:8px;max-width:min(560px,calc(100vw - 480px));pointer-events:none}
 .corner>*{pointer-events:auto}
 .hint{margin:0;font-size:15px;color:#fffaf0;text-shadow:0 1px 3px #000c;line-height:1.45;pointer-events:none}
@@ -90,7 +91,7 @@ button:disabled{opacity:.45;cursor:default}
 .credit p{margin:0;padding:0 12px 8px}
 .credit p.lead{color:var(--ink);font-size:15px;padding-top:8px}
 .credit p.attrib{font-size:13px}   /* the OSM / Terrain Tiles credit itself may stay small; the sentence above is 15 px */
-@media (min-width:721px){.credit summary{display:none}}
+@media (min-width:721px) and (pointer:fine){.credit summary{display:none}}
 
 /* dialogs */
 .scrim{position:absolute;inset:0;background:#10201866;z-index:6;display:grid;place-items:center;padding:calc(12px + var(--safe-t)) calc(12px + var(--safe-r)) calc(12px + var(--safe-b)) calc(12px + var(--safe-l))}

@@ -56,6 +56,7 @@ const EVENT_TOAST = {
 };
 const FOG_MAX = 13000;
 const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const FINE_POINTER = matchMedia('(pointer: fine)');
 
 // localStorage can be missing or throw (private mode, blocked site data): fall back to memory for this run
 const storage = (() => {
@@ -494,7 +495,9 @@ function resize() {
   G.renderer.setPixelRatio(dpr); G.renderer.setSize(w, h, false);
   G.camera.aspect = w / h; G.camera.updateProjectionMatrix();
   G.post.current?.setSize(w, h, dpr);
-  const wide = w > 720;   // the credit is an always-open attribution block on wide screens, a toggle on phones
+  // the credit is an always-open attribution block on wide mouse screens; on touch screens (phones and tablets) it
+  // stays a collapsed toggle so it never covers the stick corner
+  const wide = w > 720 && FINE_POINTER.matches;
   if (wide !== G.wide) { G.wide = wide; hud.openCredit(wide); }
 }
 
