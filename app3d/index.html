@@ -13,28 +13,43 @@
   <canvas id="c" tabindex="0" aria-label="홍성군 3D 탐방 지도. 왼쪽을 누른 채 끌면 움직이고, 오른쪽을 끌면 화면을 돌려요."></canvas>
   <div id="stick" hidden><div id="knob"></div></div>
 
-  <header class="hud-top">
-    <div class="chip panel">
-      <b>홍성 탐험대 3D</b>
-      <span id="where">홍성군</span>
-      <span class="stats"><span>금화 <strong id="coins">0</strong></span><span>발견 <strong id="found">0</strong> / <span id="found-total">223</span></span></span>
+  <!-- top left (pokju #hud chips): home -> menu, where, coins, discoveries with a bar -->
+  <header class="hud-tl">
+    <div class="hud-row">
+      <button class="round home" id="home-btn" type="button" title="메뉴" aria-label="메뉴 열기"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 11 12 4l8.5 7"/><path d="M6 9.5V20h4.5v-5.5h3V20H18V9.5"/></svg></button>
+      <div class="chip where-chip"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22s7-6.4 7-12a7 7 0 0 0-14 0c0 5.6 7 12 7 12Z" fill="#22e1ff"/><circle cx="12" cy="10" r="2.6" fill="#0b0c18"/></svg><span id="where">홍성군</span></div>
     </div>
-    <div class="tools panel">
-      <button id="cam-btn" title="카메라 바꾸기 (C)"><span class="lbl">카메라</span> <b id="cam-label">비스듬히</b></button>
-      <button id="time-btn" title="시간 바꾸기 (T)"><span class="lbl">시간</span> <b id="time-label">낮</b></button>
-      <button id="q-btn" title="화질 바꾸기 (Q)"><span class="lbl">화질</span> <b id="q-label">자동</b></button>
-      <span id="fps" aria-hidden="true"></span>
+    <div class="hud-row stats">
+      <div class="chip coin-chip"><i class="coin" aria-hidden="true"></i><span>금화 <strong id="coins">0</strong></span></div>
+      <div class="chip found-chip"><span>발견 <strong id="found">0</strong> / <span id="found-total">223</span></span><span class="gauge" aria-hidden="true"><i id="found-bar"></i></span></div>
     </div>
   </header>
+  <div class="credit-dock" id="credit-dock"></div>
 
-  <button class="compass panel" id="compass" title="북쪽 보기" aria-label="북쪽이 위로 오게 보기"><svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="17" fill="none" stroke="rgba(255,255,255,.4)" stroke-width="1.5"/><path d="M20 5 25 20H15Z" fill="#22e1ff"/><path d="M20 35 25 20H15Z" fill="#ff2d95"/><text x="20" y="13.5" font-size="7" text-anchor="middle" fill="#0b0c18" font-weight="700" font-family="sans-serif">N</text></svg></button>
+  <!-- top centre: today's mission (pokju objective card); the head folds the card on phones (hongseong-hud-v1) -->
+  <section class="mission chip" id="mission" aria-label="오늘의 탐방 미션">
+    <button class="mission-head" id="mission-toggle" type="button" aria-expanded="true" aria-controls="mission-body" aria-label="탐방 미션 접기">
+      <span class="mission-kick"><span id="mission-heading">오늘의 탐방 미션</span><span class="dots" id="mission-dots" aria-hidden="true"></span><span class="chev" aria-hidden="true"></span></span>
+      <b id="mission-title">미션을 준비하는 중</b>
+    </button>
+    <div class="mission-body" id="mission-body">
+      <p id="mission-detail"></p>
+      <div class="mission-foot"><span class="badge warn" id="mission-bonus" hidden></span><button class="btn btn-grad" id="mission-go" type="button">길 안내</button></div>
+    </div>
+  </section>
+
+  <!-- top right: round minimap (tap: county map), camera pad with compass -->
+  <button class="minimap" id="minimap" type="button" title="전체 지도" aria-label="홍성군 전체 지도 열기"><canvas id="minimap-canvas" width="0" height="0" aria-hidden="true"></canvas></button>
   <div class="cam-pad panel" role="group" aria-label="카메라 조절">
-    <button id="zoom-in" title="가까이 (+)" aria-label="가까이">+</button>
-    <button id="zoom-out" title="멀리 (-)" aria-label="멀리">−</button>
-    <button id="tilt-up" title="위에서 내려다보기 (R)" aria-label="위에서 내려다보기"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 14 6-6 6 6"/></svg></button>
-    <button id="tilt-down" title="옆에서 보기 (F)" aria-label="옆에서 보기"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 10 6 6 6-6"/></svg></button>
+    <button class="compass" id="compass" type="button" title="북쪽 보기" aria-label="북쪽이 위로 오게 보기"><svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="17" fill="none" stroke="rgba(255,255,255,.4)" stroke-width="1.5"/><path d="M20 5 25 20H15Z" fill="#22e1ff"/><path d="M20 35 25 20H15Z" fill="#ff2d95"/><text x="20" y="13.5" font-size="7" text-anchor="middle" fill="#0b0c18" font-weight="700" font-family="sans-serif">N</text></svg></button>
+    <button id="cam-btn" type="button" title="카메라 바꾸기 (C)" aria-label="카메라 바꾸기, 지금은 비스듬히"><svg class="cam-tilt" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 16 9 5 9-5-9-5Z"/><path d="M12 11V3m0 0-2.5 2.5M12 3l2.5 2.5"/></svg><svg class="cam-follow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="6" r="2.5"/><path d="M8 21l2-7h4l2 7M9.5 14 8 10.5h8L14.5 14"/><path d="M4 21h16"/></svg></button>
+    <button id="zoom-in" type="button" title="가까이 (+)" aria-label="가까이">+</button>
+    <button id="zoom-out" type="button" title="멀리 (-)" aria-label="멀리">−</button>
+    <button id="tilt-up" type="button" title="위에서 내려다보기 (R)" aria-label="위에서 내려다보기"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 14 6-6 6 6"/></svg></button>
+    <button id="tilt-down" type="button" title="옆에서 보기 (F)" aria-label="옆에서 보기"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 10 6 6 6-6"/></svg></button>
   </div>
 
+  <!-- bottom left (wide mouse screens): hint and the map credit; touch screens dock the credit under the chips -->
   <div class="corner">
     <p class="hint"><span class="hint-touch">왼쪽을 누른 채 끌면 움직여요 · 오른쪽을 끌면 돌리고 기울여요 · 땅을 누르면 그곳으로 가요</span><span class="hint-mouse">WASD·화살표로 움직여요 · 끌면 돌리고 기울여요 · 휠로 확대 · 땅을 누르면 그곳으로 가요</span></p>
     <details class="credit panel" id="credit">
@@ -42,26 +57,34 @@
       <p class="lead">실제 고도·도로·물길·건물·장소 좌표 위에 만든 3D 지도예요. 나무, 가로등, 일부 집은 분위기를 위한 장식이에요.</p>
       <p class="attrib" id="credit-list">지도 © OpenStreetMap 기여자(ODbL) · 지형 Terrain Tiles(Mapzen · USGS SRTM·GMTED2010 · NOAA ETOPO1) · 행정 경계 통계청 SGIS 가공(vuski/admdongkor, CC BY 4.0)</p>
     </details>
+    <span id="fps" aria-hidden="true"></span>
   </div>
 
-  <div class="actions" id="actions">
-    <button class="act turn" id="turn-left" hidden title="다음 갈림길에서 좌회전" aria-label="다음 갈림길에서 좌회전">← 좌회전</button>
-    <button class="act" id="npc-talk" hidden></button>
-    <button class="act" id="ferry-btn" hidden>배 타기</button>
-    <button class="act turn" id="turn-right" hidden title="다음 갈림길에서 우회전" aria-label="다음 갈림길에서 우회전">우회전 →</button>
+  <!-- bottom right (pokju speed gauge and skill buttons): 탐방 (E), 대화 near an NPC, 탈것 picker; car turns, ferry -->
+  <div class="hud-br">
+    <div class="acts-extra">
+      <button class="act turn" id="turn-left" type="button" hidden title="다음 갈림길에서 좌회전" aria-label="다음 갈림길에서 좌회전">← 좌회전</button>
+      <button class="act turn" id="turn-right" type="button" hidden title="다음 갈림길에서 우회전" aria-label="다음 갈림길에서 우회전">우회전 →</button>
+      <button class="act" id="ferry-btn" type="button" hidden>배 타기</button>
+      <div id="turn-hint" class="chip" hidden role="status"></div>
+    </div>
+    <div class="acts">
+      <div class="speedo chip" id="speedo" aria-hidden="true"><canvas id="speedo-canvas" width="0" height="0"></canvas><b id="speed-num">0</b><small id="speed-factor">×1</small></div>
+      <button class="skill" id="vehicle-btn" type="button" aria-expanded="false" aria-controls="travel" title="탈것 바꾸기 (1–6)" aria-label="탈것 바꾸기, 지금은 걷기"><i class="ico" id="vehicle-ico" aria-hidden="true"></i><span class="lbl">탈것</span></button>
+      <button class="skill talk" id="npc-talk" type="button" hidden><span class="lbl">대화</span><small class="key">E</small></button>
+      <button class="skill main" id="visit-btn" type="button" title="탐방하기 (E)" aria-label="탐방하기 (E)"><span class="lbl">탐방</span><small class="key">E</small></button>
+    </div>
+    <nav class="travel panel" id="travel" hidden aria-label="탈것 고르기">
+      <button type="button" data-mode="walk" aria-pressed="true" title="걷기 (1)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="13" cy="4.5" r="2"/><path d="m9 21 3-7 3 2 1 5M12 14l-1-5 4 1 2 3M11 9l-3 2-1 3"/></svg><span>걷기</span><small>×1</small></button>
+      <button type="button" data-mode="bike" aria-pressed="false" title="자전거 (2)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="5.5" cy="16.5" r="3.5"/><circle cx="18.5" cy="16.5" r="3.5"/><path d="M5.5 16.5 9 9h6l3.5 7.5M9 9l3 7.5 3-7.5M8 6h3M15 9l-1-3h2"/></svg><span>자전거</span><small>×2</small></button>
+      <button type="button" data-mode="car" aria-pressed="false" title="자동차 (3)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 15v-3l2-5h11l3 5h2v3"/><path d="M3 15h18"/><circle cx="7" cy="16.5" r="2"/><circle cx="17" cy="16.5" r="2"/><path d="M6.5 11h12"/></svg><span>자동차</span><small>×4</small></button>
+      <button type="button" data-mode="supercar" aria-pressed="false" title="슈퍼카 (4)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 15.5v-2l3-1 4-3.5h6l4 3.5 3 1v2"/><path d="M2 15.5h20"/><circle cx="6.5" cy="16.5" r="1.8"/><circle cx="17.5" cy="16.5" r="1.8"/><path d="M9.5 12h7"/></svg><span>슈퍼카</span><small>×8</small></button>
+      <button type="button" data-mode="slowplane" aria-pressed="false" title="느린 비행기 (5)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M4 9h16M8 19h8"/><circle cx="12" cy="3" r="1"/></svg><span>느린 비행기</span><small>×4</small></button>
+      <button type="button" data-mode="plane" aria-pressed="false" title="비행기 (6)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2c1 1 1.4 3 1.4 5v3l7 4v2l-7-2v4l2.5 2v1.5L12 20.5 8.1 21.5V20l2.5-2v-4l-7 2v-2l7-4V7c0-2 .4-4 1.4-5Z"/></svg><span>비행기</span><small>×16</small></button>
+    </nav>
   </div>
 
-  <nav class="travel panel" aria-label="이동 수단">
-    <button data-mode="walk" aria-pressed="true" title="걷기 (1)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="13" cy="4.5" r="2"/><path d="m9 21 3-7 3 2 1 5M12 14l-1-5 4 1 2 3M11 9l-3 2-1 3"/></svg><span>걷기</span><small>×1</small></button>
-    <button data-mode="bike" aria-pressed="false" title="자전거 (2)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="5.5" cy="16.5" r="3.5"/><circle cx="18.5" cy="16.5" r="3.5"/><path d="M5.5 16.5 9 9h6l3.5 7.5M9 9l3 7.5 3-7.5M8 6h3M15 9l-1-3h2"/></svg><span>자전거</span><small>×2</small></button>
-    <button data-mode="car" aria-pressed="false" title="자동차 (3)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 15v-3l2-5h11l3 5h2v3"/><path d="M3 15h18"/><circle cx="7" cy="16.5" r="2"/><circle cx="17" cy="16.5" r="2"/><path d="M6.5 11h12"/></svg><span>자동차</span><small>×4</small></button>
-    <button data-mode="supercar" aria-pressed="false" title="슈퍼카 (4)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 15.5v-2l3-1 4-3.5h6l4 3.5 3 1v2"/><path d="M2 15.5h20"/><circle cx="6.5" cy="16.5" r="1.8"/><circle cx="17.5" cy="16.5" r="1.8"/><path d="M9.5 12h7"/></svg><span>슈퍼카</span><small>×8</small></button>
-    <button data-mode="slowplane" aria-pressed="false" title="느린 비행기 (5)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M4 9h16M8 19h8"/><circle cx="12" cy="3" r="1"/></svg><span>느린 비행기</span><small>×4</small></button>
-    <button data-mode="plane" aria-pressed="false" title="비행기 (6)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2c1 1 1.4 3 1.4 5v3l7 4v2l-7-2v4l2.5 2v1.5L12 20.5 8.1 21.5V20l2.5-2v-4l-7 2v-2l7-4V7c0-2 .4-4 1.4-5Z"/></svg><span>비행기</span><small>×16</small></button>
-  </nav>
-
-  <div id="turn-hint" class="panel" hidden role="status"></div>
-  <div id="arrive" class="panel" hidden role="status"><b id="arrive-name"></b><span id="arrive-sub"></span></div>
+  <div id="notice" class="notice" role="status" aria-live="polite"><b id="notice-title"></b><span id="notice-sub"></span></div>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
   <div class="scrim" id="place-dialog" hidden>

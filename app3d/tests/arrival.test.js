@@ -88,3 +88,17 @@ test('a car parked at the wall of a large building fires once, and again after l
   step([-440, 0], [-600, 0]); step([-600, 0], [-440, 0]);     // 200 m away: contact 210 > 80, outside point reach
   assert.equal(fired.length, 2);
 });
+
+test('nearestVisitable: the closest place the player can visit now, by point or wall distance; none -> null', async () => {
+  const { nearestVisitable } = await import('../src/sim/arrival.js');
+  const ring = [[200, -40], [280, -40], [280, 40], [200, 40]];
+  const c = createCollider([ring]);
+  const ps = [place('far', 900, 0), place('a', 30, 0), place('b', 12, 0), place('hall', 240, 0, { ring })];
+  const reach = (p) => Math.hypot(p.point[0], p.point[1]) <= 36;   // stand-in for main.js reachable()
+  assert.equal(nearestVisitable(ps, { x: 0, y: 0 }, c, reach)?.id, 'b');
+  assert.equal(nearestVisitable(ps, { x: 0, y: 0 }, c, (p) => p.id === 'a')?.id, 'a');   // the nearer one is not reachable
+  assert.equal(nearestVisitable(ps, { x: 0, y: 0 }, c, () => false), null);
+  // the hall's point is 240 m away and its wall 200 m: inside the 600 m search window, so it is considered
+  assert.equal(nearestVisitable(ps, { x: 0, y: 0 }, c, (p) => p.id === 'hall')?.id, 'hall');
+  assert.equal(nearestVisitable(ps, { x: 0, y: 0 }, c, (p) => p.id === 'far'), null, 'beyond the window is never visitable');
+});

@@ -6,8 +6,11 @@ import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import gradeFrag from '../shaders/grade.frag?raw';
 
+const FLASH_S = 0.6;
+
 // quality: {msaa, bloom} (a QUALITY preset or the live quality state). The multisampled target is fixed at creation:
-// a change of msaa means dispose() and a new chain.
+// a change of msaa means dispose() and a new chain. Every chain (any msaa / bloom) has the grade pass, so flash() and
+// setSpeed() work on all of them.
 export function createPost(renderer, scene, camera, quality) {
   const size = renderer.getDrawingBufferSize(new THREE.Vector2());
   const rt = new THREE.WebGLRenderTarget(size.x, size.y, { type: THREE.HalfFloatType, samples: quality.msaa });
@@ -24,9 +27,23 @@ export function createPost(renderer, scene, camera, quality) {
   composer.addPass(grade);
   composer.addPass(new OutputPass());
 
+  // the green / red screen flash under the big notice: kicked to 1 by flash(), fading to 0 over FLASH_S of real time
+  // (frame time, so the 10 fps paused render behind a dialog fades it at the same pace)
+  let flashAt = -1;
   return {
     composer, bloom, grade,
-    render(dt, t) { grade.uniforms.uTime.value = t; composer.render(dt); },
+    render(dt, t) {
+      grade.uniforms.uTime.value = t;
+      if (flashAt >= 0) {
+        if (flashAt === 0) flashAt = t;
+        const f = 1 - (t - flashAt) / FLASH_S;
+        grade.uniforms.uFlash.value = f > 0 ? f : 0;
+        if (f <= 0) flashAt = -1;
+      }
+      composer.render(dt);
+    },
+    // color: a CSS colour string or number (ok #35e08a, danger #ff5468); the caller skips it when motion is reduced
+    flash(color) { grade.uniforms.uFlashColor.value.set(color); grade.uniforms.uFlash.value = 1; flashAt = 0; },
     setSize(w, h, dpr) { composer.setPixelRatio(dpr); composer.setSize(w, h); grade.uniforms.uAspect.value = w / h; },
     setTime(T) { bloom.strength = T.bloom; grade.uniforms.uNight.value = T.night; grade.uniforms.uDusk.value = T.dusk; },
     setSpeed(v) { grade.uniforms.uSpeed.value = Math.max(0, Math.min(1, v)); },

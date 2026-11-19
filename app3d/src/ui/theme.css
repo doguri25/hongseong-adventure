@@ -27,7 +27,7 @@
   --body: 'NanumRound', 'Apple SD Gothic Neo', 'Noto Sans KR', system-ui, sans-serif;
   --r-panel: 20px; --r-chip: 16px;
   /* layers, low to high */
-  --z-hud: 2; --z-notice: 3; --z-toast: 4; --z-scrim: 6; --z-overlay: 8;
+  --z-hud: 2; --z-toast: 4; --z-scrim: 6; --z-notice: 7; --z-overlay: 8;   /* the big notice also shows over dialogs */
   --safe-t: env(safe-area-inset-top, 0px); --safe-r: env(safe-area-inset-right, 0px); --safe-b: env(safe-area-inset-bottom, 0px); --safe-l: env(safe-area-inset-left, 0px);
   color-scheme: dark;
 }
@@ -52,7 +52,7 @@ html.q-low .panel, html.q-low .dialog { background-color: rgba(12, 14, 28, .96);
 /* ---- buttons ---- */
 .btn { min-height: 44px; padding: 8px 16px; border: 1px solid var(--line); border-radius: 22px; background: transparent; font-size: 15px; font-weight: 700; color: var(--chip-fg); }
 .btn:hover:not(:disabled) { background: var(--track); }
-.btn-grad, .btn.primary { background: var(--grad); border: 0; color: #fff; box-shadow: 0 6px 22px rgba(138, 92, 255, .45); }
+.btn-grad, .btn.primary { background: var(--grad); border: 0; color: #fff; box-shadow: 0 6px 22px rgba(138, 92, 255, .45); text-shadow: 0 1px 2px rgba(0, 0, 0, .6), 0 0 10px rgba(30, 10, 80, .45); }   /* white on the cyan end needs the dark shadow to read */
 .btn-grad:hover:not(:disabled), .btn.primary:hover:not(:disabled) { background: var(--grad); filter: brightness(1.12); }
 .btn-ghost { background: transparent; border-color: var(--line); }
 .round { width: 64px; height: 64px; min-width: 64px; padding: 0; border: 1px solid var(--line); border-radius: 50%; display: grid; place-items: center; font-size: 17px; font-weight: 700; background-color: var(--chip-strong); background-image: var(--sheen); }
@@ -108,54 +108,136 @@ html.q-low .panel, html.q-low .dialog { background-color: rgba(12, 14, 28, .96);
 .quiz .feedback { margin: 12px 0 0; padding: 10px 12px; border-radius: 14px; background: var(--track); font-size: 15px; }
 .npc p { margin: 0 0 10px; }
 
-/* ---- HUD: brand and stats top-left, tools top-right, compass and camera pad right, travel bottom-right, stick bottom-left ---- */
-.hud-top { position: absolute; top: calc(10px + var(--safe-t)); left: calc(12px + var(--safe-l)); right: calc(12px + var(--safe-r)); display: flex; gap: 8px; align-items: flex-start; pointer-events: none; z-index: var(--z-hud); }
-.hud-top > * { pointer-events: auto; }
-.hud-top .chip { padding: 7px 12px 8px; display: flex; flex-direction: column; gap: 3px; min-width: 0; max-width: min(320px, 48vw); }
-.hud-top .chip b { font-family: var(--display); font-weight: 400; font-size: 17px; color: #fff; white-space: nowrap; }
-#where { font-size: 15px; color: var(--chip-fg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.stats { display: flex; gap: 12px; font-size: 15px; color: var(--chip-sub); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.stats strong { color: var(--warn); }
-.tools { margin-left: auto; display: flex; gap: 2px; padding: 3px; flex-wrap: wrap; justify-content: flex-end; }
-.tools button { border: 0; background: transparent; border-radius: 12px; min-height: 44px; min-width: 44px; padding: 6px 10px; font-size: 15px; display: flex; gap: 6px; align-items: center; justify-content: center; white-space: nowrap; }
-.tools button:hover { background: var(--track); }
-.tools button b { font-weight: 700; color: var(--cyan); }
-#fps { font-size: 13px; color: var(--chip-sub); align-self: center; padding: 0 6px; font-variant-numeric: tabular-nums; min-width: 44px; }
+/* ---- HUD (pokju #hud). Chips top-left, mission card top-centre, round minimap and camera pad top-right, speedometer
+   and round action buttons bottom-right, floating stick bottom-left. Containers and chips let touches through to the
+   canvas (a drag that starts on a chip still turns the view); only the controls take them. On touch screens nothing
+   interactive sits in the stick zone (left 42 %, lower 45 %). Sizes: desktop / tablet first, then phone portrait
+   (max-width 720 px) and phone landscape (max-height 460 px) at the end of the file.
+   Live variables (hud.js keeps them current): --tl-b and --mission-b, the bottom edges in px of the top-left chips and
+   of the mission card. */
+#app { --tl-b: 104px; --mission-b: 190px; --map: 148px; }
+.hud-tl, .credit-dock, .corner, .hud-br { position: absolute; z-index: var(--z-hud); pointer-events: none; }
+.hud-tl button, .credit-dock > *, .corner > .credit, .hud-br button, .mission, .minimap, .cam-pad { pointer-events: auto; }
+.chip.where-chip, .stats .chip, .speedo, #turn-hint { pointer-events: none; }
 
-.compass { position: absolute; right: calc(14px + var(--safe-r)); top: calc(74px + var(--safe-t)); width: 48px; height: 48px; border-radius: 50%; display: grid; place-items: center; padding: 0; z-index: var(--z-hud); }
-.compass svg { width: 36px; height: 36px; }
-.cam-pad { position: absolute; right: calc(14px + var(--safe-r)); top: calc(130px + var(--safe-t)); display: flex; flex-direction: column; gap: 2px; padding: 2px; border-radius: 26px; z-index: var(--z-hud); }
-.cam-pad button { width: 44px; height: 44px; border: 0; border-radius: 50%; background: transparent; font-size: 22px; font-weight: 700; line-height: 1; display: grid; place-items: center; color: var(--cyan); }
+.hud-tl { top: calc(8px + var(--safe-t)); left: calc(12px + var(--safe-l)); display: flex; flex-direction: column; align-items: flex-start; gap: 6px; max-width: min(320px, calc(50vw - 150px)); }
+.hud-row { display: flex; gap: 6px; align-items: center; min-width: 0; max-width: 100%; }
+.round.home { width: 48px; height: 48px; min-width: 48px; color: #fff; box-shadow: 0 8px 26px rgba(0, 0, 0, .38); }
+.round.home svg { width: 24px; height: 24px; }
+.round.home:hover { background-color: var(--accent-soft); }
+.where-chip { display: flex; align-items: center; gap: 6px; min-height: 38px; padding: 6px 13px 6px 9px; min-width: 0; }
+.where-chip svg { width: 18px; height: 18px; flex: none; }
+#where { font-size: 15px; font-weight: 700; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stats { font-size: 15px; flex-wrap: wrap; align-items: stretch; }   /* both chips the same height (pokju 1.3) */
+.stats .chip { display: flex; align-items: center; gap: 7px; min-height: 34px; padding: 5px 12px; font-size: 15px; color: var(--chip-sub); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.stats strong { color: #fff; font-weight: 700; }
+.coin { width: 16px; height: 16px; border-radius: 50%; flex: none; background: radial-gradient(circle at 35% 32%, #fff3b0, #ffb52e 55%, #c97a00); box-shadow: 0 0 8px rgba(255, 181, 46, .55); }
+.coin-chip strong { color: var(--warn); }
+.stats .found-chip { flex-direction: column; align-items: stretch; gap: 3px; }   /* the bar under the count keeps the chip narrow */
+.found-chip .gauge { width: auto; height: 5px; }
+
+/* the map credit on touch / narrow screens: under the chips (under the mission card on a phone held upright) */
+.credit-dock { top: calc(var(--tl-b) + 8px); left: calc(12px + var(--safe-l)); max-width: min(340px, calc(58vw - 24px)); }
+.credit-dock:empty { display: none; }
+
+/* ---- mission card (pokju .chip.obj): the head is the fold toggle, the body has the sentence, bonus badge and 길 안내 ---- */
+.mission { position: absolute; z-index: var(--z-hud); top: calc(8px + var(--safe-t)); left: 50%; transform: translateX(-50%); width: clamp(260px, calc(100vw - 664px), 400px); padding: 2px 8px 8px; border-radius: var(--r-panel); background-color: rgba(10, 12, 26, .72); }
+.mission-head { display: flex; flex-direction: column; align-items: stretch; gap: 2px; width: 100%; min-height: 56px; padding: 6px 6px 4px; border: 0; border-radius: 14px; background: transparent; text-align: left; }
+.mission-head:hover { background: rgba(255, 255, 255, .05); }
+.mission-kick { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; color: var(--chip-sub); }
+.mission-kick .dots { gap: 5px; }
+.mission .dots i { width: 10px; height: 10px; background: rgba(255, 255, 255, .16); }
+.mission .dots i.done { background: var(--ok); box-shadow: 0 0 8px rgba(53, 224, 138, .7); }
+.mission .dots i.active { background: #fff; animation: dotpulse 1s ease-in-out infinite; }
+@keyframes dotpulse { 50% { opacity: .45; } }
+.chev { margin-left: auto; width: 26px; height: 26px; border-radius: 50%; background: rgba(255, 255, 255, .08); display: grid; place-items: center; }
+.chev::before { content: ''; width: 8px; height: 8px; border: solid #fff; border-width: 0 2px 2px 0; transform: translateY(2px) rotate(-135deg); }
+.mission-head[aria-expanded="false"] .chev::before { transform: translateY(-2px) rotate(45deg); }
+#mission-title { font-family: var(--display); font-weight: 400; font-size: 21px; line-height: 1.2; color: #fff; word-break: keep-all; overflow-wrap: anywhere; }
+.mission-body { padding: 0 6px; }
+#mission-detail { margin: 2px 0 8px; font-size: 15px; line-height: 1.45; color: var(--chip-fg); word-break: keep-all; }
+.mission-foot { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.mission-foot .btn { margin-left: auto; }
+#mission-go::after { content: ' →'; }
+
+/* toasts sit under the mission card */
+.toast, #toast { top: calc(var(--mission-b) + 10px); }
+
+/* ---- round minimap (pokju's mirror spot) and the camera pad under it ---- */
+.minimap { position: absolute; z-index: var(--z-hud); top: calc(8px + var(--safe-t)); right: calc(12px + var(--safe-r)); width: var(--map); height: var(--map); padding: 0; border-radius: 50%; border: 2px solid rgba(255, 255, 255, .3); background: #24435a; overflow: hidden; box-shadow: 0 8px 26px rgba(0, 0, 0, .4), 0 0 0 4px rgba(14, 16, 30, .45); }
+.minimap canvas { display: block; width: 100%; height: 100%; }
+.minimap:hover { border-color: var(--cyan); }
+.cam-pad { position: absolute; z-index: var(--z-hud); top: calc(8px + var(--safe-t) + var(--map) + 10px); right: calc(12px + var(--safe-r) + (var(--map) - 52px) / 2); display: flex; flex-direction: column; gap: 2px; padding: 3px; border-radius: 26px; }
+.cam-pad button { width: 44px; height: 44px; border: 0; border-radius: 50%; background: transparent; font-size: 22px; font-weight: 700; line-height: 1; display: grid; place-items: center; color: var(--cyan); padding: 0; }
 .cam-pad button:hover { background: var(--track); }
 .cam-pad svg { width: 22px; height: 22px; }
+.cam-pad .compass svg { width: 34px; height: 34px; }
+#cam-btn .cam-follow, #cam-btn.follow .cam-tilt { display: none; }
+#cam-btn.follow .cam-follow { display: block; }
 
-.travel { position: absolute; right: calc(12px + var(--safe-r)); bottom: calc(12px + var(--safe-b)); display: flex; gap: 2px; padding: 4px; z-index: var(--z-hud); }
-.travel button { border: 0; background: transparent; border-radius: 14px; min-height: 52px; padding: 5px 8px 4px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; min-width: 62px; }
+/* ---- bottom right: car turns / ferry above, then speedometer and round buttons (pokju .acts grid) ---- */
+.hud-br { right: calc(12px + var(--safe-r)); bottom: calc(12px + var(--safe-b)); display: flex; flex-direction: column; align-items: flex-end; gap: 8px; max-width: calc(58vw - 24px); }
+.acts-extra { display: flex; flex-wrap: wrap-reverse; justify-content: flex-end; align-items: center; gap: 8px; }
+.acts-extra:not(:has(> :not([hidden]))) { display: none; }
+.act { min-height: 44px; padding: 8px 18px; border: 0; border-radius: 22px; background: var(--grad); color: #fff; font-size: 15px; font-weight: 700; box-shadow: 0 6px 22px rgba(138, 92, 255, .45); white-space: nowrap; text-shadow: 0 1px 2px rgba(0, 0, 0, .55), 0 0 10px rgba(30, 10, 80, .35); }
+.act:hover { filter: brightness(1.12); }
+.act.turn { min-width: 52px; padding: 8px 14px; background-color: var(--chip-strong); background-image: var(--sheen); border: 1px solid var(--line); box-shadow: 0 6px 18px rgba(0, 0, 0, .4); text-shadow: none; }
+#turn-hint { padding: 8px 14px; font-size: 15px; font-weight: 700; color: var(--cyan); white-space: nowrap; }
+
+.acts { position: relative; display: grid; grid-template-columns: auto auto; grid-template-areas: "speedo vehicle" "talk visit"; gap: 10px 12px; align-items: center; justify-items: center; }
+#speedo { grid-area: speedo; } #vehicle-btn { grid-area: vehicle; } #npc-talk { grid-area: talk; } #visit-btn { grid-area: visit; }
+.speedo { position: relative; width: 124px; height: 124px; border-radius: 50%; display: grid; place-items: center; padding: 0; }
+.speedo canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.speedo b { position: relative; margin-top: -4px; font-family: var(--display); font-weight: 400; font-size: 30px; line-height: 1; color: #fff; font-variant-numeric: tabular-nums; }
+.speedo small { position: absolute; left: 0; right: 0; bottom: 13%; text-align: center; font-size: 13px; font-weight: 700; color: var(--cyan); font-variant-numeric: tabular-nums; }
+
+/* round skill buttons with a glowing ring (pokju .skill::before) */
+.skill { --ring: #8a5cff; position: relative; width: 68px; height: 68px; min-width: 44px; padding: 4px; border: 0; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0; background-color: var(--chip-strong); background-image: var(--sheen); box-shadow: 0 8px 26px rgba(0, 0, 0, .4); color: #fff; }
+.skill::before { content: ''; position: absolute; inset: 3px; border-radius: 50%; background: conic-gradient(var(--ring) 1turn, transparent 0); -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3px)); mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3px)); filter: drop-shadow(0 0 6px var(--ring)); pointer-events: none; }
+.skill:active { transform: scale(.95); }
+.skill .lbl { position: relative; font-family: var(--display); font-weight: 400; font-size: 17px; line-height: 1.1; white-space: nowrap; }
+.skill small { position: relative; font-size: 12px; font-weight: 700; line-height: 1.2; color: var(--chip-sub); }
+.skill .ico { position: relative; display: block; width: 24px; height: 24px; }
+.skill .ico svg { width: 100%; height: 100%; display: block; }
+.skill.talk { --ring: #35e08a; }
+#vehicle-btn { --ring: #ffb52e; }
+#vehicle-btn[aria-expanded="true"] { background-color: #2b2160; }
+.skill.main { --ring: #22e1ff; width: 92px; height: 92px; background: var(--grad); box-shadow: 0 8px 28px rgba(138, 92, 255, .55); }
+.skill.main .lbl { font-size: 23px; text-shadow: 0 1px 2px rgba(0, 0, 0, .55), 0 0 12px rgba(30, 10, 80, .4); }
+.skill.main small { color: rgba(255, 255, 255, .9); text-shadow: 0 1px 2px rgba(0, 0, 0, .5); }
+.skill.main.dim { --ring: rgba(255, 255, 255, .22); background-color: var(--chip-strong); background-image: var(--sheen); box-shadow: 0 8px 26px rgba(0, 0, 0, .4); }
+.skill.main.dim::before { filter: none; }
+.skill.main.dim .lbl { color: var(--chip-sub); text-shadow: none; }
+.skill.main.dim small { color: var(--chip-sub); text-shadow: none; }
+@media (pointer: coarse) { .skill .key { display: none; } }
+
+/* the vehicle picker: opens beside the round buttons (above them on phones, over the turn buttons on a phone on its side) */
+.travel { position: absolute; z-index: 1; right: calc(100% + 12px); bottom: 0; display: grid; grid-template-columns: repeat(3, auto); gap: 4px; padding: 6px; }
+.travel button { border: 0; background: transparent; border-radius: 14px; min-width: 68px; min-height: 64px; padding: 6px 6px 5px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; }
+.travel button:hover { background: var(--track); }
 .travel button svg { width: 24px; height: 24px; }
-.travel button span { font-size: 13px; font-weight: 700; white-space: nowrap; }
+.travel button span { font-size: 13px; font-weight: 700; line-height: 1.15; text-align: center; word-break: keep-all; max-width: 64px; }
 .travel button small { font-size: 12px; color: var(--chip-sub); font-variant-numeric: tabular-nums; }
 .travel button[aria-pressed="true"] { background: var(--accent); }
 .travel button[aria-pressed="true"] small { color: #e6deff; }
 .travel button.landing { outline: 2px dashed var(--cyan); outline-offset: -3px; }
 
-.actions { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(84px + var(--safe-b)); display: flex; gap: 8px; align-items: center; pointer-events: none; z-index: var(--z-hud); }
-.actions > * { pointer-events: auto; }
-.act { min-height: 44px; padding: 8px 18px; border: 0; border-radius: 22px; background: var(--grad); color: #fff; font-size: 15px; font-weight: 700; box-shadow: 0 6px 22px rgba(138, 92, 255, .45); white-space: nowrap; }
-.act:hover { filter: brightness(1.12); }
-.act.turn { min-width: 52px; padding: 8px 12px; background-color: var(--chip-strong); background-image: var(--sheen); border: 1px solid var(--line); box-shadow: 0 6px 18px rgba(0, 0, 0, .4); }
-#turn-hint { position: absolute; left: 50%; bottom: calc(140px + var(--safe-b)); transform: translateX(-50%); padding: 8px 14px; font-size: 15px; font-weight: 700; color: var(--cyan); white-space: nowrap; pointer-events: none; z-index: var(--z-hud); }
-
 #stick { position: absolute; width: 132px; height: 132px; margin: -66px 0 0 -66px; border-radius: 50%; background: rgba(14, 16, 30, .4); border: 2px solid rgba(255, 255, 255, .34); pointer-events: none; z-index: var(--z-hud); }
 #knob { position: absolute; left: 50%; top: 50%; width: 56px; height: 56px; margin: -28px 0 0 -28px; border-radius: 50%; background: var(--grad); box-shadow: 0 4px 14px rgba(0, 0, 0, .5); border: 2px solid rgba(255, 255, 255, .7); }
 
-#arrive { position: absolute; left: 50%; bottom: calc(140px + var(--safe-b)); transform: translateX(-50%); padding: 12px 18px; display: flex; flex-direction: column; align-items: center; gap: 3px; width: max-content; max-width: min(460px, 88vw); text-align: center; pointer-events: none; z-index: var(--z-hud); }
-#arrive b { font-family: var(--display); font-weight: 400; font-size: 20px; color: #fff; }
-#arrive span { font-size: 15px; color: var(--chip-sub); }
+/* ---- the big centre notice: 도착! / 새로운 발견! / 직행 미션 성공! / 정답! (pokju #qtoast), over dialogs too ---- */
+.notice { top: 40%; opacity: 0; }
+.notice span:empty { display: none; }
+.notice.show { animation: notice-pop 1.6s cubic-bezier(.2, .9, .3, 1.2) forwards; }
+@keyframes notice-pop { 0% { opacity: 0; transform: translate(-50%, -50%) scale(.6); } 12% { opacity: 1; transform: translate(-50%, -50%) scale(1.08); } 22% { transform: translate(-50%, -50%) scale(1); } 75% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, calc(-50% - 26px)) scale(1); } }
+@keyframes notice-still { 0%, 85% { opacity: 1; } 100% { opacity: 0; } }
+html.reduce-motion .notice.show { animation-name: notice-still; }
+html.reduce-motion .mission .dots i.active { animation: none; }
 
-.corner { position: absolute; left: calc(12px + var(--safe-l)); bottom: calc(12px + var(--safe-b)); display: flex; flex-direction: column; align-items: flex-start; gap: 8px; max-width: min(560px, calc(100vw - 480px)); pointer-events: none; z-index: var(--z-hud); }
-.corner > * { pointer-events: auto; }
-.hint { margin: 0; font-size: 15px; color: #fff; text-shadow: 0 1px 4px #000c; line-height: 1.45; pointer-events: none; }
-@media (pointer: coarse) { .hint-mouse { display: none; } }
+/* ---- bottom-left corner on wide mouse screens: hint and the open map credit ---- */
+.corner { left: calc(12px + var(--safe-l)); bottom: calc(12px + var(--safe-b)); display: flex; flex-direction: column; align-items: flex-start; gap: 8px; max-width: min(560px, calc(100vw - 520px)); }
+.hint { margin: 0; font-size: 15px; color: #fff; text-shadow: 0 1px 4px #000c; line-height: 1.45; pointer-events: none; word-break: keep-all; }
+@media (pointer: coarse) { .hint-mouse { display: none; } #fps { display: none; } }
 @media not (pointer: coarse) { .hint-touch { display: none; } }
 .credit { font-size: 15px; line-height: 1.5; color: var(--chip-sub); padding: 0; border-radius: 14px; }
 .credit summary { list-style: none; cursor: pointer; min-height: 44px; min-width: 44px; display: flex; align-items: center; gap: 6px; padding: 6px 12px; font-weight: 700; color: var(--cyan); }
@@ -163,7 +245,9 @@ html.q-low .panel, html.q-low .dialog { background-color: rgba(12, 14, 28, .96);
 .credit p { margin: 0; padding: 0 12px 8px; }
 .credit p.lead { color: var(--chip-fg); font-size: 15px; padding-top: 8px; }
 .credit p.attrib { font-size: 13px; }   /* the OSM / Terrain Tiles credit itself may stay small; the sentence above is 15 px */
-@media (min-width: 721px) and (pointer: fine) { .credit summary { display: none; } }
+.corner .credit summary { display: none; }   /* docked at the corner only on wide mouse screens, where it stays open */
+.credit-dock .credit p.lead { padding-top: 0; }
+#fps { font-size: 13px; color: var(--chip-sub); font-variant-numeric: tabular-nums; text-shadow: 0 1px 3px #000a; }
 
 /* ---- full-screen overlays ---- */
 #loading, #lost, #fatal { position: absolute; inset: 0; display: grid; place-items: center; background: var(--page); color: #fff; font-family: var(--display); font-size: 22px; z-index: var(--z-overlay); text-align: center; padding-inline: calc(16px + var(--safe-l)) calc(16px + var(--safe-r)); }
@@ -172,26 +256,65 @@ html.q-low .panel, html.q-low .dialog { background-color: rgba(12, 14, 28, .96);
 #loading-bar i { display: block; height: 100%; width: 0; background: var(--grad); transition: width .2s; }
 #lost button { margin-top: 16px; border: 0; border-radius: 22px; min-height: 44px; padding: 10px 20px; background: var(--grad); color: #fff; font-weight: 700; }
 
+/* ---- phone held upright ---- */
 @media (max-width: 720px) {
-  .hud-top .chip { max-width: 52vw; padding: 6px 10px 7px; }
-  .hud-top .chip b { font-size: 16px; }
-  .stats { gap: 8px; }
-  .tools { flex-wrap: nowrap; gap: 0; padding: 2px; }
-  .tools button { padding: 6px 8px; font-size: 14px; }
-  .tools .lbl, #fps { display: none; }
-  .travel { left: calc(8px + var(--safe-l)); right: calc(8px + var(--safe-r)); justify-content: space-between; padding: 3px; gap: 0; }
-  .travel button { min-width: 0; flex: 1; padding: 5px 2px 4px; }
-  .travel button span { font-size: 13px; white-space: normal; line-height: 1.1; text-align: center; word-break: keep-all; }   /* 느린 / 비행기 wraps */
-  .travel button small { font-size: 12px; }
+  #app { --map: 104px; }
+  .hud-tl { max-width: calc(100vw - var(--map) - 40px - var(--safe-l) - var(--safe-r)); }
+  .round.home { width: 44px; height: 44px; min-width: 44px; }
+  .where-chip { min-height: 36px; padding: 5px 11px 5px 8px; }
+  .stats .chip { min-height: 32px; padding: 4px 10px; gap: 6px; }
+  .mission { top: calc(max(var(--tl-b), 8px + var(--safe-t) + var(--map)) + 8px); left: calc(12px + var(--safe-l)); right: calc(12px + var(--safe-r)); width: auto; transform: none; }
+  .mission-head { min-height: 50px; padding: 5px 4px 3px; }
+  #mission-title { font-size: 19px; }
+  .credit-dock { top: calc(var(--mission-b) + 10px); max-width: calc(100vw - 24px - 92px - 22px - var(--safe-l) - var(--safe-r)); }
+  .cam-pad { top: calc(var(--mission-b) + 10px); right: calc(12px + var(--safe-r)); display: grid; grid-template-columns: repeat(2, 44px); border-radius: 22px; }
+  .acts { gap: 8px 10px; }
+  .speedo { width: 100px; height: 100px; }
+  .speedo b { font-size: 25px; }
+  .skill { width: 62px; height: 62px; }
+  .skill .lbl { font-size: 16px; }
+  .skill.main { width: 84px; height: 84px; }
+  .skill.main .lbl { font-size: 21px; }
+  .travel { right: 0; bottom: calc(100% + 10px); padding: 5px; }
+  .travel button { min-width: 62px; }   /* three across stay right of the stick zone at 390 px */
   .hint { display: none; }
-  .travel button svg { width: 22px; height: 22px; }
-  .actions { bottom: calc(102px + var(--safe-b)); }
-  #turn-hint, #arrive { bottom: calc(158px + var(--safe-b)); }
-  .corner { top: calc(84px + var(--safe-t)); bottom: auto; left: calc(12px + var(--safe-l)); max-width: min(320px, calc(100vw - 96px)); }
-  .credit p.lead { padding-top: 0; }
   .notice b { font-size: 54px; }
   .notice span { font-size: 16px; }
   .dialog h2 { font-size: 21px; }
 }
-@media (max-height: 460px) { .compass { top: calc(62px + var(--safe-t)); } .cam-pad { top: calc(116px + var(--safe-t)); flex-direction: row; } .hint { display: none; } .corner { top: calc(80px + var(--safe-t)); bottom: auto; } }
-@media (prefers-reduced-motion: reduce) { .toast, #toast, #loading-bar i, .gauge > i { transition: none; } }
+/* ---- phone on its side (short screens) ---- */
+@media (max-height: 460px) {
+  #app { --map: 88px; }
+  .hud-tl { max-width: calc(50vw - 172px); }
+  .round.home { width: 44px; height: 44px; min-width: 44px; }
+  .where-chip { min-height: 34px; }
+  .stats .chip { min-height: 32px; padding: 4px 10px; }
+  .mission { width: 280px; padding-bottom: 6px; }
+  .mission-head { min-height: 48px; padding: 4px 4px 2px; }
+  #mission-title { font-size: 18px; }
+  #mission-detail { margin-bottom: 6px; }
+  .cam-pad { display: grid; grid-template-columns: repeat(3, 44px); border-radius: 22px; right: calc(12px + var(--safe-r)); }
+  .acts { grid-template-columns: repeat(4, auto); grid-template-areas: "speedo talk vehicle visit"; gap: 10px; align-items: end; }
+  .acts-extra { flex-wrap: nowrap; }
+  #turn-hint { order: -1; }
+  .speedo { width: 88px; height: 88px; }
+  .speedo b { font-size: 22px; }
+  .speedo small { bottom: 9%; }
+  .skill { width: 60px; height: 60px; }
+  .skill .lbl { font-size: 15px; }
+  .skill.main { width: 76px; height: 76px; }
+  .skill.main .lbl { font-size: 19px; }
+  .travel { right: 0; bottom: 98px; grid-template-columns: repeat(6, auto); padding: 4px; }
+  .travel button { min-width: 70px; min-height: 56px; padding: 4px 4px 3px; gap: 1px; }
+  .travel button svg { width: 20px; height: 20px; }
+  .travel button span { white-space: nowrap; max-width: none; }
+  .hint { display: none; }
+  .notice { top: 46%; }
+  .notice b { font-size: 44px; }
+  .notice span { font-size: 15px; margin-top: 6px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .toast, #toast, #loading-bar i, .gauge > i { transition: none; }
+  .notice.show { animation-name: notice-still; }
+  .mission .dots i.active { animation: none; }
+}

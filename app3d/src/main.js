@@ -1,7 +1,8 @@
-// Hongseong Adventure 3D, phase 1: boots the whole county world from the game's own data and runs the game's movement
-// and arrival rules with a temporary HUD. Boot: fetch data -> height field (+ water carving) -> world layers -> road
-// services -> actors, places, NPCs -> restore the session -> loop (simulate -> camera -> actors/world -> ground, props,
-// buildings -> post render -> auto quality every 2 s -> save every 2 s while moving).
+// Hongseong Adventure 3D: boots the whole county world from the game's own data and runs the game's movement and
+// arrival rules under the pokju-style HUD (ui/hud.js, minimap.js, gauge.js). Boot: fetch data -> height field (+ water
+// carving) -> world layers -> road services -> actors, places, NPCs -> restore the session -> loop (simulate -> camera
+// -> actors/world -> ground, props, buildings -> post render -> HUD -> auto quality every 2 s -> save every 2 s while
+// moving).
 import * as THREE from 'three';
 import { BOUNDS, M_LON, M_LAT, project, unproject, toRender, fromRender } from './frame.js';
 import { decodeFeatures, decodeBuildings, terrariumHeight } from './data/decode.js';
@@ -20,15 +21,17 @@ import { createLighting } from './render/lighting.js';
 import { createPost } from './render/post.js';
 import { QUALITY, nextQuality, qualityState, autoStartKey, pixelRatio, watchContextLoss, rememberQuality } from './render/quality.js';
 import { buildRoadGraph } from './sim/roadgraph.js';
-import { createPlayer, stepPlayer, setMode as setPlayerMode, TOAST } from './sim/player.js';
+import { createPlayer, stepPlayer, setMode as setPlayerMode, speedMax, TOAST } from './sim/player.js';
 import { createCamera, stepCamera } from './sim/camera.js';
-import { arrivals, CAR_REACH, CONTACT } from './sim/arrival.js';
+import { arrivals, nearestVisitable, CAR_REACH, CONTACT } from './sim/arrival.js';
 import { haltCar } from './sim/car.js';
 import { createControls } from './input/controls.js';
 import { loadSession, saveSession, startPosition, restoreTravel, MODES } from './game/session.js';
 import { ferryDocks, startVoyage, advanceVoyage } from './game/ferry.js';
 import { createHud, josa } from './ui/hud.js';
+import { createMinimap } from './ui/minimap.js';
 import { createController } from './game/controller.js';
+import { missionView } from './game/missions.js';
 import { createPlaceDialog, createNpcDialog } from './ui/place-dialog.js';
 import { PLACES } from '#game/content.js';
 import { districtAt, distance, canVisit } from '#game/geography.js';
@@ -58,6 +61,9 @@ const EVENT_TOAST = {
 };
 const FOG_MAX = 13000;
 const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const FLASH = { ok: '#35e08a', danger: '#ff5468' };
+const MINIMAP_IMAGE = new URL('#game/assets/map-view-county-v13.webp', import.meta.url).href;   // covers [0,W] x [0,H]
+const NO_VISIT = '장소 가까이에서 탐방할 수 있어요';
 const FINE_POINTER = matchMedia('(pointer: fine)');
 
 // localStorage can be missing or throw (private mode, blocked site data): fall back to memory for this run
@@ -68,14 +74,21 @@ const storage = (() => {
 })();
 
 const hud = createHud(document, {
-  onMode: (m) => chooseMode(m), onCamera: () => toggleCamera(), onTime: () => cycleTime(), onQuality: () => cycleQuality(),
+  onMode: (m) => chooseMode(m), onCamera: () => toggleCamera(),
   onCompass: () => { if (!live()) return; G.view.userYaw = 0; G.view.pitchAdj = 0; if (G.cam.mode === 'follow') toggleCamera(); },
   onZoom: (k) => { if (live()) G.view.zoom = clamp(G.view.zoom * k, 0.2, 4); },
   onTilt: (d) => { if (live()) G.view.pitchAdj = clamp(G.view.pitchAdj + d, -70, 70); },
   onTurn: (side) => { if (live() && isCar(G.player.mode)) G.turn = side; },
-  onTalk: () => talk(), onFerry: () => boardFerry(),
+  onTalk: () => talk(), onFerry: () => boardFerry(), onVisit: () => visit(),
+  // the county map (Task 7) and the menu (Task 4) have no renderer yet: the controller drops them without pausing
+  onMap: () => { if (live() && !G.ctl.paused()) G.ctl.open('map'); },
+  onHome: () => { if (live() && !G.ctl.paused()) G.ctl.open('menu'); },
+  onGuide: (id) => { if (live() && id) G.ctl.goTo(id); },
+  onMissionOpen: () => { if (live()) { G.ctl.dayTick(Date.now()); refreshMission(); } },   // a new KST day refreshes the card
   onReload: () => { if (G) G.extra.quality = 'low'; rememberQuality(storage, 'low'); location.reload(); },   // the pagehide save must not undo it
-});
+}, { storage });
+hud.layout(innerWidth, innerHeight);   // the mission card's fold for this screen shape (hongseong-hud-v1), before boot
+hud.placeCredit(innerWidth > 720 && FINE_POINTER.matches);
 
 let G = null;   // the running game, set once the world is built
 // player actions (keys, taps, HUD buttons) wait until boot has finished: before that the post chain does not exist
@@ -206,13 +219,14 @@ async function boot() {
   arrivals(places, [sx, sy], [sx, sy], held, 'walk', collider);   // places in reach at the start do not reopen at once
   const cam = createCamera(extra.camera);
   const byId = new Map(places.map((p) => [p.id, p]));
+  const minimap = createMinimap($('minimap-canvas'), { image: MINIMAP_IMAGE, world: { w: W, h: H }, places, found: () => state.discovered });
   const docks = ferryDocks(waterGuard, byId.get('namdang').point, byId.get('tourmap-jukdo').point);
 
   const post = { current: null };
   G = {
-    renderer, scene, camera, sky, lighting, ground, terrain, water, buildings, collider, props, placeLayer, places, npcLayer, actors,
+    renderer, scene, camera, sky, lighting, ground, terrain, water, buildings, collider, props, placeLayer, places, npcLayer, actors, minimap,
     field, features, graph, navigator, waterGuard, services, world, state, extra, player, cam, held, docks, byId, post,
-    Q, qstate, autoKey, view: null, target: null, turn: null, voyage: null, timeKey: extra.time, running: false,
+    Q, qstate, autoKey, view: null, target: null, missionPoint: null, turn: null, voyage: null, timeKey: extra.time, running: false,
     frameTimes: [], lastCheck: 0, pausedAt: 0, announcedAt: -1, wide: null, fps: 0, saveAt: 0, hudAt: 0, waterNoteAt: -1e9, flyH: 0, speedFx: 0, tapRing: null, rendered: false,
   };
 
@@ -225,6 +239,7 @@ async function boot() {
   G.dialog = createPlaceDialog(document, {
     getState: () => state, onChange: () => { refreshStats(); save(); }, toast: (m) => hud.toast(m),
     onGo: (p) => ctl.goTo(p.id), onClose: () => ctl.close(),
+    onAnswer: (r) => (r.correct ? notify('정답!', r.coins ? `+${r.coins}금화` : '복습 완료', 'ok') : notify('다시 생각해 봐요', '', 'danger')),
   });
   G.npcDialog = createNpcDialog(document, { onClose: () => ctl.close() });
   const ctl = G.ctl = createController({ state, places, services: controllerServices(), save });
@@ -236,8 +251,9 @@ async function boot() {
   ctl.dayTick();   // a new KST day (or a first run) gets its three missions
   hud.setMode(player.mode, player.pending);
   hud.setCamera(cam.mode);
-  hud.setQuality(qualityLabel());
+  document.documentElement.classList.toggle('reduce-motion', reduced);   // the game's own motion setting, as REDUCED
   refreshStats();
+  refreshMission();
 
   await step('그림자와 빛을 맞추는 중');
   resize();
@@ -304,6 +320,8 @@ function tick(dt, t) {
   G.speedFx = REDUCED ? 0 : damp(G.speedFx, fast * 0.85, 3, dt);
   G.post.current.setSpeed(G.speedFx);
   hud.compass(G.cam.yaw);
+  hud.speed(player.speed, gaugeMax(), G.voyage ? 'boat' : player.mode);
+  G.minimap.draw(player, G.target || G.missionPoint, G.cam.yaw);
 
   // actors and world layers
   G.actors.update(player, cr, dt, t, field);
@@ -375,9 +393,9 @@ function openPlace(place, physical) { G.ctl.open('place', { place, physical }); 
 function controllerServices() {
   return {
     stopPlayer: () => { clearTarget(); Object.assign(G.player, { speed: 0, vx: 0, vy: 0, turnRate: 0 }); if (G.player.car) haltCar(G.player.car); G.turn = null; },
-    resetInput: () => { G.controls.reset(); hud.stick({ visible: false }); },
+    resetInput: () => { G.controls.reset(); hud.stick({ visible: false }); hud.closePicker(); },
     showDialog: (kind, data) => {
-      if (kind === 'place') G.dialog.open(data.place, { physical: !!data.physical });
+      if (kind === 'place') rewardNotice(data.place, G.dialog.open(data.place, { physical: !!data.physical }));
       else if (kind === 'npc') G.npcDialog.open(data.npc);
       else return false;
       return true;
@@ -393,12 +411,22 @@ function controllerServices() {
     reachable: (place) => reachable(place),
     missionContext: () => ({ player: G.player, navigator: G.navigator }),
     announce: (place) => {
-      if (G.announcedAt === G.last) return;   // several places entered in one step: one banner
+      if (G.announcedAt === G.last) return;   // several places entered in one step: one notice
       G.announcedAt = G.last;
-      const known = G.state.discovered.includes(place.id);
-      hud.arrive(`${place.name}에 도착했어요`, known ? '발견 수첩에 기록된 장소' : '새로운 장소를 찾았어요!');
+      notify('도착!', place.name, 'ok');
     },
   };
+}
+
+// The big centre notice (ui/hud.js) and the grade pass's green / red flash (skipped when motion is reduced).
+function notify(title, sub, tone = 'ok') {
+  hud.notice(title, sub, tone);
+  if (!(REDUCED || G.state.motion === false)) G.post.current?.flash(FLASH[tone] || FLASH.ok);
+}
+// what a visit earned, as the place dialog opens (2D rewardLine order): a mission first, then a new discovery
+function rewardNotice(place, r) {
+  if (r?.mission) notify(r.mission.bonus ? '직행 미션 성공!' : '탐방 미션 완료!', r.mission.bonus ? `+${r.mission.bonus}금화` : place.name, 'ok');
+  else if (r?.reward) notify('새로운 발견!', `+${r.reward.coins}금화`, 'ok');
 }
 
 function setTarget(p) {
@@ -497,10 +525,14 @@ function applyTime(key) {
   G.buildings.setNight(T.windows);
   G.props.setNight(T.lamps, T.night > 0.5 ? 0.4 : T.dusk > 0.5 ? 0.12 : 0);
   G.timeKey = k; G.extra.time = k;
-  hud.setTime(T.label);
   return T;
 }
-function cycleTime() { if (!live()) return; applyTime(TIME_ORDER[(TIME_ORDER.indexOf(G.timeKey) + 1) % TIME_ORDER.length]); save(); }
+function cycleTime() {
+  if (!live()) return;
+  const T = applyTime(TIME_ORDER[(TIME_ORDER.indexOf(G.timeKey) + 1) % TIME_ORDER.length]);
+  if (T) hud.toast(`시간: ${T.label}`);
+  save();
+}
 
 function qualityLabel() { return G.qstate.mode === 'auto' ? '자동' : QUALITY[G.qstate.mode].label; }
 
@@ -532,8 +564,7 @@ function cycleQuality() {
   const mode = QUALITY_ORDER[(QUALITY_ORDER.indexOf(G.qstate.mode) + 1) % QUALITY_ORDER.length];
   G.extra.quality = mode;
   applyQuality(qualityState(mode, G.autoKey));
-  hud.setQuality(qualityLabel());
-  hud.toast('화질을 바꿨어요. 땅 그림 해상도는 다시 불러오면 바뀌어요.');
+  hud.toast(`화질: ${qualityLabel()}. 땅 그림 해상도는 다시 불러오면 바뀌어요.`);
   save();
 }
 
@@ -543,10 +574,12 @@ function resize() {
   G.renderer.setPixelRatio(dpr); G.renderer.setSize(w, h, false);
   G.camera.aspect = w / h; G.camera.updateProjectionMatrix();
   G.post.current?.setSize(w, h, dpr);
-  // the credit is an always-open attribution block on wide mouse screens; on touch screens (phones and tablets) it
-  // stays a collapsed toggle so it never covers the stick corner
+  // the credit is an always-open attribution block in the bottom-left corner on wide mouse screens; on touch screens
+  // (phones and tablets) it is a collapsed toggle docked under the chips, out of the stick zone
   const wide = w > 720 && FINE_POINTER.matches;
-  if (wide !== G.wide) { G.wide = wide; hud.openCredit(wide); }
+  if (wide !== G.wide) { G.wide = wide; hud.placeCredit(wide); }
+  hud.layout(w, h);
+  G.minimap?.resize();
 }
 
 // automatic quality: on the median frame time of the last 2 s, resolution first, then bloom, MSAA, shadows and the
@@ -602,9 +635,18 @@ function updateTapRing(dt) {
   r.material.opacity = 0.9 * (1 - k / 1.2); r.scale.setScalar(1 + k * 0.8);
 }
 
+// 탐방 (button or E): open the nearest place within visiting reach as a physical visit (the 2D 탐방하기 rule)
+function visitable() { return G.voyage ? null : nearestVisitable(G.places, G.player, G.collider, reachable); }
+function visit() {
+  if (!live() || G.ctl.paused()) return;
+  const place = visitable();
+  if (place) G.ctl.open('place', { place, physical: true });
+  else hud.toast(NO_VISIT, 2000);
+}
+
 function action(a) {
   if (!live() || G.ctl.paused()) return;
-  if (a === 'interact') { if (nearNpc()) talk(); else if (ferryOption()) boardFerry(); }
+  if (a === 'interact') { if (nearNpc()) talk(); else if (ferryOption()) boardFerry(); else visit(); }
   else if (a === 'camera') toggleCamera();
   else if (a === 'time') cycleTime();
   else if (a === 'quality') cycleQuality();
@@ -624,7 +666,22 @@ function refreshHud() {
   hud.setWhere(d ? `${d.county} ${d.name}` : '천수만 · 바다');
   hud.setTurnHint(isCar(p.mode) ? p.hint : null);
   const npc = G.voyage ? null : nearNpc();
-  hud.setActions({ npc, ferry: ferryOption(), car: isCar(p.mode) && !!p.car && !p.pending });
+  hud.setActions({ npc, ferry: ferryOption(), car: isCar(p.mode) && !!p.car && !p.pending, visit: visitable() });
+  refreshMission();
+}
+
+// the mission card and the minimap's mission pin
+function refreshMission() {
+  if (!G) return;
+  const view = missionView(G.state, G.places);
+  hud.setMission(view);
+  G.missionPoint = view.target ? G.byId.get(view.target.id)?.point || null : null;
+}
+
+// the speedometer's full scale: this mode's top speed (78 x speed setting x factor); the ferry's crossing speed
+function gaugeMax() {
+  const v = G.voyage;
+  return v ? distance(v.start, v.end) / v.duration : speedMax(G.player);
 }
 
 function save() {

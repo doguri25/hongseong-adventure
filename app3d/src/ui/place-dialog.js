@@ -17,8 +17,8 @@ function rewardLine(state, place, view) {
 }
 
 // getState() -> the shared save state; onChange() after any reward; onGo(place) asks main to head for the place;
-// onClose() resumes play; toast(text) shows a message.
-export function createPlaceDialog(doc, { getState, onChange, onGo, onClose, toast } = {}) {
+// onClose() resumes play; toast(text) shows a message; onAnswer(result) after each quiz answer (the HUD's big notice).
+export function createPlaceDialog(doc, { getState, onChange, onGo, onClose, toast, onAnswer } = {}) {
   const $ = (id) => doc.getElementById(id);
   const root = $('place-dialog'), body = $('place-body'), footer = $('place-footer');
   const win = doc.defaultView || globalThis;
@@ -88,6 +88,7 @@ export function createPlaceDialog(doc, { getState, onChange, onGo, onClose, toas
         const r = answer(getState(), p.id, i);
         feedback.hidden = false;
         if (r.invalid) { feedback.textContent = '먼저 이 장소를 직접 찾아가 보세요.'; return; }
+        onAnswer?.(r);
         if (!r.correct) { b.classList.add('wrong'); feedback.textContent = '괜찮아, 다시 생각해 보자! ' + (q.hint || ''); return; }
         b.classList.add('correct');
         options.querySelectorAll('button').forEach((o) => { o.disabled = true; });

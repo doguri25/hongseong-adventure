@@ -51,3 +51,18 @@ export function arrivals(places, from, to, held, mode, collider) {
   }
   return entered.sort((a, b) => distance(to, a.point) - distance(to, b.point));
 }
+
+// The 탐방 button / E key: the nearest place (by point or building contact, as nearestPlace) within `range` metres that
+// `canReach(place)` (main.js reachable: the 2D canVisit rule, car reach, wall contact) accepts now, else null.
+export function nearestVisitable(places, player, collider, canReach, range = 600) {
+  const near = [];
+  for (const place of places) {
+    const d = Math.hypot(place.point[0] - player.x, place.point[1] - player.y);
+    if (d > range + 400) continue;   // a building ring never spans 400 m: skip the wall test for far places
+    const dist = Math.min(d, contactOf(place, player.x, player.y, collider));
+    if (dist <= range) near.push({ place, dist });
+  }
+  near.sort((a, b) => a.dist - b.dist);
+  for (const { place } of near) if (canReach(place)) return place;
+  return null;
+}
