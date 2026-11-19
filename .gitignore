@@ -7,3 +7,4 @@ node_modules/
 .env
 .env.*
 spike/3d-naepo/build/
+build/
