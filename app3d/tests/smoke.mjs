@@ -35,6 +35,11 @@
 // the voyage set no target. Every screen is checked at all four viewports: the loading screen, each menu tab and the
 // reset step (checkMenuLayout), the HUD in play (checkHudLayout: start, mission card, vehicle picker, car turns,
 // voyage, 죽도) and the context-lost screen, besides the dialogs above.
+// The phase-2a fix wave adds: 설정 › 기록's 이어하기 파일 불러오기 (the 수첩's file chooser) and a reset or an import that
+// cannot be written (both say 이 기기에 저장하지 못했어요. and keep the progress); audio and voice errors above an open
+// dialog; the QR's first focus wholly in view, ring included; the ferry dialog's at-the-pier wording; and, at the desktop and tablet
+// (checkGuided), a guided walk in 길로만 mode to 홍성초등학교 that opens it at the route end, and a guided trip through
+// 홍성읍 that opens only its target and keeps the 직행 bonus.
 // Screenshots go to OUT (SMOKE_OUT, default a folder in the system temp directory; SMOKE_ONLY=tablet,phone,landscape
 // runs only those passes).
 import http from 'node:http';
@@ -110,13 +115,15 @@ const TEXT_15 = ['#where', '.stats', '.hint', '.credit .lead', '.credit summary'
   '#found-btn', '.tally dt', '.tally dd', '.tally small', '.j-desc', '.j-empty', '.j-note label', '#journal-note',
   '.place-hero figcaption', '#place-caption', '.speech', '.speech small', '.quiz .options button', '.quiz .q-text', '.quiz .lead', '.rv p', '.rv .num small', '.src p', '.src .facts span',
   '.map-note', '.mview .lead', '.cp-text strong', '.story-body p', '.search-input', '.opt-text strong', '.opt-text small', '.search-empty', '.empty-note', '.near-title', '.near-search', '.place-row h4', '.place-row p',
-  '#voyage-status', '.npc-speech', '.npc-text .note', '#ferry-body p', '#help-body p', '.help-sec li', '.keys dd', '#about-body p', '#about-body dd', '.qr-text p', '.qr-url', '#qr-status'];
+  '#voyage-status', '.npc-speech', '.npc-text .note', '#ferry-body p', '#help-body p', '.help-sec li', '.keys dd', '#about-body p', '#about-body dd', '.qr-text p', '.qr-url', '#qr-status',
+  '#records-status'];
 const LABEL_MIN = [['.travel button span', 13], ['.travel button small', 12], ['.dialog .tag', 13], ['.skill .lbl', 13], ['.skill small', 12], ['.mission-kick', 13], ['#mission-title', 13], ['.mission .badge', 13], ['.mission-foot .btn', 13], ['#speed-factor', 12], ['.cam-pad button', 13],
   ['.menu .tabs [role="tab"]', 13], ['.menu h3', 13], ['.mis-kick', 13], ['.mis-card h4', 13], ['.mis-card .btn', 13], ['.ride-head b', 13], ['.card .factor', 12], ['.shop-cats .cat', 13], ['.card.char b', 13], ['.card.char span', 13], ['.product h4', 13], ['.product .buy', 13], ['.opt-name', 13], ['.seg button', 13], ['.menu select', 13], ['.menu .settings > .btn', 13], ['.reset-confirm .btn', 13], ['.menu .go', 13],
   ['.j-filters button', 13], ['.j-tag', 13], ['.j-stamp', 13], ['.j-card b', 13], ['.j-actions .btn', 13],
   ['#place-kind', 13], ['.dialog .speaker', 13], ['.dialog .page-num', 13], ['#place-footer .btn', 13], ['.q-kick', 13], ['.quiz .options b', 13], ['.voice-status', 13], ['.src .btn', 13], ['.src h3', 13],
   ['.map-tabs [role="tab"]', 13], ['.map-tools button', 13], ['#map-zoom', 13], ['.map-side h3', 13], ['.districts button', 13], ['.cp-text small', 13], ['.map-more summary', 13], ['.legend-item', 13], ['.story-body h4', 13], ['.story-body .btn', 13], ['.row-tag', 13], ['#map-back', 13], ['.near-filters button', 13], ['.place-row .go', 13], ['.mis-tools .btn', 13],
-  ['.npc-topics [role="tab"]', 13], ['.npc-text h3', 13], ['#npc-footer .btn', 13], ['#ferry-footer .btn', 13], ['.help-tabs [role="tab"]', 13], ['.help-sec h3', 13], ['.help-sec h4', 13], ['.keys dt', 13], ['.panel-dialog .links .btn', 13], ['.panel-dialog footer .btn', 13], ['.about-info dt', 13], ['.qr-text h3', 13], ['#copy-link', 13]];
+  ['.npc-topics [role="tab"]', 13], ['.npc-text h3', 13], ['#npc-footer .btn', 13], ['#ferry-footer .btn', 13], ['.help-tabs [role="tab"]', 13], ['.help-sec h3', 13], ['.help-sec h4', 13], ['.keys dt', 13], ['.panel-dialog .links .btn', 13], ['.panel-dialog footer .btn', 13], ['.about-info dt', 13], ['.qr-text h3', 13], ['#copy-link', 13],
+  ['.records .btn', 13]];
 // touch screens: nothing interactive in the stick zone (left 42 % of the width, lower 45 % of the height) while
 // playing; the discovery chip (a button: the 수첩) clear of every other HUD piece; overlaps() as ui/dom.js: edges that
 // only touch do not count
@@ -237,6 +244,42 @@ async function checkMenu(page, name, spec, shot) {
   await shot('menu-reset-confirm');
   const cancelled = await page.evaluate(() => { document.getElementById('cancel-reset').click(); return { hidden: document.getElementById('reset-confirm').hidden, coins: window.__hs3d.world.state.coins }; });
   check(reset.shown && reset.focus === 'backup-first' && cancelled.hidden && cancelled.coins === 50, `${name}: 기록 초기화 asks again in the page (focus on 파일 저장) and 취소 keeps the progress`);
+  // fix wave M5: a reset this device cannot write (storage blocked or full) reloads nothing and says so
+  const blocked = await page.evaluate(async () => {
+    const W = window.__hs3d.world, set = Storage.prototype.setItem, before = localStorage.getItem('hongseong-adventure-v1');
+    window.__stillHere = true;
+    Storage.prototype.setItem = function () { throw new DOMException('full', 'QuotaExceededError'); };
+    try {
+      document.getElementById('reset-progress').click(); document.getElementById('confirm-reset').click();
+      await new Promise((r) => setTimeout(r, 600));
+    } finally { Storage.prototype.setItem = set; }
+    const st = document.getElementById('records-status');
+    return { here: window.__stillHere === true, status: st.textContent, warn: st.classList.contains('warn'), confirm: !document.getElementById('reset-confirm').hidden, focus: document.activeElement?.id, resetting: !!W.resetting, same: localStorage.getItem('hongseong-adventure-v1') === before, coins: W.state.coins };
+  });
+  check(blocked.here && blocked.status === '이 기기에 저장하지 못했어요.' && blocked.warn && !blocked.confirm && blocked.focus === 'reset-progress' && !blocked.resetting && blocked.same && blocked.coins === 50,
+    `${name}: a reset that cannot be written keeps the progress, keeps saving and says 이 기기에 저장하지 못했어요. (${JSON.stringify(blocked)})`);
+  // fix wave M3: 이어하기 파일 불러오기 sits beside 이 기기 기록 초기화 (spec 5.1) and opens the 수첩 at its file chooser
+  const row = await page.evaluate(() => { document.getElementById('records-status').scrollIntoView({ block: 'nearest' }); const a = document.getElementById('reset-progress').getBoundingClientRect(), b = document.getElementById('settings-load-save'), r = b.getBoundingClientRect(); return { label: b.textContent, same: b.parentElement === document.getElementById('reset-progress').parentElement, beside: Math.abs(r.top - a.top) < 2 || r.top >= a.bottom - 1 }; });
+  await checkUi(page, name, 'menu records', touch);
+  await checkMenuLayout(page, name, 'records');
+  await sleep(300);
+  await shot('menu-records');
+  // (Playwright intercepts the chooser only once its listener has been set up: listen first, then press; the chosen
+  // file then asks in the 수첩 as its own button's would, and 취소 there keeps the progress)
+  let chooser = null;
+  const onChooser = (c) => { chooser = c; };
+  page.on('filechooser', onChooser);
+  await sleep(1500);
+  await page.click('#settings-load-save');
+  for (let i = 0; i < 80 && !chooser; i++) await sleep(100);
+  page.off('filechooser', onChooser);
+  const picked = await page.evaluate(() => ({ tab: document.getElementById('tab-journal').getAttribute('aria-selected'), pane: !document.getElementById('pane-journal').hidden, focus: document.activeElement?.id }));
+  if (chooser) await chooser.setFiles({ name: '홍성모험수첩_이어하기.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify({ ...freshState(), discovered: ['library'] })) });
+  await page.waitForFunction(() => !document.getElementById('import-confirm').hidden, null, { timeout: 10000, polling: 100 }).catch(() => {});
+  picked.ask = await page.evaluate(() => { const r = { asked: !document.getElementById('import-confirm').hidden, focus: document.activeElement?.id, coins: window.__hs3d.world.state.coins }; document.getElementById('cancel-import').click(); return r; });
+  check(row.label === '이어하기 파일 불러오기' && row.same && row.beside && !!chooser && picked.tab === 'true' && picked.pane && picked.focus === 'load-save' && picked.ask.asked && picked.ask.focus === 'confirm-import' && picked.ask.coins === 50,
+    `${name}: 설정 › 기록 has 이어하기 파일 불러오기 beside 처음부터; it opens the 수첩 at its file chooser, and a chosen file asks there (${JSON.stringify({ ...row, chooser: !!chooser, ...picked })})`);
+  await page.evaluate(() => { document.getElementById('tab-settings').click(); document.getElementById('records-status').textContent = ''; });
   // into play: the primary button
   const play = await page.evaluate(() => { document.getElementById('menu-go').click(); return { open: !document.getElementById('menu').hidden, paused: window.__hs3d.ctl.paused(), screen: window.__hs3d.ctl.screen, focus: document.activeElement?.id, hudInert: document.querySelector('.hud-br').inert, hud: getComputedStyle(document.querySelector('.hud-br')).visibility }; });
   check(!play.open && !play.paused && play.screen === 'play' && play.focus === 'c' && !play.hudInert && play.hud === 'visible', `${name}: 탐방 시작 closes the title into play, focus back on the map (${JSON.stringify(play)})`);
@@ -465,6 +508,21 @@ async function checkJournal(page, name, spec, shot) {
   const cancel = await page.evaluate(() => { document.getElementById('cancel-import').click(); return { hidden: document.getElementById('import-confirm').hidden, focus: document.activeElement?.id }; });
   cancel.same = await progress() === before;
   check(cancel.hidden && cancel.focus === 'load-save' && cancel.same, `${name}: 취소 keeps the progress (${JSON.stringify(cancel)})`);
+  // fix wave M5: accepted, but this device cannot write it (storage blocked or full): no reload, the progress stays, the
+  // 수첩 says so
+  await page.setInputFiles('#journal-file', good);
+  await page.waitForFunction(() => !document.getElementById('import-confirm').hidden, null, { timeout: 10000, polling: 100 }).catch(() => {});
+  const unwritten = await page.evaluate(async () => {
+    const W = window.__hs3d.world, set = Storage.prototype.setItem;
+    window.__stillHere = true;
+    Storage.prototype.setItem = function () { throw new DOMException('full', 'QuotaExceededError'); };
+    try { document.getElementById('confirm-import').click(); await new Promise((r) => setTimeout(r, 600)); } finally { Storage.prototype.setItem = set; }
+    const st = document.getElementById('journal-status');
+    return { here: window.__stillHere === true, status: st.textContent, warn: st.classList.contains('warn'), asked: !document.getElementById('import-confirm').hidden, focus: document.activeElement?.id, resetting: !!W.resetting };
+  });
+  unwritten.same = await progress() === before;
+  check(unwritten.here && unwritten.status === '이 기기에 저장하지 못했어요.' && unwritten.warn && !unwritten.asked && unwritten.focus === 'load-save' && !unwritten.resetting && unwritten.same,
+    `${name}: an accepted file this device cannot write keeps the progress, keeps saving and says 이 기기에 저장하지 못했어요. (${JSON.stringify(unwritten)})`);
   // accepted: the file's progress replaces this device's and the game reloads with it
   await page.setInputFiles('#journal-file', good);
   await page.waitForFunction(() => !document.getElementById('import-confirm').hidden, null, { timeout: 10000, polling: 100 }).catch(() => {});
@@ -1092,6 +1150,28 @@ async function checkTalk(page, name, spec, shot) {
   check(JSON.stringify(snd.music) === '[true,true,true]' && JSON.stringify(snd.off) === '[false,true,false]' && snd.on[0] === true && snd.on[1] === true && JSON.stringify(snd.saved) === '[true,false]' && snd.volume === 0.3,
     `${name}: 배경음 on starts the music loop, 효과음 off stops all sound (the music loop too; 배경음 stays chosen), on unlocks again, the volume follows the slider, all saved (${JSON.stringify(snd)})`);
   check(JSON.stringify(snd.rows) === JSON.stringify(['도움말', '자료 출처', '만든 사람', 'QR로 열기']), `${name}: 설정 shows 도움말 / 자료 출처 / 만든 사람 / QR로 열기 (${snd.rows.join(' / ')})`);
+  // fix wave M4: an audio or voice error (GameAudio / Narrator onError) shows above the open dialog: the menu, then a panel
+  const errSeen = await page.evaluate(async () => {
+    const W = window.__hs3d.world, t = document.getElementById('toast'), wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    // read at once, with the 0.25 s fade's end state (transition off): SwiftShader frames can starve the page's timers
+    // for seconds, longer than the toast's 4.2 s
+    const look = () => {
+      const cs = getComputedStyle(t), scrim = document.querySelector('.scrim:not([hidden])');
+      const r = { text: t.textContent, visibility: cs.visibility, opacity: Number(cs.opacity), z: Number(cs.zIndex), scrimZ: scrim ? Number(getComputedStyle(scrim).zIndex) : null };
+      return { ...r, visible: r.visibility === 'visible' && r.opacity > 0.9 };
+    };
+    t.style.transition = 'none';
+    W.audio.onError('이 브라우저에서는 소리를 켤 수 없어요.');
+    const menu = look();
+    window.__hs3d.closeDialogs(); W.ctl.open('about'); await wait(100);
+    W.narrator.onError('한국어 음성이 없어요. 기기의 음성 설정에서 한국어를 추가해 주세요.');
+    const panel = look();
+    t.style.transition = '';
+    window.__hs3d.closeDialogs();
+    return { menu, panel };
+  });
+  check([errSeen.menu, errSeen.panel].every((v) => v.visible && v.scrimZ !== null && v.z > v.scrimZ) && errSeen.menu.text.includes('소리를 켤 수 없어요') && errSeen.panel.text.includes('한국어 음성이 없어요'),
+    `${name}: audio and voice errors show above the open menu and dialog (${JSON.stringify(errSeen)})`);
 
   // ---- 도움말 (four tabs), 자료 출처 (the help at its sources), 만든 사람, QR: each from its 설정 row
   const openRow = (label) => page.evaluate((label) => {
@@ -1166,6 +1246,13 @@ async function checkTalk(page, name, spec, shot) {
   await escInto('만든 사람');
   const qr = await openRow('QR로 열기');
   await page.waitForFunction(() => { const i = document.getElementById('qr-img'); return i && i.complete; }, null, { timeout: 10000, polling: 200 }).catch(() => {});
+  // fix wave M8: the first focus, 접속 주소 복사, is wholly in view inside the dialog's scroll box (844 x 390 too)
+  const qrFocus = await page.evaluate(() => {
+    const c = document.getElementById('copy-link'), b = document.getElementById('qr-body'), r = c.getBoundingClientRect(), o = b.getBoundingClientRect();
+    const ring = 5;   // the 3 px focus outline 2 px out (theme.css button:focus-visible)
+    return { focus: document.activeElement?.id, inView: r.top - ring >= o.top - 0.5 && r.bottom + ring <= o.bottom + 0.5 && r.top >= 0 && r.bottom <= innerHeight, r: [Math.round(r.top), Math.round(r.bottom)], box: [Math.round(o.top), Math.round(o.bottom)] };
+  });
+  check(qrFocus.focus === 'copy-link' && qrFocus.inView, `${name}: QR로 열기 starts on 접속 주소 복사, wholly in view with its focus ring (${JSON.stringify(qrFocus)})`);
   const q = await page.evaluate(async () => {
     const img = document.getElementById('qr-img'), b = document.getElementById('qr-body');
     const r = { w: img.naturalWidth, alt: img.alt, head: b.querySelector('h3')?.textContent, url: b.querySelector('.qr-url')?.textContent, text: b.textContent, copy: document.getElementById('copy-link')?.textContent };
@@ -1300,8 +1387,9 @@ async function checkTalk(page, name, spec, shot) {
     document.getElementById('ferry-btn').click();
     return { kind: W.ctl.dialog?.kind, paused: W.ctl.paused(), focus: document.activeElement?.id, title: document.getElementById('ferry-title')?.textContent, tag: document.querySelector('#ferry-panel .tag')?.textContent, body: document.getElementById('ferry-body')?.textContent || '', board: document.getElementById('board-ferry')?.textContent, voyage: !!W.voyage };
   });
-  check(fd.kind === 'ferry' && fd.paused && fd.focus === 'board-ferry' && fd.title === '죽도로 떠나는 배 여행' && fd.tag === '남당항 ↔ 죽도' && fd.body.includes('죽도는 바다로 둘러싸인 섬이에요. 남당항에서 배를 타고 찾아가 볼까요?') && fd.body.includes('게임에서는 기다리는 시간과 요금을 생략했어요.') && fd.board === '남당항으로 가서 배 타기' && !fd.voyage,
-    `${name}: the ferry button opens 죽도로 떠나는 배 여행 (2D wording) before boarding (${JSON.stringify({ ...fd, body: fd.body.slice(0, 40) })})`);
+  check(fd.kind === 'ferry' && fd.paused && fd.focus === 'board-ferry' && fd.title === '죽도로 떠나는 배 여행' && fd.tag === '남당항 ↔ 죽도' && fd.body.includes('죽도는 바다로 둘러싸인 섬이에요. 남당항에서 배를 타고 찾아가 볼까요?') && fd.body.includes('게임에서는 기다리는 시간과 요금을 생략했어요.')
+    && fd.body.includes('버튼을 누르면 이곳 남당항에서 바로 배를 타요.') && !fd.body.includes('이동한 뒤') && fd.board === '배 타고 출발하기' && !fd.voyage,
+    `${name}: the ferry button opens 죽도로 떠나는 배 여행 (2D wording, told at the pier: M7) before boarding (${JSON.stringify({ ...fd, body: fd.body.slice(0, 40) })})`);
   await checkUi(page, name, 'ferry dialog', touch);
   await checkPanelLayout(page, name, 'ferry dialog', 'ferry-panel');
   await sleep(400);
@@ -1320,7 +1408,7 @@ async function checkTalk(page, name, spec, shot) {
     return r;
   });
   check(!sail.paused && sail.voyage && sail.mode === 'boat' && sail.chip === '배를 타고 죽도로 가는 중…' && sail.chipLater === sail.chip && sail.button && sail.sounds.includes('move') && sail.elapsed > 0 && sail.steps === 0,
-    `${name}: 남당항으로 가서 배 타기 sails with the voyage chip "${sail.chip}", no footsteps at sea (${JSON.stringify(sail)})`);
+    `${name}: 배 타고 출발하기 sails with the voyage chip "${sail.chip}", no footsteps at sea (${JSON.stringify(sail)})`);
   await checkUi(page, name, 'voyage', touch);
   await checkHudLayout(page, name, 'voyage');
   // a tap on the map during the voyage is ignored: no target at sea, nothing opens (phase-1 follow-up)
@@ -1385,6 +1473,57 @@ async function checkTalk(page, name, spec, shot) {
   });
   check(steps.moved < 1 || steps.n > 0, `${name}: walking plays footsteps (${steps.n} calls over ${steps.moved} m)`);
   await back();
+}
+
+// Fix wave C1 / I1 (game/travel.js, the 2D navigate / walkTo): in 길로만 mode on foot, a guided trip to 홍성초등학교 (its
+// point 90 m off the walking roads) from about 500 m away ends on the road and opens the school there as a physical
+// visit; a guided trip through 홍성읍 opens only its target, holding the places it passes, and keeps the 직행 bonus.
+async function checkGuided(page, name) {
+  const SCHOOL = 'facility-way-1099643232', POST = 'facility-node-368879955', POST_FROM = [23296, 9877];
+  const home = await page.evaluate(() => { const W = window.__hs3d.world; for (let i = 0; i < 4 && W.ctl.paused(); i++) window.__hs3d.closeDialogs(); window.__hs3d.setMode('walk'); return [W.player.x, W.player.y]; });
+  const walk = (id, from) => page.evaluate(async ({ id, from }) => {
+    const W = window.__hs3d.world, p = W.byId.get(id);
+    for (let i = 0; i < 4 && W.ctl.paused(); i++) window.__hs3d.closeDialogs();
+    W.state.movementMode = W.player.movementMode = 'roads';
+    let start = from;
+    if (!start) for (let k = 0; k < 8 && !start; k++) {   // a walking-road point about 500 m away with a route to the place
+      const n = W.navigator.nearest([p.point[0] + Math.cos(k * Math.PI / 4) * 500, p.point[1] + Math.sin(k * Math.PI / 4) * 500], null, 250);
+      if (n && !W.waterGuard.blocked(n.p) && W.navigator.route(n.p, p.point, 350)) start = n.p;
+    }
+    if (!start || !window.__hs3d.teleport(start[0], start[1])) return { start: null };
+    await new Promise((r) => setTimeout(r, 400));
+    const held0 = new Set(W.held), q = W.state.dailyQuests;
+    W.player.speedSetting = 1.4;   // 빠르게, for this walk only (SwiftShader frames are slow)
+    const r = { start: start.map(Math.round), d: Math.round(Math.hypot(W.player.x - p.point[0], W.player.y - p.point[1])), go: W.ctl.goTo(id), toast: document.getElementById('toast').textContent, direct: [], passed: [] };
+    const t0 = performance.now(), passed = new Set();
+    while (!W.ctl.paused() && performance.now() - t0 < 240000) {   // a passed place is held while the explorer is in it
+      await new Promise((f) => setTimeout(f, 100));
+      if (q && q.active === id) r.direct.push(q.direct);
+      for (const h of W.held) if (!held0.has(h) && h !== id) passed.add(h);
+    }
+    r.secs = Math.round((performance.now() - t0) / 1000);
+    r.kind = W.ctl.dialog?.kind || null; r.place = W.ctl.dialog?.data?.place?.id || null; r.physical = W.ctl.dialog?.data?.physical;
+    r.gap = Math.round(Math.hypot(W.player.x - p.point[0], W.player.y - p.point[1]));
+    r.passed = [...passed];
+    r.ledger = (W.state.questLedger || []).filter((e) => e.place === id).map((e) => e.bonus);
+    W.player.speedSetting = W.state.speed;
+    for (let i = 0; i < 4 && W.ctl.paused(); i++) window.__hs3d.closeDialogs();
+    return r;
+  }, { id, from });
+  // the school: roads mode, ~500 m away; it opens physically at the route end, 90 m from its point
+  const school = await walk(SCHOOL, null);
+  check(!!school.start && school.go === 'route' && school.toast.startsWith('홍성초등학교 근처 길까지 따라가요.') && school.kind === 'place' && school.place === SCHOOL && school.physical === true,
+    `${name}: in 길로만 mode a guided walk to 홍성초등학교 from ${school.d} m opens it at the route end, ${school.gap} m from its point (${JSON.stringify({ ...school, direct: undefined })})`);
+  // the pass-by: 홍성우체국 as today's active mission, from a road at the other side of 홍주읍성 (~950 m through town)
+  await page.evaluate((id) => {
+    const W = window.__hs3d.world, q = W.state.dailyQuests;
+    W.state.questLedger = (W.state.questLedger || []).filter((e) => !(e.day === q.day && e.place === id));
+    W.state.dailyQuests = { ...q, targets: [id, ...q.targets.filter((t) => t !== id)].slice(0, 3), active: id, direct: true, started: true };
+  }, POST);
+  const post = await walk(POST, POST_FROM);
+  check(post.go === 'route' && post.kind === 'place' && post.place === POST && post.physical === true && post.passed.length >= 2 && post.direct.length > 0 && post.direct.every(Boolean) && JSON.stringify(post.ledger) === '[50]',
+    `${name}: a guided trip through 홍성읍 holds the ${post.passed.length} places it passes (${post.passed.join(', ')}), opens only 홍성우체국 and keeps the 직행 bonus (${JSON.stringify({ ...post, direct: post.direct.every(Boolean), passed: post.passed.length })})`);
+  await page.evaluate(([x, y]) => { const W = window.__hs3d.world; for (let i = 0; i < 4 && W.ctl.paused(); i++) window.__hs3d.closeDialogs(); W.target = null; window.__hs3d.teleport(x, y); }, home);
 }
 
 // The menu's layout in its current tab (Task 4 panes, the 꾸미기 categories, the reset step): the panel inside the
@@ -1555,7 +1694,8 @@ async function checkWardrobeFx(page, name, spec, shot, sheets) {
     for (const [fx, fy] of [[0.7, 0.45], [0.62, 0.62], [0.78, 0.3], [0.55, 0.38]]) {   // the ground, not a pin
       await touchAt(page, [[61, Math.round(spec.viewport.width * fx), Math.round(spec.viewport.height * fy)]], touch ? 'touch' : 'mouse');
       await sleep(600);
-      if (await page.evaluate(() => { const W = window.__hs3d.world; if (W.target) return true; for (let i = 0; i < 4 && W.ctl.paused(); i++) window.__hs3d.closeDialogs(); return false; })) break;
+      // a pin is 찾아가기 now (P30): its trip has no tap ring, so only a ground tap ends the search
+      if (await page.evaluate(() => { const W = window.__hs3d.world; if (W.target && W.tapRing?.visible) return true; W.target = null; for (let i = 0; i < 4 && W.ctl.paused(); i++) window.__hs3d.closeDialogs(); return false; })) break;
     }
     const turn = await page.evaluate(() => {
       const W = window.__hs3d.world, b = document.getElementById('turn-left');
@@ -1668,6 +1808,7 @@ async function run(browser, base, spec) {
   if (!await checkJournal(page, name, spec, shot)) { check(errors.length === 0, `${name}: no pageerror (${errors.join(' | ').slice(0, 400)})`); await ctx.close(); return; }
   await checkMap(page, name, spec, shot);
   await checkTalk(page, name, spec, shot);
+  if (spec.guided) await checkGuided(page, name);
   await checkWardrobeFx(page, name, spec, shot, sheets);
   await shot('1-start');
   if (spec.quick) {
@@ -1835,9 +1976,9 @@ async function main() {
   const browser = await chromium.launch({ env, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--enable-webgl'] });
   try {
     for (const spec of [
-      { name: 'desktop', viewport: { width: 1280, height: 760 }, touch: false, tour: true },
+      { name: 'desktop', viewport: { width: 1280, height: 760 }, touch: false, tour: true, guided: true },
       { name: 'phone', viewport: { width: 390, height: 844 }, touch: true, tour: true },
-      { name: 'tablet', viewport: { width: 1024, height: 768 }, touch: true, quick: true, keysWhileLoading: true },
+      { name: 'tablet', viewport: { width: 1024, height: 768 }, touch: true, quick: true, keysWhileLoading: true, guided: true },
       { name: 'landscape', viewport: { width: 844, height: 390 }, touch: true, quick: true },
     ].filter((s) => !process.env.SMOKE_ONLY || process.env.SMOKE_ONLY.split(',').includes(s.name))) await run(browser, base, spec);
   } finally {

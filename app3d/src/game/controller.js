@@ -3,13 +3,16 @@
 //
 // createController({state, places, stories, services, save, sound, narrator, clock}) -> {
 //   screen: 'title'|'play' (starts 'play'; 'title' while open('menu', {title: true}) is showing, the boot title menu),
-//   dialog: null|{kind, data}, paused(), open(kind, data), close(),
+//   dialog: null|{kind, data}, paused(), open(kind, data), close(clearQueue),
 //   onArrive(place, physical), onNpc(npc), startMission(id), goTo(placeId), setMode(mode), dayTick(now, force) }
 // Dialog kinds: place {place, physical} | npc {npc} | ferry | menu | map | search | nearby | help {section} | about | qr.
-// goTo (찾아가기, every path: journal, place dialog, mission start, map, HUD 길 안내) follows the 2D goToPlace -> navigate:
-// a story-only place opens its story ('story'); a place already in reach opens as a visit ('visit', P24); 죽도 from
-// the mainland on the ground goes by the 남당항 ferry ('dock': head for the pier with the 2D hint, or 'ferry': at the
-// pier, the ferry dialog); any other place becomes the walk / drive / flight target with the 2D move sound ('route').
+// goTo (찾아가기, every path: journal, place dialog, mission start, map, HUD 길 안내, a pin tap: P30) follows the 2D
+// goToPlace -> navigate (P24 widened): a story-only place opens its story ('story'); nothing else while the ferry sails
+// (false, any dialog closed); a place already in reach opens as a visit ('visit', P24); 죽도 from the mainland on the
+// ground goes by the 남당항 ferry ('dock': head for the pier with the 2D hint, or 'ferry': at the pier, the ferry
+// dialog); any other place becomes the walk / drive / flight target with the 2D move sound ('route'). A trip drops
+// the arrivals queued behind the open dialog (2D closeDialogs, P31); main.js (game/travel.js) then opens only that
+// place on the way and at the route end.
 // Sounds (P25, 2D visit): a place dialog that opens on a new discovery or a mission bonus plays the chime; an arrival
 // otherwise plays the arrival sound, never both.
 //
@@ -21,7 +24,8 @@
 //                                {reward, mission} (ui/place-dialog.js open), which decides the chime
 //   hideDialog(kind)             tear the dialog down (must be idempotent: the dialog's own close button also ends here)
 //   onPause(paused)              true when the first dialog opens, false when the last closes (render throttle, timers)
-//   setTarget(point, place)      head for [x,y] game metres (place is given for goTo / startMission)
+//   setTarget(point, place)      head for [x,y] game metres: a guided trip to `place` (game/travel.js)
+//   atSea() -> bool              the ferry is sailing: goTo starts no trip (2D navigate refuses during a voyage)
 //   setMode(mode)                switch vehicle (walk|bike|car|supercar|slowplane|plane)
 //   reachable(place) -> bool     player is already close enough to visit the place (2D canVisit rule)
 //   holdReach(place)             before goTo opens a place in reach as a visit: hold the places in reach (2D openPlace)
@@ -72,8 +76,10 @@ export function createController({ state, places, stories = [], services = {}, s
       return true;
     },
 
-    close() {
+    // clearQueue: the arrivals waiting behind it are dropped instead of opening next (a trip, the ferry leaving)
+    close(clearQueue = false) {
       const was = ctl.dialog;
+      if (clearQueue) queue.length = 0;
       if (!was) return;
       ctl.dialog = null; ctl.screen = 'play';
       call('hideDialog', was.kind);
@@ -112,10 +118,11 @@ export function createController({ state, places, stories = [], services = {}, s
       if (story) return ctl.open('place', { place: story, physical: false }) && 'story';
       const place = byId.get(placeId);
       if (!place) return false;
+      if (call('atSea')) { ctl.close(true); return false; }
       if (call('reachable', place)) { call('holdReach', place); return ctl.open('place', { place, physical: true }) && 'visit'; }
       const leg = place.id === FERRY_ISLAND ? call('ferryLeg') : null;
       if (leg === 'board') return ctl.open('ferry') && 'ferry';
-      if (ctl.dialog) ctl.close();
+      ctl.close(true);
       if (leg === 'dock') call('toDock');
       else call('setTarget', [place.point[0], place.point[1]], place);
       sound.play('move');

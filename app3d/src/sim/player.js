@@ -28,7 +28,7 @@ export function createPlayer({ x, y, mode = 'walk', movementMode = 'roads', spee
   return {
     x, y, h: 0, heading: 0, speed: 0, vx: 0, vy: 0, mode, pending: null, alt: 0, bank: 0, climb: 0, turnRate: 0,
     phase: 0, moving: false, car: null, hint: null, movementMode, speedSetting,
-    roadCursor: null, route: null, routeKey: null, tookOff: false, shore: null,
+    roadCursor: null, route: null, routeKey: null, routeAccess: null, tookOff: false, shore: null,
   };
 }
 
@@ -57,7 +57,7 @@ function snapToRoad(p, s) {
   const n = s.navigator.nearest([p.x, p.y], null, SNAP_RANGE);
   // never across water; a walker already standing on water may snap to a dry road (wetStepOk)
   if (n && (s.water.blocked([p.x, p.y]) ? wetStepOk(p, s, n.p) : !s.water.clip([p.x, p.y], n.p).blocked)) { p.x = n.p[0]; p.y = n.p[1]; }
-  p.roadCursor = null; p.route = null; p.routeKey = null;
+  p.roadCursor = null; p.route = null; p.routeKey = null; p.routeAccess = null;
 }
 
 export function setMode(p, mode, s) {
@@ -67,7 +67,7 @@ export function setMode(p, mode, s) {
     p.pending = null;
     if (!wasFlying) {
       p.alt = groundH(p, s); p.speed = Math.max(p.speed, 78 * p.speedSetting * FACTOR[mode] * 0.25);
-      p.tookOff = true; p.car = null; p.roadCursor = null; p.route = null; p.routeKey = null;
+      p.tookOff = true; p.car = null; p.roadCursor = null; p.route = null; p.routeKey = null; p.routeAccess = null;
     }
     p.mode = mode;
     return { ok: true };
@@ -86,7 +86,7 @@ export function setMode(p, mode, s) {
     if (mode === 'walk' || mode === 'bike') { p.speed = 0; p.vx = p.vy = 0; }
   }
   p.mode = mode;
-  p.roadCursor = null; p.route = null; p.routeKey = null;
+  p.roadCursor = null; p.route = null; p.routeKey = null; p.routeAccess = null;
   if (mode === 'walk' || mode === 'bike') snapToRoad(p, s);
   return { ok: true };
 }
@@ -188,18 +188,21 @@ export function stepPlayer(p, input, s, dt) {
   return toast ? { events, toast } : { events };
 }
 
+// input.maxAccess: how far from the target the road route may end (navigator.route; 2D walkTo: 350 m for a place,
+// 800 m for a tapped point, the default). The route's access point, its last point on the road, stays in p.routeAccess.
 function walkStep(p, s, input, st, manual, target, vmax, dt, events) {
   const roads = p.movementMode === 'roads';
   let { dx, dy, mag } = st;
-  if (manual) { p.route = null; p.routeKey = null; }
+  if (manual) { p.route = null; p.routeKey = null; p.routeAccess = null; }
   const before = [p.x, p.y];
   if (roads) {
     if (!manual && target) {
       const key = target[0] + ',' + target[1];
       if (p.routeKey !== key) {
         p.routeKey = key;
-        const r = s.navigator.route([p.x, p.y], target, 800);
+        const r = s.navigator.route([p.x, p.y], target, input.maxAccess || 800);
         p.route = r ? r.points.slice() : null;
+        p.routeAccess = r ? [r.access[0], r.access[1]] : null;
         if (!r) events.push('no-route');
       }
       if (p.route && p.route.length) {

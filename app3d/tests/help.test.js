@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { HELP_VIEWS, CONTROLS, KEYS, DOWNLOADS, TEACHER } from '../src/ui/help.js';
 import { QR_URL, QR_LINES } from '../src/ui/qr.js';
-import { FERRY_LINES, FERRY_HINT, VOYAGE_LABEL } from '../src/ui/ferry.js';
+import { FERRY_LINES, FERRY_HINT, VOYAGE_LABEL, BOARD_LABEL } from '../src/ui/ferry.js';
 
 const dist = (p) => fileURLToPath(import.meta.resolve('#game/' + p));   // the 2D game, through the alias (R8)
 const game = fs.readFileSync(dist('game.js'), 'utf8'), world = fs.readFileSync(dist('world.js'), 'utf8');
@@ -50,7 +50,12 @@ test('the QR and the ferry keep the 2D wording and address', () => {
   for (const line of QR_LINES) assert.ok(game.includes(line), line);
   assert.equal(FERRY_LINES.length, 3);
   assert.ok(game.includes(FERRY_LINES[0]) && game.includes(FERRY_LINES[2]));
-  assert.ok(game.includes(FERRY_LINES[1].replace('화면에 나타나는 ‘죽도에서 돌아가기’', '지도에 나타나는 ‘배 타고 남당항으로’')), 'the return button is named as in this game');
+  // the dialog opens only at the pier (M7): the boat leaves from here; the return line is the 2D one, its button named
+  // as in this game
+  const back = FERRY_LINES[1].slice(FERRY_LINES[1].indexOf('돌아올 때는'));
+  assert.ok(game.includes(back.replace('화면에 나타나는 ‘죽도에서 돌아가기’', '지도에 나타나는 ‘배 타고 남당항으로’')), 'the return button is named as in this game');
+  assert.ok(FERRY_LINES[1].startsWith('버튼을 누르면 이곳 남당항에서 바로 배를 타요.') && !FERRY_LINES[1].includes('이동한 뒤'));
+  assert.ok(!BOARD_LABEL.includes('가서'), BOARD_LABEL);
   assert.ok(world.includes(`'${FERRY_HINT}'`));
   assert.ok(world.includes(VOYAGE_LABEL.out) && world.includes(VOYAGE_LABEL.back));
 });

@@ -15,10 +15,11 @@ const FERRY_LABEL = { out: '배 타고 죽도로', back: '죽도에서 돌아가
 export const HUD_KEY = 'hongseong-hud-v1';
 const PREF_KEYS = ['portrait', 'landscape', 'desktop'];
 
-// Korean particle after a name: with(와/과) or toward(로/으로), chosen by the last syllable's final consonant.
+// Korean particle after a name: with(와/과), obj(을/를) or toward(로/으로), chosen by the last syllable's final consonant.
 export function josa(name, kind) {
   const c = String(name).trim().slice(-1).charCodeAt(0) - 0xac00, fin = c >= 0 && c <= 11171 ? c % 28 : 0;
   if (kind === 'with') return fin ? '과' : '와';
+  if (kind === 'obj') return fin ? '을' : '를';
   return fin && fin !== 8 ? '으로' : '로';   // 8 = ㄹ: '로' (마을로)
 }
 
@@ -203,10 +204,11 @@ export function createHud(doc, handlers = {}, { storage } = {}) {
       text($('speed-factor'), factorLabel(m));
     },
 
-    toast(message, ms = 2800) {
+    // over: shown above an open dialog too (theme.css #toast.over: the audio and voice errors, M4)
+    toast(message, ms = 2800, { over = false } = {}) {
       if (!message) return;
       const t = $('toast');
-      text(t, message); t.classList.add('show');
+      text(t, message); t.classList.add('show'); t.classList.toggle('over', over);
       clearTimeout(toastTimer);
       toastTimer = setTimeout(() => t.classList.remove('show'), ms);
     },

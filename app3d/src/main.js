@@ -30,9 +30,10 @@ import { haltCar } from './sim/car.js';
 import { createControls } from './input/controls.js';
 import { loadSession, saveSession, resetSession, startPosition, restoreTravel, MODES } from './game/session.js';
 import { ferryDocks, startVoyage, advanceVoyage } from './game/ferry.js';
-import { createHud, josa } from './ui/hud.js';
+import { createHud } from './ui/hud.js';
 import { createMinimap } from './ui/minimap.js';
 import { createController } from './game/controller.js';
+import { createTravel, startTrip, endTrip, accessLimit, tripStep, tripEnded, tripToast, FERRY_STOPPED } from './game/travel.js';
 import { missionView } from './game/missions.js';
 import { createPlaceDialog } from './ui/place-dialog.js';
 import { createNpcDialog } from './ui/npc.js';
@@ -84,7 +85,7 @@ const FINE_POINTER = matchMedia('(pointer: fine)');
 const storage = (() => {
   try { const s = window.localStorage; s.getItem('x'); return s; } catch {}
   const m = new Map();
-  return { getItem: (k) => (m.has(k) ? m.get(k) : null), setItem: (k, v) => { m.set(k, String(v)); } };
+  return { memory: true, getItem: (k) => (m.has(k) ? m.get(k) : null), setItem: (k, v) => { m.set(k, String(v)); } };
 })();
 
 const hud = createHud(document, {
@@ -92,7 +93,7 @@ const hud = createHud(document, {
   onCompass: () => { if (!live()) return; G.view.userYaw = 0; G.view.pitchAdj = 0; if (G.cam.mode === 'follow') toggleCamera(); },
   onZoom: (k) => { if (live()) G.view.zoom = clamp(G.view.zoom * k, 0.2, 4); },
   onTilt: (d) => { if (live()) G.view.pitchAdj = clamp(G.view.pitchAdj + d, -70, 70); },
-  onTurn: (side) => { if (live() && isCar(G.player.mode)) { clearTarget(); G.ferryPending = false; G.turn = side; } },   // as the stick: no stale target
+  onTurn: (side) => { if (live() && isCar(G.player.mode)) { clearTarget(); G.turn = side; } },   // as the stick: no stale target
   onTalk: () => talk(), onFerry: () => ferry(), onVisit: () => visit(),
   onMap: () => { if (live() && !G.ctl.paused()) G.ctl.open('map'); },   // the minimap: 홍성군 전체 지도
   onHome: () => { if (live() && !G.ctl.paused()) G.ctl.open('menu'); },
@@ -238,19 +239,23 @@ async function boot() {
   const docks = ferryDocks(waterGuard, byId.get('namdang').point, byId.get('tourmap-jukdo').point);
 
   // the 2D sounds and voice (P4 / P13): heard from the first key or pointer press; the Narrator's change flips every
-  // read-aloud button back when the speech ends (P25)
-  const audio = new GameAudio(() => state, (m) => hud.toast(m));
-  const narrator = new Narrator(() => state, () => { G?.dialog?.refreshVoice(); G?.panels?.npc.refreshVoice(); }, (m) => hud.toast(m));
+  // read-aloud button back when the speech ends (P25). Their errors (after a press, often in a dialog) top it (M4)
+  const soundError = (m) => hud.toast(m, 4200, { over: true });
+  const audio = new GameAudio(() => state, soundError);
+  const narrator = new Narrator(() => state, () => { G?.dialog?.refreshVoice(); G?.panels?.npc.refreshVoice(); }, soundError);
   const sound = createSound(audio, { narrator });
 
   const post = { current: null };
   G = {
-    audio, narrator, sound, ferryPending: false,
+    audio, narrator, sound, travel: createTravel(), note: null,
     renderer, scene, camera, sky, lighting, ground, terrain, water, buildings, collider, props, placeLayer, places, npcLayer, actors, minimap,
     field, features, graph, navigator, waterGuard, services, world, state, extra, player, cam, held, docks, byId, post,
-    Q, qstate, autoKey, view: null, target: null, missionPoint: null, turn: null, voyage: null, timeKey: extra.time, running: false,
+    Q, qstate, autoKey, view: null, missionPoint: null, turn: null, voyage: null, timeKey: extra.time, running: false,
     frameTimes: [], lastCheck: 0, pausedAt: 0, announcedAt: -1, wide: null, fps: 0, saveAt: 0, hudAt: 0, waterNoteAt: -1e9, flyH: 0, speedFx: 0, tapRing: null, rendered: false,
   };
+  Object.defineProperties(G, {   // the trip (game/travel.js) as the debug hook and the smoke see it
+    target: { get: () => G.travel.target, set: (v) => { if (v) startTrip(G.travel, v); else clearTarget(); } },
+    ferryPending: { get: () => G.travel.ferry, set: (v) => { G.travel.ferry = !!v; } } });
 
   // controls: the floating stick is drawn by the HUD; taps hit pins first, then the terrain
   const controls = createControls(canvas, { onTap: tap, onAction: action, onStick: (s) => hud.stick(s) });
@@ -270,7 +275,8 @@ async function boot() {
   const shell = { root: $('app'), returnFocus: canvas, onClose: () => ctl.close(), ctl };
   G.panels = {
     npc: createNpcDialog(document, { ...shell, getState: () => state, places, frame: (n) => npcLayer.frame(n), changed }),
-    ferry: createFerryDialog(document, { ...shell, onBoard: () => { ctl.close(); if (nearPier()) boardFerry(false); else ctl.goTo('tourmap-jukdo'); } }),
+    // 배 타고 출발: the queued arrivals are dropped (they would pause the boarding, M2), then the boat leaves
+    ferry: createFerryDialog(document, { ...shell, onBoard: () => { ctl.close(true); if (nearPier()) boardFerry(false); else ctl.goTo('tourmap-jukdo'); } }),
     help: createHelpDialog(document, { ...shell, settings: settingsView, setting: applySetting }),
     about: createAboutDialog(document, shell),
     qr: createQrDialog(document, { ...shell, toast: (m) => hud.toast(m) }),
@@ -369,7 +375,7 @@ function tick(dt, t) {
   G.post.current.setSpeed(G.speedFx);
   hud.compass(G.cam.yaw);
   hud.speed(player.speed, gaugeMax(), G.voyage ? 'boat' : player.mode);
-  G.minimap.draw(player, G.target || G.missionPoint, G.cam.yaw);
+  G.minimap.draw(player, G.travel.target || G.missionPoint, G.cam.yaw);
 
   // actors and world layers
   G.actors.update(player, cr, dt, t, field);
@@ -398,31 +404,27 @@ const holePoint = new THREE.Vector3(), focusPoint = new THREE.Vector3();
 
 // ---------- simulation
 function simulate(dt) {
-  const { player, services } = G;
+  const { player, services, travel } = G;
   const r = G.controls.read();
   const manual = Math.hypot(r.x, r.y) > 0.01;
-  if (manual && G.target) { clearTarget(); G.ferryPending = false; }   // the stick or keys take over from a tap target
+  if (manual && travel.target) clearTarget();   // the stick or keys take over from a trip (as quietly as in 2D)
   const from = [player.x, player.y], modeBefore = player.mode, pendingBefore = player.pending;
 
   if (G.voyage) stepVoyage(dt);
   else {
-    const input = { x: r.x, y: r.y, camYaw: G.cam.yaw, camMode: G.cam.mode, turn: G.turn, target: G.target };
+    const input = { x: r.x, y: r.y, camYaw: G.cam.yaw, camMode: G.cam.mode, turn: G.turn, target: travel.target, maxAccess: accessLimit(travel) };
     G.turn = null;
     const res = stepPlayer(player, input, services, dt);
     if (player.moving && (player.mode === 'walk' || player.mode === 'bike')) G.sound.footstep(performance.now());   // 2D cadence
     for (const e of res.events) onEvent(e);
     if (res.toast) hud.toast(res.toast);
-    // tap target reached: walking within 12 m, a finished road route, or a plane over the spot
-    if (G.target) {
-      const d = Math.hypot(G.target[0] - player.x, G.target[1] - player.y);
-      if ((player.mode === 'walk' || player.mode === 'bike') && (d < 12 || (player.movementMode === 'roads' && player.route && player.route.length === 0))) clearTarget();
-      else if (isFlying(player.mode) && d < player.speed * 0.4 + 20) clearTarget();
-    }
-    // arrivals (never while flying): the controller opens the first and queues the rest behind it
-    // a trip to 남당항's pier for the ferry opens nothing on the way and the ferry dialog at the end (2D ferryPending)
+    // arrivals (never while flying), then the trip's rule (game/travel.js): a guided trip opens only its own place (on
+    // the way or at the route end), the trip to the pier the ferry there; the controller queues all but the first
     const entered = arrivals(G.places, from, [player.x, player.y], G.held, player.mode, G.collider);
-    if (!G.ferryPending) for (const p of entered) G.ctl.onArrive(p, true);
-    else if (!G.target) { G.ferryPending = false; if (nearPier()) G.ctl.open('ferry'); }
+    const step = tripStep(travel, { entered, ended: tripEnded(travel, player, res.events), at: [player.x, player.y], access: player.routeAccess, flying: isFlying(player.mode), reach: reachable, nearPier: nearPier() });
+    if (step.ended) clearTarget();
+    if (step.note) hud.toast(step.note, 4200); else if (step.ferry) G.ctl.open('ferry');
+    for (const p of step.open) { if (step.hold) holdHere(p); G.ctl.onArrive(p, true); }
   }
   if (player.mode !== modeBefore || player.pending !== pendingBefore) { hud.setMode(player.mode, player.pending); save(); }
 }
@@ -433,16 +435,15 @@ function onEvent(e) {
   else if (e === 'landed') hud.toast(p.mode === 'walk' ? '땅에 내렸어요' : p.mode === 'bike' ? '땅에 내려 자전거로 바꿨어요' : '도로에 내려 차로 바꿨어요');
   else if (e === 'water') { const now = performance.now(); if (now - G.waterNoteAt > 3000) { G.waterNoteAt = now; hud.toast(EVENT_TOAST.water); } }
   else if (e === 'no-route') { clearTarget(); hud.toast(EVENT_TOAST['no-route']); }
-  else if (e === 'arrived') clearTarget();
   else if (EVENT_TOAST[e]) hud.toast(EVENT_TOAST[e]);
 }
-
-function openPlace(place, physical) { G.ctl.open('place', { place, physical }); }
 
 // The effects the game controller (game/controller.js) asks for; its JSDoc lists the hooks.
 function controllerServices() {
   return {
-    stopPlayer: () => { clearTarget(); Object.assign(G.player, { speed: 0, vx: 0, vy: 0, turnRate: 0 }); if (G.player.car) haltCar(G.player.car); G.turn = null; },
+    stopPlayer: () => {   // a dialog ends the trip; one to the pier says so when play resumes (M1)
+      if (clearTarget().ferry) G.note = FERRY_STOPPED;
+      Object.assign(G.player, { speed: 0, vx: 0, vy: 0, turnRate: 0 }); if (G.player.car) haltCar(G.player.car); G.turn = null; },
     resetInput: () => { G.controls.reset(); hud.stick({ visible: false }); hud.closePicker(); },
     showDialog: (kind, data) => {   // a place returns what the visit earned (the controller's chime, P25)
       if (kind === 'place') { const r = G.dialog.open(data.place, { physical: !!data.physical }); rewardNotice(data.place, r); return r; }
@@ -458,13 +459,15 @@ function controllerServices() {
       G.last = 0; G.frameTimes = []; G.lastCheck = performance.now();   // the slow paused frames must not look like a slow device
       refreshStats(); refreshMission();
       if (G.hintPending) { G.hintPending = false; hud.toast(HINT, 4200); }
+      if (G.note) { hud.toast(G.note, 4200); G.note = null; }
     },
-    setTarget: (point, place) => { setTarget(point); if (place) hud.toast(`${place.name}${josa(place.name, 'to')} 가요`); },
+    setTarget: (point, place) => { setTarget(point, place); if (place) hud.toast(tripToast(place, G.player)); },   // 2D navigate
+    atSea: () => !!G.voyage,
     setMode: (mode) => chooseMode(mode),
     reachable: (place) => reachable(place),
     holdReach: (place) => holdHere(place),
     ferryLeg: () => { const p = G.player, opt = ferryOption(); return G.voyage || isFlying(p.mode) || p.pending || opt === 'back' ? null : opt === 'out' ? 'board' : 'dock'; },
-    toDock: () => { setTarget(G.docks.namdang); G.ferryPending = true; hud.toast(FERRY_HINT); },
+    toDock: () => { setTarget(G.docks.namdang, null, true); hud.toast(FERRY_HINT); },
     missionContext: () => ({ player: G.player, navigator: G.navigator }),
     announce: (place) => {
       if (G.announcedAt === G.last) return;   // several places entered in one step: one notice
@@ -485,14 +488,10 @@ function rewardNotice(place, r) {
   else if (r?.reward) notify('새로운 발견!', `+${r.reward.coins}금화`, 'ok');
 }
 
-function setTarget(p) {
-  G.target = [p[0], p[1]]; G.ferryPending = false;
-  if (G.player.car) { G.player.car.goal = null; G.player.car.route = null; }
-}
-function clearTarget() {
-  G.target = null; G.player.route = null; G.player.routeKey = null;
-  if (G.tapRing) G.tapRing.visible = false;
-}
+// a trip (game/travel.js): a tapped point, a guided trip to a place, or the pier for the ferry; its end (arrived,
+// stopped, replaced) -> what it was ({place, access, ferry})
+function setTarget(p, place = null, ferry = false) { startTrip(G.travel, p, { place, ferry }, G.player); }
+function clearTarget() { if (G.tapRing) G.tapRing.visible = false; return endTrip(G.travel, G.player); }
 
 // ---------- modes
 function chooseMode(mode) {
@@ -535,7 +534,7 @@ function ferry() {
 function boardFerry(returning) {
   if (!live() || G.ctl.paused() || G.voyage) return;
   const p = G.player;
-  clearTarget(); G.ferryPending = false;
+  clearTarget();
   G.voyage = startVoyage(returning, G.docks);
   setPlayerMode(p, 'boat', G.services);
   p.x = G.voyage.start[0]; p.y = G.voyage.start[1]; p.h = 0; p.speed = 0;
@@ -671,17 +670,15 @@ function applySetting(key, value) {
 }
 // a character chosen or an outfit, 발자국 or 위치 고리 put on or taken off in 꾸미기: the explorer changes at once
 function dress() { const a = G.actors, s = G.state; a.setCharacter(s.character); a.setOutfit(s.equipped.outfit || 'default'); a.setEffects(s.equipped); }
-// 기록 지우고 처음부터 (2D reset): a fresh save keeping the 3D view settings, then a reload; nothing saves the old state after
-function resetProgress() {
+// 기록 지우고 처음부터 (2D reset): a fresh save keeping the 3D view settings; 이어하기 파일 불러오기, accepted in the 수첩 (2D
+// importSave): the file's cleaned state replaces this device's (not in a page-memory store, gone on reload). Then a
+// reload, and nothing saves the old state before it; a write that fails (storage blocked or full) is false (M5)
+function resetProgress() { return rewrite(() => resetSession(storage, G.extra)); }
+function importProgress(next) { return rewrite(() => !storage.memory && writeSave(storage, next)); }
+function rewrite(write) {
   G.resetting = true;
-  resetSession(storage, G.extra);
-  location.reload();
-}
-// 이어하기 파일 불러오기, accepted in the 수첩 (2D importSave): the file's cleaned state replaces this device's, then a reload
-function importProgress(next) {
-  G.resetting = true;
-  writeSave(storage, next);
-  location.reload();
+  if (write()) { location.reload(); return true; }
+  return (G.resetting = false);
 }
 
 function resize() {
@@ -719,7 +716,8 @@ function tap(cx, cy) {
   ray.setFromCamera(ndc, G.camera);
   const items = G.placeLayer.items, pins = items.map((it) => it.pin);
   const pinHit = ray.intersectObjects(pins, false)[0];
-  if (pinHit) { const it = items[pins.indexOf(pinHit.object)]; if (it) { openPlace(it.place, reachable(it.place)); return; } }
+  // a pin: 찾아가기 as on the 2D map (P30): in reach it opens as a visit (held), else the guided trip there
+  if (pinHit) { const it = items[pins.indexOf(pinHit.object)]; if (it) { G.ctl.goTo(it.place.id); return; } }
   const meshes = G.terrain.chunks.filter((c) => c.mesh).map((c) => c.mesh);
   const hit = ray.intersectObjects(meshes, false)[0];
   if (!hit) return;
@@ -827,7 +825,7 @@ function ready() {
     setMode: chooseMode,
     applyTime: (k) => { const T = applyTime(k); save(); return T ? k : null; },
     toggleCamera,
-    openPlace: (id) => { const p = G.byId.get(id); if (p) openPlace(p, reachable(p)); return !!p; },
+    openPlace: (id) => { const p = G.byId.get(id); if (p) G.ctl.open('place', { place: p, physical: reachable(p) }); return !!p; },
     closeDialogs: () => G.ctl.close(),
     ctl: G.ctl,
     menu: G.menu,

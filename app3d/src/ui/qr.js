@@ -47,5 +47,6 @@ export function createQrDialog(doc, ctx) {
     doc.getElementById('qr-status').textContent = said;   // in the dialog (the HUD toast sits behind its scrim)
     ctx.toast?.(said);
   }
-  return { open() { d.body.scrollTop = 0; doc.getElementById('qr-status').textContent = ''; d.show(copy); }, hide: () => d.hide(), close: () => d.close(), get isOpen() { return d.isOpen; } };
+  // the focus starts on 접속 주소 복사, scrolled fully into view on a short screen (844 x 390: M8)
+  return { open() { d.body.scrollTop = 0; doc.getElementById('qr-status').textContent = ''; d.show(copy); copy.scrollIntoView?.({ block: 'nearest' }); }, hide: () => d.hide(), close: () => d.close(), get isOpen() { return d.isOpen; } };
 }

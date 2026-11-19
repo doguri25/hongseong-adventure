@@ -79,6 +79,22 @@ test('roads-mode tap target follows a route', () => {
   assert.ok(Math.hypot(p.x, p.y - 300) < 2, `${p.x},${p.y}`);
 });
 
+// C1 (2D walkTo): a road route to an off-road goal ends on the road at its access point, which the player keeps
+// (game/travel.js opens the place there); input.maxAccess bounds how far that may be (a place 350 m, a tap 800 m)
+test('roads-mode route to an off-road goal ends at the access point, within input.maxAccess', () => {
+  const s = world(), p = createPlayer({ x: -200, y: 0, movementMode: 'roads' });
+  run(p, { x: 0, y: 0, camYaw: 0, camMode: 'tilt', target: [300, 200], maxAccess: 350 }, s, 400);
+  assert.deepEqual(p.routeAccess, [300, 0]);
+  assert.equal(p.route.length, 0, 'the route ran out');
+  assert.ok(Math.hypot(p.x - 300, p.y) < 1e-6, `${p.x},${p.y}`);
+  const far = createPlayer({ x: -200, y: 0, movementMode: 'roads' });   // 672 m from the nearest road
+  assert.ok(run(far, { x: 0, y: 0, camYaw: 0, camMode: 'tilt', target: [1100, 450], maxAccess: 350 }, s, 2).includes('no-route'));
+  assert.equal(far.routeAccess, null);
+  const tap = createPlayer({ x: -200, y: 0, movementMode: 'roads' });
+  assert.ok(!run(tap, { x: 0, y: 0, camYaw: 0, camMode: 'tilt', target: [1100, 450] }, s, 2).includes('no-route'), 'a tap reaches 800 m');
+  assert.deepEqual(tap.routeAccess, [600, 0]);
+});
+
 test('free tap target walks straight and stops', () => {
   const s = world(), p = createPlayer({ x: -300, y: -200, movementMode: 'free', speedSetting: 2 });
   run(p, { x: 0, y: 0, camYaw: 0, camMode: 'tilt', target: [-100, -200] }, s, 300);

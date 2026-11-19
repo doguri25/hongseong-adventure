@@ -266,3 +266,48 @@ test('an arrival chimes for a new discovery or a mission bonus, else plays the a
   withChime.c.open('place', { place: places[6], physical: false });
   assert.deepEqual(chimes, ['chime']);
 });
+
+// P31 (2D goToPlace -> closeDialogs): starting a trip drops the arrivals still waiting behind the open dialog, so a
+// queued place does not open in front of the trip the child just chose
+test('a trip started from an open dialog drops the queued arrivals', () => {
+  const { c, log, player } = setup();
+  c.onArrive(places[1], true);
+  c.onArrive(places[2], true);   // waits behind p1
+  assert.equal(c.goTo('p9'), 'route');
+  assert.equal(c.paused(), false, 'the dialog closed into play');
+  assert.equal(c.dialog, null, 'p2 did not open');
+  assert.deepEqual(player.target, places[9].point);
+  assert.deepEqual(log.filter((l) => l.startsWith('show:place')), ['show:place:p1']);
+  c.close();
+  assert.equal(c.dialog, null, 'and it does not come back later');
+});
+
+// T8 / P31 (2D navigate: if(this.voyage)return false): no trip while the ferry sails; a story still opens
+test('goTo during a voyage refuses: no target, no move sound; a story-only place still opens', () => {
+  const story = { id: 'story1', name: '이야기 장소', remote: true, type: 'intangible' };
+  let sea = true;
+  const { c, log, player, sounds } = setup({ opts: { stories: [story] }, services: { atSea: () => sea } });
+  player.target = null;
+  c.open('menu');
+  assert.equal(c.goTo('p9'), false);
+  assert.equal(player.target, null);
+  assert.ok(!sounds.includes('move'));
+  assert.ok(!log.some((l) => l.startsWith('target:')));
+  assert.equal(c.paused(), false, 'the menu closes, as the 2D goToPlace closes its dialogs');
+  assert.equal(c.goTo('story1'), 'story');
+  c.close();
+  sea = false;
+  assert.equal(c.goTo('p9'), 'route');
+});
+
+// M2: the ferry dialog's 배 타기 boards at once: a queued arrival must not open in between (it would pause the boarding)
+test('close(true) closes without opening the queued arrivals', () => {
+  const { c, log } = setup();
+  c.onArrive(places[1], true);
+  c.onArrive(places[2], true);
+  c.close(true);
+  assert.equal(c.dialog, null);
+  assert.equal(c.paused(), false);
+  assert.equal(log.at(-1), 'resume');
+  assert.deepEqual(log.filter((l) => l.startsWith('show:place')), ['show:place:p1']);
+});

@@ -5,7 +5,7 @@
 // place opens its place dialog as a replay, which is not an arrival; any other place is set as the walk target. The
 // equipped 수첩 colour (wardrobe JOURNALS) edges the stats and the cards, as the 2D journal slot does. Copy is the 2D game's.
 import { el } from './dom.js';
-import { resultText, saveFile, readSaveFile, download, SAVE_NAME, RESULT_NAME, MAX_SAVE_BYTES } from '../game/files.js';
+import { resultText, saveFile, readSaveFile, download, SAVE_NAME, RESULT_NAME, MAX_SAVE_BYTES, SAVE_FAILED } from '../game/files.js';
 import { PLACES } from '#game/content.js';
 import { STAMPS, JOURNALS } from '#game/wardrobe.js';
 
@@ -37,14 +37,16 @@ export function journalCards(state, filter = 'all') {
 }
 
 /**
- * createJournal(doc, ctx) -> {render(), reset()}: render() fills or refreshes ctx.pane; reset() drops the import step
- * and the status line (the menu calls it when it opens). ctx:
+ * createJournal(doc, ctx) -> {render(), reset(), pick()}: render() fills or refreshes ctx.pane; reset() drops the import
+ * step and the status line (the menu calls it when it opens); pick() opens the file chooser of 이어하기 파일 불러오기
+ * (설정 › 기록 does, M3: call it from the press, after render). ctx:
  *   pane               #pane-journal
  *   getState()         the shared save state
  *   places             the mapped places (the place dialog and goTo use these); story-only places come from PLACES
  *   ctl                the game controller: open('place', {place, physical}), goTo(id), sound
  *   save()             the note or a file changed: save now (and refresh the HUD)
- *   importSave(state)  an accepted 이어하기 file: replace this device's progress and reload (main.js)
+ *   importSave(state)  an accepted 이어하기 file: replace this device's progress and reload (main.js); false when it
+ *                      could not be written (the progress is unchanged and the status line says so)
  */
 export function createJournal(doc, ctx) {
   const { pane } = ctx, state = () => ctx.getState();
@@ -58,12 +60,12 @@ export function createJournal(doc, ctx) {
     const list = el('div', { className: 'j-list', id: 'journal-list' });
     const note = el('textarea', { id: 'journal-note', maxLength: NOTE_MAX, rows: 3, placeholder: '예: 나는 홍예공원을 소개하고 싶어. 가족과 함께 산책한 기억이 있거든.', oninput: (e) => { state().note = e.target.value.slice(0, NOTE_MAX); ctx.save(); } });
     const file = el('input', { type: 'file', id: 'journal-file', accept: '.json,application/json', hidden: true, onchange: () => readFile(file) });
-    const loadBtn = el('button', { type: 'button', className: 'btn', id: 'load-save', onclick: () => { file.value = ''; file.click(); } }, '이어하기 파일 불러오기');
+    const loadBtn = el('button', { type: 'button', className: 'btn', id: 'load-save', onclick: () => browse() }, '이어하기 파일 불러오기');
     const status = el('p', { className: 'status', id: 'journal-status', role: 'status' });
     const askText = el('p', {});
     const ask = el('div', { className: 'reset-confirm j-confirm', id: 'import-confirm', hidden: true }, askText,
       el('div', { className: 'row' },
-        el('button', { type: 'button', className: 'btn btn-grad', id: 'confirm-import', onclick: () => { if (incoming) ctx.importSave(incoming); } }, '이 기록으로 이어하기'),
+        el('button', { type: 'button', className: 'btn btn-grad', id: 'confirm-import', onclick: () => accept() }, '이 기록으로 이어하기'),
         el('button', { type: 'button', className: 'btn btn-ghost', id: 'cancel-import', onclick: () => { closeAsk(); loadBtn.focus({ preventScroll: true }); } }, '취소')));
     pane.replaceChildren(
       el('p', { className: 'lead' }, '알고 있던 장소도 자세히 보면 새로워요. 오늘의 발견을 모아 우리 고장을 소개해 보세요.'),
@@ -77,8 +79,9 @@ export function createJournal(doc, ctx) {
         el('button', { type: 'button', className: 'btn', id: 'export-save', onclick: exportSave }, '이어하기 파일 저장'),
         loadBtn, file),
       status, ask);
-    ui = { foundN, quizN, xpN, filters, list, note, status, ask, askText };
+    ui = { foundN, quizN, xpN, filters, list, note, status, ask, askText, file, loadBtn };
   }
+  function browse() { ui.file.value = ''; ui.file.click(); }   // the file chooser
 
   function render() {
     if (!ui) build();
@@ -147,9 +150,16 @@ export function createJournal(doc, ctx) {
     ui.ask.scrollIntoView?.({ block: 'nearest' });
   }
   function closeAsk() { incoming = null; ui.ask.hidden = true; }
+  // 이 기록으로 이어하기: main.js stores the file and reloads, or answers false when storage refused it (M5)
+  function accept() {
+    if (!incoming || ctx.importSave(incoming) !== false) return;
+    closeAsk(); say(SAVE_FAILED, true);
+    ui.loadBtn.focus({ preventScroll: true });
+  }
 
   return {
     render,
     reset() { if (!ui) return; closeAsk(); say(''); },
+    pick() { if (!ui) render(); ui.loadBtn.focus({ preventScroll: true }); ui.loadBtn.scrollIntoView?.({ block: 'nearest' }); browse(); },
   };
 }

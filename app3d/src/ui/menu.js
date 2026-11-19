@@ -9,7 +9,7 @@
 import { el, openModal, closeModal } from './dom.js';
 import { shopView, pressItem, chooseCharacter } from './shop.js';
 import { createJournal } from './journal.js';
-import { download, saveFile, SAVE_NAME } from '../game/files.js';
+import { download, saveFile, SAVE_NAME, SAVE_FAILED } from '../game/files.js';
 import { missionCards } from '../game/missions.js';
 import { SHOP_CATEGORIES } from '#game/wardrobe.js';
 import { koreanVoices } from '#game/audio.js';
@@ -41,8 +41,8 @@ const NO_SPEECH = '이 브라우저는 설명 읽기를 지원하지 않아요.'
  *   dress()                the character or the outfit changed: show it on the explorer now
  *   changed()              coins or missions changed: refresh the HUD and save
  *   thumbs                 ui/thumbs.js (paint(canvas, spec))
- *   reset()                기록 지우고 처음부터 (main.js wipes the save and reloads)
- *   importSave(state)      an accepted 이어하기 file (수첩): main.js stores it and reloads
+ *   reset()                기록 지우고 처음부터 (main.js wipes the save and reloads; false: it could not be written)
+ *   importSave(state)      an accepted 이어하기 file (수첩): main.js stores it and reloads (false: not written)
  *   onClose()              the menu asks to close
  */
 export function createMenu(doc, ctx) {
@@ -211,12 +211,17 @@ export function createMenu(doc, ctx) {
     fillVoices();
   }
 
-  // 이 기기 기록 초기화: a second step in the page (no window.confirm), with the 2D backup offer first
+  // 이 기기 기록 초기화: a second step in the page (no window.confirm), with the 2D backup offer first; a reset that
+  // could not be written says so (M5). 이어하기 파일 불러오기 beside it opens the 수첩 at its file chooser (M3)
   const confirmBox = $('reset-confirm');
-  $('reset-progress').onclick = () => { confirmBox.hidden = false; $('backup-first').focus({ preventScroll: true }); confirmBox.scrollIntoView?.({ block: 'nearest' }); };
+  $('reset-progress').onclick = () => { status('records-status', ''); confirmBox.hidden = false; $('backup-first').focus({ preventScroll: true }); confirmBox.scrollIntoView?.({ block: 'nearest' }); };
   $('cancel-reset').onclick = () => { confirmBox.hidden = true; $('reset-progress').focus({ preventScroll: true }); };
   $('backup-first').onclick = () => { ctx.changed(); download(doc, SAVE_NAME, saveFile(state()), 'application/json'); };
-  $('confirm-reset').onclick = () => ctx.reset();
+  $('confirm-reset').onclick = () => {
+    if (ctx.reset() !== false) return;
+    confirmBox.hidden = true; status('records-status', SAVE_FAILED, true); $('reset-progress').focus({ preventScroll: true });
+  };
+  $('settings-load-save').onclick = () => { select('journal'); journal.pick(); };
 
   go.onclick = () => ctx.onClose();
 
@@ -224,7 +229,7 @@ export function createMenu(doc, ctx) {
     open(data = {}) {
       openNow = true;
       go.textContent = data.title && data.fresh ? '탐방 시작' : '이어하기';
-      confirmBox.hidden = true;
+      confirmBox.hidden = true; status('records-status', '');
       journal.reset();
       root.hidden = false;
       ctx.root.classList.add('menu-open');   // the HUD steps aside: the panel over the county alone

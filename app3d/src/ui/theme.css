@@ -437,6 +437,9 @@ html.reduce-motion .mission .dots i.active { animation: none; }
    <= 10 fps), a bottom sheet on a phone held upright. Brand row with the coins, tabs, one scrolling pane, the primary
    button in the foot. The scrim only darkens the left so the county stays in view ---- */
 #app.menu-open :is(.hud-tl, .credit-dock, .mission, .minimap, .cam-pad, .corner, .hud-br, #toast) { visibility: hidden; }
+/* an audio or voice error (main.js soundError) comes from a press, often inside a dialog: above every scrim (M4) */
+#toast.over { z-index: var(--z-notice); }
+#app.menu-open #toast.over { visibility: visible; }
 .scrim.menu-scrim { display: block; padding: 0; background: linear-gradient(90deg, rgba(4, 5, 14, .5), rgba(4, 5, 14, .12) 62%, rgba(4, 5, 14, 0)); -webkit-backdrop-filter: none; backdrop-filter: none; }
 .menu { word-break: keep-all; overflow-wrap: break-word; position: absolute; left: calc(16px + var(--safe-l)); top: calc(16px + var(--safe-t)); bottom: calc(16px + var(--safe-b)); width: min(440px, calc(100% - 32px - var(--safe-l) - var(--safe-r))); display: flex; flex-direction: column; gap: 10px; padding: 16px 16px 14px; overflow: hidden; -webkit-user-select: text; user-select: text; }
 .menu .brand { display: flex; align-items: center; gap: 8px; min-width: 0; }
@@ -547,6 +550,7 @@ html.reduce-motion .mission .dots i.active { animation: none; }
 .menu select { flex: 1 1 200px; min-width: 0; min-height: 44px; border-radius: 12px; border: 2px solid var(--line); background: rgba(255, 255, 255, .06); color: #fff; font-family: var(--body); font-size: 15px; font-weight: 700; padding: 0 10px; }
 .menu select option { background-color: #12142a; color: #fff; }
 .settings > .btn, .reset-confirm .btn { align-self: flex-start; }
+.records { display: flex; flex-wrap: wrap; gap: 8px; }   /* 이 기기 기록 초기화 · 이어하기 파일 불러오기 */
 .opt-links:not(:has(.links > :not([hidden]))) { display: none; }
 .links { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
 .links a.btn { display: inline-flex; align-items: center; text-decoration: none; }
@@ -754,6 +758,7 @@ html.reduce-motion .map-note.away { transition: none; }
 .qr-text .btn { margin: 2px 0 10px; }
 .qr-url { color: var(--cyan); font-weight: 700; overflow-wrap: anywhere; -webkit-user-select: all; user-select: all; }
 .qr-text .status { margin: 0; color: var(--ok); font-weight: 700; }
+#copy-link { scroll-margin: 8px; }   /* the first focus, scrolled into view with room for its 5 px focus ring (M8) */
 .qr-text .status:empty { display: none; }
 
 @media (max-width: 720px) {

@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { josa } from '../src/ui/hud.js';
 
-test('josa picks 와/과 and 로/으로 from the last syllable', () => {
+test('josa picks 와/과, 을/를 and 로/으로 from the last syllable', () => {
   assert.equal(josa('도서관 길잡이', 'with'), '와');
   assert.equal(josa('마을 이웃', 'with'), '과');
   assert.equal(josa('마을 이야기 선생님', 'with'), '과');
@@ -10,6 +10,9 @@ test('josa picks 와/과 and 로/으로 from the last syllable', () => {
   assert.equal(josa('죽도', 'to'), '로');
   assert.equal(josa('마을', 'to'), '로');          // ㄹ takes 로
   assert.equal(josa('CU', 'to'), '로');            // not Hangul: no final consonant
+  assert.equal(josa('홍성초등학교', 'obj'), '를');
+  assert.equal(josa('홍성역', 'obj'), '을');
+  assert.equal(josa('마을', 'obj'), '을');          // ㄹ is a final consonant here
 });
 
 test('hudLayoutKey follows the 2D mobileLayout rule (mobile: width <= 820 or height <= 600)', async () => {

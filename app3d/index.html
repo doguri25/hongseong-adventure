@@ -185,12 +185,18 @@
               <a class="btn" id="open-2d" href="./2d/" hidden>가벼운 2D로 열기</a>
             </div>
           </div>
+          <!-- 기록: the reset with its second step, and 이어하기 파일 불러오기 beside it (spec 5.1, 2D showHelp settings), which
+               opens the 수첩 at its file chooser -->
           <h3>기록</h3>
-          <button type="button" class="btn danger" id="reset-progress">이 기기 기록 초기화</button>
+          <div class="records">
+            <button type="button" class="btn danger" id="reset-progress">이 기기 기록 초기화</button>
+            <button type="button" class="btn" id="settings-load-save">이어하기 파일 불러오기</button>
+          </div>
           <div class="reset-confirm" id="reset-confirm" hidden>
             <p>발견 기록, 금화와 구입한 꾸미기가 지워져요. 먼저 이어하기 파일을 저장할까요?</p>
             <div class="row"><button type="button" class="btn" id="backup-first">파일 저장</button><button type="button" class="btn danger" id="confirm-reset">기록 지우고 처음부터</button><button type="button" class="btn btn-ghost" id="cancel-reset">취소</button></div>
           </div>
+          <p class="status" id="records-status" role="status"></p>
         </section>
       </div>
       <div class="foot"><button type="button" class="btn btn-grad go" id="menu-go">이어하기</button></div>

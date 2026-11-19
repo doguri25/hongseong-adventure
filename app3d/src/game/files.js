@@ -40,6 +40,9 @@ export function readSaveFile(text, size) {
   return { ok: true, state: sanitizeState(raw) };
 }
 
+/** What the menu says when an import or a reset could not be written (storage blocked or full): nothing changed. */
+export const SAVE_FAILED = '이 기기에 저장하지 못했어요.';
+
 /** An accepted import replaces this device's progress (the caller then reloads, and saves nothing before it). */
 export function writeSave(storage, state) {
   try { storage.setItem(STORAGE_KEY, JSON.stringify(state)); return true; } catch { return false; }
