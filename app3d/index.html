@@ -13,7 +13,7 @@
   <canvas id="c" tabindex="0" aria-label="홍성군 3D 탐방 지도. 왼쪽을 누른 채 끌면 움직이고, 오른쪽을 끌면 화면을 돌려요."></canvas>
   <div id="stick" hidden><div id="knob"></div></div>
 
-  <!-- top left (pokju #hud chips): home -> menu, where, coins, discoveries with a bar -->
+  <!-- top left (pokju #hud chips): home -> menu, where, coins, discoveries with a bar (a button: the menu's 수첩) -->
   <header class="hud-tl">
     <div class="hud-row">
       <button class="round home" id="home-btn" type="button" title="메뉴" aria-label="메뉴 열기"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 11 12 4l8.5 7"/><path d="M6 9.5V20h4.5v-5.5h3V20H18V9.5"/></svg></button>
@@ -21,7 +21,7 @@
     </div>
     <div class="hud-row stats">
       <div class="chip coin-chip"><i class="coin" aria-hidden="true"></i><span>금화 <strong id="coins">0</strong></span></div>
-      <div class="chip found-chip"><span>발견 <strong id="found">0</strong> / <span id="found-total">223</span></span><span class="gauge" aria-hidden="true"><i id="found-bar"></i></span></div>
+      <button class="chip found-chip" id="found-btn" type="button" title="발견 수첩" aria-label="발견 0 / 223, 발견 수첩 열기"><span>발견 <strong id="found">0</strong> / <span id="found-total">223</span></span><span class="gauge" aria-hidden="true"><i id="found-bar"></i></span></button>
     </div>
   </header>
   <div class="credit-dock" id="credit-dock"></div>

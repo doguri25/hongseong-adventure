@@ -35,6 +35,7 @@ import { missionView } from './game/missions.js';
 import { createPlaceDialog, createNpcDialog } from './ui/place-dialog.js';
 import { createMenu } from './ui/menu.js';
 import { createThumbs } from './ui/thumbs.js';
+import { writeSave } from './game/files.js';
 import { PLACES } from '#game/content.js';
 import { districtAt, distance, canVisit } from '#game/geography.js';
 import { RoadNavigator } from '#game/navigation.js';
@@ -87,6 +88,7 @@ const hud = createHud(document, {
   // the county map (Task 7) has no renderer yet: the controller drops it without pausing
   onMap: () => { if (live() && !G.ctl.paused()) G.ctl.open('map'); },
   onHome: () => { if (live() && !G.ctl.paused()) G.ctl.open('menu'); },
+  onJournal: () => { if (live() && !G.ctl.paused()) G.ctl.open('menu', { tab: 'journal' }); },   // the discovery chip
   onGuide: (id) => { if (live() && id) G.ctl.goTo(id); },
   onMissionOpen: () => { if (live()) { G.ctl.dayTick(Date.now()); refreshMission(); } },   // a new KST day refreshes the card
   onReload: () => { if (G) G.extra.quality = 'low'; rememberQuality(storage, 'low'); location.reload(); },   // the pagehide save must not undo it
@@ -252,7 +254,7 @@ async function boot() {
   G.menu = createMenu(document, {
     root: $('app'), returnFocus: canvas, getState: () => state, places, ctl, thumbs: G.thumbs,
     current: () => ({ mode: G.voyage ? 'boat' : player.mode, pending: player.pending }),
-    settings: settingsView, setting: applySetting, dress, reset: resetProgress,
+    settings: settingsView, setting: applySetting, dress, reset: resetProgress, importSave: importProgress,
     changed: () => { refreshStats(); refreshMission(); save(); },
     onClose: () => ctl.close(),
   });
@@ -630,6 +632,12 @@ function dress() { G.actors.setCharacter(G.state.character); G.actors.setOutfit(
 function resetProgress() {
   G.resetting = true;
   resetSession(storage, G.extra);
+  location.reload();
+}
+// 이어하기 파일 불러오기, accepted in the 수첩 (2D importSave): the file's cleaned state replaces this device's, then a reload
+function importProgress(next) {
+  G.resetting = true;
+  writeSave(storage, next);
   location.reload();
 }
 

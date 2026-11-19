@@ -1,15 +1,17 @@
 // The title and menu (pokju #menu): the game name, the coins (#wallet), the primary button (이어하기, or 탐방 시작 on a
 // fresh save) and five tabs: 탐방 (today's three missions), 탈것 (six vehicles with rendered pictures, ui/thumbs.js),
-// 꾸미기 (the three characters and the 2D shop, ui/shop.js), 수첩 (an empty slot ui/journal.js fills, Task 5) and 설정.
+// 꾸미기 (the three characters and the 2D shop, ui/shop.js), 수첩 (the discovery journal and the save files,
+// ui/journal.js) and 설정.
 // It is the game controller's 'menu' dialog: opening it pauses the game (the world keeps rendering behind at <= 10 fps)
 // and every way out (the primary button, Escape) goes through ctx.onClose -> ctl.close(). The rules stay in the pure
 // modules (game/missions.js missionCards, shop.js, dist/core.js purchase); main.js applies every effect (ctx below).
 // Copy is the 2D game's (dist/game.js showMissions, showShop, showHelp settings and reset).
 import { el, openModal, closeModal } from './dom.js';
 import { shopView, pressItem, chooseCharacter } from './shop.js';
+import { createJournal } from './journal.js';
+import { download, saveFile, SAVE_NAME } from '../game/files.js';
 import { missionCards } from '../game/missions.js';
 import { SHOP_CATEGORIES } from '#game/wardrobe.js';
-import { PLACES } from '#game/content.js';
 import { koreanVoices } from '#game/audio.js';
 
 const LITE_2D = false;   // 가벼운 2D로 열기 (./2d/): phase 2b moves the 2D game there and turns this on
@@ -25,14 +27,13 @@ export const RIDES = [
 ];
 const VOICE_TEST = '안녕! 우리 고장 홍성의 이야기를 함께 알아보자.';
 const NO_SPEECH = '이 브라우저는 설명 읽기를 지원하지 않아요.';
-const BACKUP_NAME = '홍성모험수첩_이어하기.json';
 
 /**
  * createMenu(doc, ctx) -> {open(data), hide(), isOpen, refresh()}. data: {title, fresh} (the boot title; fresh: no
- * save yet). ctx:
+ * save yet) or {tab} (open at that tab, e.g. 'journal' from the HUD's discovery chip). ctx:
  *   root, returnFocus      #app (its other children go inert) and the canvas (focus on close)
  *   getState(), places     the shared save state; the mapped places (mission names)
- *   ctl                    the game controller: startMission, setMode, dayTick, open(kind), sound, narrator
+ *   ctl                    the game controller: startMission, setMode, dayTick, open(kind), goTo, sound, narrator
  *   current()              {mode, pending} of the player, for the 탈것 cards
  *   settings()             the 설정 values as strings: sound, music, motion ('on'|'off'), volume (0-1), voice,
  *                          speed ('0.75'|'1'|'1.4'), movement ('roads'|'free'), quality, camera, time
@@ -41,8 +42,8 @@ const BACKUP_NAME = '홍성모험수첩_이어하기.json';
  *   changed()              coins or missions changed: refresh the HUD and save
  *   thumbs                 ui/thumbs.js (paint(canvas, spec))
  *   reset()                기록 지우고 처음부터 (main.js wipes the save and reloads)
+ *   importSave(state)      an accepted 이어하기 file (수첩): main.js stores it and reloads
  *   onClose()              the menu asks to close
- *   renderJournal(pane)    optional: the 수첩 tab (Task 5); default: the discovery count
  */
 export function createMenu(doc, ctx) {
   const $ = (id) => doc.getElementById(id);
@@ -51,6 +52,7 @@ export function createMenu(doc, ctx) {
   const tabs = TABS.map((t) => $('tab-' + t)), panes = Object.fromEntries(TABS.map((t) => [t, $('pane-' + t)]));
   const state = () => ctx.getState();
   let tab = 'missions', category = 'character', openNow = false;
+  const journal = createJournal(doc, { pane: panes.journal, getState: ctx.getState, places: ctx.places, ctl: ctx.ctl, save: () => ctx.changed(), importSave: (s) => ctx.importSave(s) });
 
   // ---- tabs (ARIA tabs: arrows, Home and End move between them)
   function select(name, focus = false) {
@@ -74,7 +76,7 @@ export function createMenu(doc, ctx) {
     if (name === 'missions') renderMissions();
     else if (name === 'vehicles') renderRides();
     else if (name === 'wardrobe') renderWardrobe();
-    else if (name === 'journal') (ctx.renderJournal || journalCount)(panes.journal, state());
+    else if (name === 'journal') journal.render();
     else if (name === 'settings') syncSettings();
   }
   // re-rendering a list keeps the focus on the same item (its first data-* attribute)
@@ -211,7 +213,7 @@ export function createMenu(doc, ctx) {
   const confirmBox = $('reset-confirm');
   $('reset-progress').onclick = () => { confirmBox.hidden = false; $('backup-first').focus({ preventScroll: true }); confirmBox.scrollIntoView?.({ block: 'nearest' }); };
   $('cancel-reset').onclick = () => { confirmBox.hidden = true; $('reset-progress').focus({ preventScroll: true }); };
-  $('backup-first').onclick = () => download(doc, BACKUP_NAME, JSON.stringify(state(), null, 2), 'application/json');
+  $('backup-first').onclick = () => { ctx.changed(); download(doc, SAVE_NAME, saveFile(state()), 'application/json'); };
   $('confirm-reset').onclick = () => ctx.reset();
 
   go.onclick = () => ctx.onClose();
@@ -221,10 +223,11 @@ export function createMenu(doc, ctx) {
       openNow = true;
       go.textContent = data.title && data.fresh ? '탐방 시작' : '이어하기';
       confirmBox.hidden = true;
+      journal.reset();
       root.hidden = false;
       ctx.root.classList.add('menu-open');   // the HUD steps aside: the panel over the county alone
       openModal(dialog, { root: ctx.root, returnFocus: ctx.returnFocus, onClose: () => ctx.onClose() });
-      select(data.title ? 'missions' : tab);
+      select(data.title ? 'missions' : data.tab || tab);
       (data.title ? go : tabs[TABS.indexOf(tab)]).focus({ preventScroll: true });
     },
     // the controller's hideDialog: idempotent
@@ -240,19 +243,4 @@ export function createMenu(doc, ctx) {
     select,
     refresh() { if (openNow) render(tab); },
   };
-}
-
-// The 수첩 slot until Task 5's journal: the 2D result counts (dist/game.js exportResult)
-function journalCount(pane, s) {
-  pane.replaceChildren(el('dl', { className: 'tally' },
-    el('dt', {}, '발견'), el('dd', {}, `${s.discovered.length} / ${PLACES.length}곳`),
-    el('dt', {}, '퀴즈'), el('dd', {}, `${s.solved.length} / ${PLACES.length}개`)));
-}
-
-// a file to save, through an <a download> blob link (2D download())
-function download(doc, name, text, type) {
-  const url = URL.createObjectURL(new Blob([text], { type }));
-  const a = el('a', { href: url, download: name });
-  doc.body.append(a); a.click(); a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }

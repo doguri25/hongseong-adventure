@@ -9,14 +9,20 @@
 // arrival shows the big notice. The title menu opens at boot (paused); at all four viewports every menu tab is checked
 // the same way (sizes, fonts, the vehicle pictures), a wardrobe item is bought with seeded coins and taken off again,
 // a few settings take effect, the reset asks a second time in the page, and the menu closes into play (primary
-// button, home button + Escape, a mission's 출발). Screenshots go to OUT (SMOKE_OUT, default a folder in the system
-// temp directory; SMOKE_ONLY=tablet,phone,landscape runs only those passes).
+// button, home button + Escape, a mission's 출발). The 수첩 is checked at all four viewports too: opened from the HUD's
+// discovery chip, every filter (sizes, fonts, nothing overlapping), the stamp and 수첩 colour, the card actions, the
+// note across a reload, both downloads and the import (refused files, 취소, then accepted with a reload). Screenshots go
+// to OUT (SMOKE_OUT, default a folder in the system temp directory; SMOKE_ONLY=tablet,phone,landscape runs only those
+// passes).
 import http from 'node:http';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
+import { PLACES } from '#game/content.js';
+import { STAMPS, JOURNALS } from '#game/wardrobe.js';
+import { freshState } from '#game/core.js';
 
 const require = createRequire(import.meta.url);
 const { chromium } = require('playwright');
@@ -74,18 +80,28 @@ async function dragStick(page, label) {
 // Accessibility floor for the HUD and dialogs: every visible control is at least 44x44 CSS px, every sentence a child
 // reads is at least 15 px; short labels inside buttons and chips may be smaller (labels 13, factor / key labels 12).
 const TEXT_15 = ['#where', '.stats', '.hint', '.credit .lead', '.credit summary', '#toast', '.notice span', '#turn-hint', '.act', '#mission-detail', '#npc-body', '#place-body', '.dialog .blurb', '.dialog .meta', '.dialog .reward', '.quiz .feedback', '#loading-step', '#lost p',
-  '.menu .lead', '.menu .note', '.menu .status', '.mis-card p', '.card .desc', '.product p', '.reset-confirm p', '.tally', '.wallet'];
+  '.menu .lead', '.menu .note', '.menu .status', '.mis-card p', '.card .desc', '.product p', '.reset-confirm p', '.tally', '.wallet',
+  '#found-btn', '.tally dt', '.tally dd', '.tally small', '.j-desc', '.j-empty', '.j-note label', '#journal-note'];
 const LABEL_MIN = [['.travel button span', 13], ['.travel button small', 12], ['.dialog .tag', 13], ['.skill .lbl', 13], ['.skill small', 12], ['.mission-kick', 13], ['#mission-title', 13], ['.mission .badge', 13], ['.mission-foot .btn', 13], ['#speed-factor', 12], ['.cam-pad button', 13],
-  ['.menu .tabs [role="tab"]', 13], ['.menu h3', 13], ['.mis-kick', 13], ['.mis-card h4', 13], ['.mis-card .btn', 13], ['.ride-head b', 13], ['.card .factor', 12], ['.shop-cats .cat', 13], ['.card.char b', 13], ['.card.char span', 13], ['.product h4', 13], ['.product .buy', 13], ['.opt-name', 13], ['.seg button', 13], ['.menu select', 13], ['.menu .settings > .btn', 13], ['.reset-confirm .btn', 13], ['.menu .go', 13]];
+  ['.menu .tabs [role="tab"]', 13], ['.menu h3', 13], ['.mis-kick', 13], ['.mis-card h4', 13], ['.mis-card .btn', 13], ['.ride-head b', 13], ['.card .factor', 12], ['.shop-cats .cat', 13], ['.card.char b', 13], ['.card.char span', 13], ['.product h4', 13], ['.product .buy', 13], ['.opt-name', 13], ['.seg button', 13], ['.menu select', 13], ['.menu .settings > .btn', 13], ['.reset-confirm .btn', 13], ['.menu .go', 13],
+  ['.j-filters button', 13], ['.j-tag', 13], ['.j-stamp', 13], ['.j-card b', 13], ['.j-actions .btn', 13]];
 // touch screens: nothing interactive in the stick zone (left 42 % of the width, lower 45 % of the height) while
-// playing; overlaps() as ui/dom.js: edges that only touch do not count
+// playing; the discovery chip (a button: the 수첩) clear of every other HUD piece; overlaps() as ui/dom.js: edges that
+// only touch do not count
+const HUD_PIECES = ['#home-btn', '.where-chip', '.coin-chip', '#mission', '#minimap', '.cam-pad', '#credit-dock > *', '.hud-br > *'];
 async function measureUi(page, touch) {
-  return page.evaluate(({ TEXT_15, LABEL_MIN, touch }) => {
-    const small = [], fonts = [], inZone = [];
+  return page.evaluate(({ TEXT_15, LABEL_MIN, HUD_PIECES, touch }) => {
+    const small = [], fonts = [], inZone = [], clash = [];
     const zone = { left: 0, top: innerHeight * 0.55, right: innerWidth * 0.42, bottom: innerHeight };
     const overlaps = (a, b) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
+    const shown = (el) => { const r = el.getBoundingClientRect(), cs = getComputedStyle(el); return r.width > 0 && r.height > 0 && cs.visibility !== 'hidden' && cs.display !== 'none' ? r : null; };
+    const chip = document.getElementById('found-btn'), chipRect = chip && shown(chip);
+    if (chipRect) for (const sel of HUD_PIECES) for (const el of document.querySelectorAll(sel)) {
+      const r = shown(el);
+      if (r && overlaps(chipRect, r)) clash.push(`${sel} at ${Math.round(r.left)},${Math.round(r.top)} ${Math.round(r.width)}x${Math.round(r.height)}`);
+    }
     let controls = 0;
-    for (const el of document.querySelectorAll('button, summary, a[href], [role="button"], input, select')) {
+    for (const el of document.querySelectorAll('button, summary, a[href], [role="button"], input, select, textarea')) {
       const r = el.getBoundingClientRect(), cs = getComputedStyle(el);
       if (!r.width || !r.height || cs.visibility === 'hidden' || cs.display === 'none') continue;
       controls++;
@@ -98,14 +114,15 @@ async function measureUi(page, touch) {
       const px = parseFloat(getComputedStyle(el).fontSize);
       if (px < min) fonts.push(`${sel} ${px}px < ${min}`);
     }
-    return { controls, small, fonts, inZone };
-  }, { TEXT_15, LABEL_MIN, touch: !!touch });
+    return { controls, small, fonts, inZone, clash, chip: !!chipRect };
+  }, { TEXT_15, LABEL_MIN, HUD_PIECES, touch: !!touch });
 }
 async function checkUi(page, name, where, touch = false) {
   const ui = await measureUi(page, touch);
   check(ui.small.length === 0, `${name} ${where}: ${ui.controls} visible controls are >= 44x44${ui.small.length ? ' — too small: ' + ui.small.join(', ') : ''}`);
   check(ui.fonts.length === 0, `${name} ${where}: sentences >= 15 px, labels at their minimum${ui.fonts.length ? ' — ' + ui.fonts.join(', ') : ''}`);
   if (touch) check(ui.inZone.length === 0, `${name} ${where}: no control in the stick zone${ui.inZone.length ? ' — ' + ui.inZone.join(', ') : ''}`);
+  if (ui.chip) check(ui.clash.length === 0, `${name} ${where}: the discovery chip overlaps no other HUD piece${ui.clash.length ? ' — ' + ui.clash.join(', ') : ''}`);
 }
 
 // The title menu (ui/menu.js) as it opens at boot, then the menu from the home button. Every tab at this viewport:
@@ -133,6 +150,10 @@ async function checkMenu(page, name, spec, shot) {
       check(pics.length === 6 && pics.every((n) => n > 12), `${name}: the six vehicle cards show rendered pictures (colours ${pics.join(', ')})`);
     }
     if (tab === 'wardrobe') await page.waitForFunction(() => window.__hs3d.world.thumbs.size >= 9, null, { timeout: 60000, polling: 300 }).catch(() => {});
+    if (tab === 'journal') {
+      const j = await page.evaluate(() => ({ stats: [...document.querySelectorAll('#pane-journal .tally dt')].map((d) => d.textContent).join('/'), filters: [...document.querySelectorAll('#pane-journal [data-filter]')].map((b) => b.textContent).join('/'), cards: document.querySelectorAll('#journal-list .j-card').length, note: !!document.getElementById('journal-note'), files: ['export-result', 'export-save', 'load-save'].map((id) => document.getElementById(id)?.textContent).join('/') }));
+      check(j.stats === '발견/퀴즈/탐험 점수' && j.filters === '전체/발견/역사/생활' && j.cards === PLACES.length && j.note && j.files === '결과 내려받기/이어하기 파일 저장/이어하기 파일 불러오기', `${name}: the 수첩 tab from the menu: stats, filters, ${j.cards} cards, the note and the file buttons (${JSON.stringify(j)})`);
+    }
     await sleep(300);
     await checkUi(page, name, `menu ${tab}`, touch);
     await shot(`menu-${tab}`);
@@ -202,6 +223,177 @@ async function checkMenu(page, name, spec, shot) {
     return r;
   });
   check(!!go && !go.open && !go.paused && go.target && go.active === go.id, `${name}: a mission's 출발 closes the menu and heads there (${JSON.stringify(go)})`);
+}
+
+// Waits for __hs3d.ready after a reload (the note check, the import), then for the ground to stream in again.
+async function waitReady(page, name, when) {
+  let ok = false;
+  try { await page.waitForFunction(() => window.__hs3d && window.__hs3d.ready === true, null, { timeout: READY_MS, polling: 500 }); ok = true; } catch {}
+  check(ok, `${name}: ready again ${when}`);
+  if (ok) await page.waitForFunction(() => window.__hs3d.info().groundLevels >= 2, null, { timeout: 120000, polling: 1000 }).catch(() => {});
+  return ok;
+}
+
+// The 수첩 pane's layout: none of its blocks, stat cells, filter buttons, cards or file buttons overlap one another
+// (overlaps() as ui/dom.js), and every card's text stays inside its card.
+async function checkJournalLayout(page, name, where) {
+  const r = await page.evaluate(() => {
+    const pane = document.getElementById('pane-journal'), bad = [], out = [];
+    const overlaps = (a, b) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
+    const label = (e) => `${e.id || e.dataset.place || e.dataset.filter || e.className || e.tagName}`;
+    const parts = [...pane.querySelectorAll(':scope > *, .tally > div, .j-filters button, .j-card, .j-actions > *')]
+      .map((e) => [e, e.getBoundingClientRect()]).filter(([e, q]) => q.width > 0 && q.height > 0 && getComputedStyle(e).display !== 'none');
+    for (let i = 0; i < parts.length; i++) for (let j = i + 1; j < parts.length; j++) {
+      const [a, ra] = parts[i], [b, rb] = parts[j];
+      if (!a.contains(b) && !b.contains(a) && overlaps(ra, rb)) bad.push(`${label(a)} / ${label(b)}`);
+    }
+    for (const c of pane.querySelectorAll('.j-card')) {
+      const q = c.getBoundingClientRect();
+      for (const k of c.querySelectorAll('*')) { const e = k.getBoundingClientRect(); if (e.left < q.left - 0.5 || e.right > q.right + 0.5 || e.top < q.top - 0.5 || e.bottom > q.bottom + 0.5) out.push(`${c.dataset.place} ${k.className}`); }
+    }
+    return { parts: parts.length, bad: bad.slice(0, 5), nBad: bad.length, out: out.slice(0, 5), nOut: out.length };
+  });
+  check(r.nBad === 0 && r.nOut === 0, `${name} journal ${where}: ${r.parts} parts, none overlapping, every card's text inside its card${r.nBad ? ' — overlap: ' + r.bad.join(', ') : ''}${r.nOut ? ' — outside: ' + r.out.join(', ') : ''}`);
+}
+
+// The 수첩 (ui/journal.js) at this viewport. A found place (quiz solved), a worn stamp and 수첩 colour are seeded; the
+// HUD's discovery chip opens the menu at the 수첩 tab; every filter shows its cards (sizes, fonts, layout); a found
+// place replays its story and so does a story-only place, both without counting as found, and a place not found yet
+// becomes the walk target (all three close the menu); the note is saved as it is typed and is there after a reload;
+// both downloads are the 2D files; the import refuses an oversized, a broken and a version 2 file with the 2D
+// messages (progress untouched), asks before a good one (취소 keeps the progress), then replaces it and reloads.
+const JOURNAL_FILTERS = [['all', '전체'], ['found', '발견'], ['heritage', '역사'], ['daily', '생활']];
+const FILTER_COUNT = { all: PLACES.length, heritage: PLACES.filter((p) => ['heritage', 'intangible'].includes(p.type)).length, daily: PLACES.filter((p) => ['daily', 'public'].includes(p.type)).length };
+const NOTE = '홍주읍성을 친구에게 소개하고 싶어요. 성곽 길을 따라 걸으면 옛날 이야기가 들리거든요!';
+const rgb = (hex) => `rgb(${[1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)).join(', ')})`;
+async function downloadOf(page, id) {
+  const [d] = await Promise.all([page.waitForEvent('download', { timeout: 15000 }), page.evaluate((b) => document.getElementById(b).click(), id)]);
+  return { name: d.suggestedFilename(), text: fs.readFileSync(await d.path(), 'utf8'), status: await page.evaluate(() => document.getElementById('journal-status').textContent) };
+}
+async function checkJournal(page, name, spec, shot) {
+  const touch = !!spec.touch;
+  await page.evaluate(() => {
+    const W = window.__hs3d.world, S = W.state;
+    window.__hs3d.closeDialogs(); W.target = null;
+    if (!S.discovered.includes('library')) S.discovered.push('library');
+    if (!S.solved.includes('library')) S.solved.push('library');
+    S.equipped.stamp = 'heart'; S.equipped.journal = 'ocean';
+  });
+  await sleep(500);
+  await checkUi(page, name, 'discovery chip', touch);
+  // from the HUD chip
+  const open = await page.evaluate(() => { const b = document.getElementById('found-btn'), label = b.getAttribute('aria-label'); b.click(); return { label, open: !document.getElementById('menu').hidden, paused: window.__hs3d.ctl.paused(), tab: document.getElementById('tab-journal').getAttribute('aria-selected'), pane: !document.getElementById('pane-journal').hidden, focus: document.activeElement?.id }; });
+  check(open.open && open.paused && open.tab === 'true' && open.pane && open.focus === 'tab-journal' && /^발견 \d+ \/ \d+, 발견 수첩 열기$/.test(open.label), `${name}: the discovery chip ("${open.label}") opens the menu at the 수첩 tab (${JSON.stringify(open)})`);
+  // the worn stamp on a found card, the worn 수첩 colour on the cards and the table
+  const look = await page.evaluate(() => { document.querySelector('#pane-journal [data-filter="all"]').click(); const c = document.querySelector('#journal-list [data-place="library"]'); return { stamp: c.querySelector('.j-stamp')?.textContent, border: getComputedStyle(c).borderTopColor, journal: document.getElementById('pane-journal').dataset.journal, stripe: getComputedStyle(document.querySelector('#pane-journal .tally')).boxShadow }; });
+  check(look.stamp === `${STAMPS.heart} 이야기 완성` && look.journal === 'ocean' && look.border === rgb(JOURNALS.ocean) && look.stripe.includes(rgb(JOURNALS.ocean)), `${name}: found cards wear the stamp (${look.stamp}) and the 수첩 colour edges the cards and the table (${JSON.stringify(look)})`);
+  // every filter
+  for (const [f, label] of JOURNAL_FILTERS) {
+    const v = await page.evaluate((f) => {
+      document.querySelector(`#pane-journal [data-filter="${f}"]`).click();
+      const cards = [...document.querySelectorAll('#journal-list .j-card')];
+      return { pressed: [...document.querySelectorAll('#pane-journal [data-filter][aria-pressed="true"]')].map((b) => b.dataset.filter).join(), ids: cards.map((c) => c.dataset.place), found: window.__hs3d.world.state.discovered.slice() };
+    }, f);
+    const want = f === 'found' ? PLACES.filter((p) => v.found.includes(p.id)).map((p) => p.id) : null;
+    check(v.pressed === f && (want ? JSON.stringify(v.ids) === JSON.stringify(want) : v.ids.length === FILTER_COUNT[f]), `${name}: 수첩 filter ${label} shows ${v.ids.length} cards (${want ? want.length : FILTER_COUNT[f]} expected)`);
+    await sleep(250);
+    await checkUi(page, name, `journal ${label}`, touch);
+    await checkJournalLayout(page, name, label);
+    await shot(`menu-journal-${f}`);
+  }
+  // a found place: its story as a replay (no arrival, the menu closed first)
+  const replay = await page.evaluate(() => {
+    const W = window.__hs3d.world, n = W.state.discovered.length;
+    document.querySelector('#pane-journal [data-filter="all"]').click();
+    document.querySelector('#journal-list [data-place="library"]').click();
+    const r = { menu: !document.getElementById('menu').hidden, kind: W.ctl.dialog?.kind, place: W.dialog.isOpen ? W.dialog.place?.id : null, physical: W.ctl.dialog?.data?.physical, paused: W.ctl.paused(), same: W.state.discovered.length === n };
+    window.__hs3d.closeDialogs();
+    return r;
+  });
+  check(!replay.menu && replay.kind === 'place' && replay.place === 'library' && replay.physical === false && replay.paused && replay.same, `${name}: a found card closes the menu and replays the place's story, not as an arrival (${JSON.stringify(replay)})`);
+  // a story-only place, not found: its story too, and it is still not found afterwards
+  const remote = PLACES.find((p) => p.remote).id;
+  const story = await page.evaluate((id) => {
+    const W = window.__hs3d.world;
+    document.getElementById('found-btn').click();
+    document.querySelector(`#journal-list [data-place="${id}"]`).click();
+    const r = { menu: !document.getElementById('menu').hidden, place: W.dialog.isOpen ? W.dialog.place?.id : null, physical: W.ctl.dialog?.data?.physical, found: W.state.discovered.includes(id) };
+    window.__hs3d.closeDialogs();
+    return r;
+  }, remote);
+  check(!story.menu && story.place === remote && story.physical === false && !story.found, `${name}: a story-only card (${remote}) opens its story (${JSON.stringify(story)})`);
+  // a mapped place not found yet: the menu closes into play and the explorer heads there
+  const away = PLACES.find((p) => !p.remote && p.id !== 'library').id;
+  const go = await page.evaluate((id) => {
+    const W = window.__hs3d.world;
+    document.getElementById('found-btn').click();
+    if (W.state.discovered.includes(id)) return { skip: true };
+    document.querySelector(`#journal-list [data-place="${id}"]`).click();
+    const r = { menu: !document.getElementById('menu').hidden, paused: W.ctl.paused(), target: !!W.target };
+    W.target = null; W.player.route = null;
+    return r;
+  }, away);
+  check(!go.skip && !go.menu && !go.paused && go.target, `${name}: a card not found yet (${away}) closes the menu into play and heads there (${JSON.stringify(go)})`);
+  await page.evaluate(() => { const S = window.__hs3d.world.state; S.equipped.stamp = 'default'; S.equipped.journal = 'default'; });
+  // the note: at most 1000 characters, saved as it is typed
+  await page.evaluate(() => { document.getElementById('found-btn').click(); document.getElementById('journal-note').scrollIntoView({ block: 'center' }); });
+  await page.fill('#journal-note', '가'.repeat(1200));
+  const long = await page.evaluate(() => window.__hs3d.world.state.note.length);
+  await page.fill('#journal-note', NOTE);
+  const typed = await page.evaluate(() => ({ state: window.__hs3d.world.state.note, saved: JSON.parse(localStorage.getItem('hongseong-adventure-v1')).note }));
+  check(long <= 1000 && typed.state === NOTE && typed.saved === NOTE, `${name}: the note keeps at most 1000 characters (${long}) and is saved as it is typed`);
+  await sleep(250);
+  await checkUi(page, name, 'journal note', touch);
+  await checkJournalLayout(page, name, 'note');
+  await shot('menu-journal-note');
+  // the two downloads: the 2D result text (BOM, counts, the found place, the note) and the 2D save file
+  const result = await downloadOf(page, 'export-result');
+  check(result.name === '홍성모험수첩_탐방결과.txt' && result.text.startsWith('\uFEFF홍성 모험 수첩 · 나의 탐방 결과') && /\n발견: \d+ \/ 241곳\n/.test(result.text) && result.text.includes('- 충남도서관 (홍성군 홍북읍) · 퀴즈 완료') && result.text.includes(NOTE) && result.status === '탐방 결과를 내려받았어요.', `${name}: 결과 내려받기 saves ${result.name} with the BOM, the found place and the note ("${result.status}")`);
+  const saveDl = await downloadOf(page, 'export-save');
+  let saved = null; try { saved = JSON.parse(saveDl.text); } catch {}
+  check(saveDl.name === '홍성모험수첩_이어하기.json' && saved?.version === 1 && saved.note === NOTE && saved.discovered.includes('library') && saveDl.status === '이어하기 파일을 저장했어요.', `${name}: 이어하기 파일 저장 saves ${saveDl.name} in the 2D format ("${saveDl.status}")`);
+  // the note is there after a reload
+  await page.reload({ waitUntil: 'load' });
+  if (!await waitReady(page, name, 'after a reload')) return false;
+  const kept = await page.evaluate(() => { document.getElementById('tab-journal').click(); return { note: document.getElementById('journal-note').value, go: document.getElementById('menu-go').textContent }; });
+  check(kept.note === NOTE && kept.go === '이어하기', `${name}: the note is still there after a reload (title "${kept.go}")`);
+  // 이어하기 파일 불러오기: refused files leave the progress as it was
+  const progress = () => page.evaluate(() => { const S = window.__hs3d.world.state; return JSON.stringify([S.discovered, S.solved, S.coins, S.owned, S.equipped, S.note]); });
+  const before = await progress();
+  for (const [file, want] of [[{ name: 'big.json', buffer: Buffer.alloc(200001, 32) }, '이어하기 파일이 너무 커요. 올바른 JSON 파일을 선택해 주세요.'],
+    [{ name: 'broken.json', buffer: Buffer.from('{"version":1,"discovered":[') }, '이어하기 파일을 읽지 못했어요. 이 게임에서 저장한 JSON 파일인지 확인해 주세요.'],
+    [{ name: 'v2.json', buffer: Buffer.from(JSON.stringify({ ...freshState(), version: 2 })) }, '이어하기 파일을 읽지 못했어요. 이 게임에서 저장한 JSON 파일인지 확인해 주세요.']]) {
+    await page.evaluate(() => { document.getElementById('journal-status').textContent = ''; });
+    await page.setInputFiles('#journal-file', { mimeType: 'application/json', ...file });
+    await page.waitForFunction(() => document.getElementById('journal-status').textContent, null, { timeout: 10000, polling: 100 }).catch(() => {});
+    const r = await page.evaluate(() => ({ status: document.getElementById('journal-status').textContent, warn: document.getElementById('journal-status').classList.contains('warn'), asked: !document.getElementById('import-confirm').hidden }));
+    r.same = await progress() === before;
+    check(r.status === want && r.warn && !r.asked && r.same, `${name}: importing ${file.name} is refused ("${r.status}") and the progress is untouched`);
+  }
+  // a good 2D save: asked first; 취소 keeps the progress
+  const incoming = { ...freshState(), discovered: ['hongju', 'library', 'namdang'], note: '파일에서 불러온 메모예요.' };
+  const good = { name: '홍성모험수첩_이어하기.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(incoming, null, 2)) };
+  await page.setInputFiles('#journal-file', good);
+  await page.waitForFunction(() => !document.getElementById('import-confirm').hidden, null, { timeout: 10000, polling: 100 }).catch(() => {});
+  const ask = await page.evaluate(() => ({ text: document.querySelector('#import-confirm p').textContent, focus: document.activeElement?.id }));
+  check(ask.text === '파일에는 3곳의 발견 기록이 있어요.현재 기기의 기록을 이 파일로 바꿀까요?' && ask.focus === 'confirm-import', `${name}: a good 이어하기 file asks first ("${ask.text}", focus on ${ask.focus})`);
+  await sleep(300);
+  await checkUi(page, name, 'journal import confirm', touch);
+  await checkJournalLayout(page, name, 'import confirm');
+  await shot('menu-journal-import');
+  const cancel = await page.evaluate(() => { document.getElementById('cancel-import').click(); return { hidden: document.getElementById('import-confirm').hidden, focus: document.activeElement?.id }; });
+  cancel.same = await progress() === before;
+  check(cancel.hidden && cancel.focus === 'load-save' && cancel.same, `${name}: 취소 keeps the progress (${JSON.stringify(cancel)})`);
+  // accepted: the file's progress replaces this device's and the game reloads with it
+  await page.setInputFiles('#journal-file', good);
+  await page.waitForFunction(() => !document.getElementById('import-confirm').hidden, null, { timeout: 10000, polling: 100 }).catch(() => {});
+  await Promise.all([page.waitForEvent('load', { timeout: 60000 }), page.evaluate(() => document.getElementById('confirm-import').click()).catch(() => {})]);
+  if (!await waitReady(page, name, 'after the import')) return false;
+  const after = await page.evaluate(() => { document.getElementById('tab-journal').click(); const S = window.__hs3d.world.state, st = JSON.parse(localStorage.getItem('hongseong-adventure-v1')); return { found: S.discovered.slice().sort(), note: S.note, field: document.getElementById('journal-note').value, stored: st.discovered.slice().sort(), storedNote: st.note }; });
+  const want = incoming.discovered.slice().sort();
+  check(JSON.stringify(after.found) === JSON.stringify(want) && JSON.stringify(after.stored) === JSON.stringify(want) && after.note === incoming.note && after.field === incoming.note && after.storedNote === incoming.note, `${name}: 이 기록으로 이어하기 replaces the progress and reloads with it (${JSON.stringify(after)})`);
+  await page.evaluate(() => document.getElementById('menu-go').click());   // into play for the rest of the run
+  return true;
 }
 
 // The HUD's own pieces: the mission card folded and open, the vehicle picker (and a choice through it), the minimap
@@ -459,6 +651,7 @@ async function run(browser, base, spec) {
     const k = await page.evaluate(() => ({ n: window.__keysWhileLoading || 0, q: window.__hs3d.info().quality.mode }));
     check(k.n > 0 && errors.length === 0, `${name}: ${k.n} action keys pressed while loading were ignored without errors (quality ${k.q})`);
   }
+  if (!await checkJournal(page, name, spec, shot)) { check(errors.length === 0, `${name}: no pageerror (${errors.join(' | ').slice(0, 400)})`); await ctx.close(); return; }
   await shot('1-start');
   if (spec.quick) {
     // touch tablet: the credit stays a collapsed toggle, and a short still touch in the stick zone taps the map
@@ -568,7 +761,9 @@ async function main() {
   fs.mkdirSync(OUT, { recursive: true });
   const server = await serve(ROOT);
   const base = `http://127.0.0.1:${server.address().port}`;
-  const browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--enable-webgl'] });
+  // a UTF-8 locale for the browser: without one (LANG unset) Linux Chromium saves the Korean download names as "download"
+  const env = { ...process.env, LANG: /utf-?8/i.test(process.env.LANG || '') ? process.env.LANG : 'C.UTF-8' };
+  const browser = await chromium.launch({ env, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--enable-webgl'] });
   try {
     for (const spec of [
       { name: 'desktop', viewport: { width: 1280, height: 760 }, touch: false, tour: true },

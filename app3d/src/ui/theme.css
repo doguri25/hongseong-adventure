@@ -135,6 +135,9 @@ html.q-low .panel, html.q-low .dialog { background-color: rgba(12, 14, 28, .96);
 .coin-chip strong { color: var(--warn); }
 .stats .found-chip { flex-direction: column; align-items: stretch; gap: 3px; }   /* the bar under the count keeps the chip narrow */
 .found-chip .gauge { width: auto; height: 5px; }
+/* the discovery chip is a button (the menu's 수첩): touch-sized at every layout, the coin chip stretches with it */
+#found-btn { pointer-events: auto; justify-content: center; min-height: 44px; min-width: 44px; text-align: left; }
+#found-btn:hover { background-color: var(--accent-soft); }
 
 /* the map credit on touch / narrow screens: under the chips (under the mission card on a phone held upright) */
 .credit-dock { top: calc(var(--tl-b) + 8px); left: calc(12px + var(--safe-l)); max-width: min(340px, calc(58vw - 24px)); }
@@ -392,10 +395,38 @@ html.reduce-motion .mission .dots i.active { animation: none; }
 .price { display: inline-flex; align-items: center; gap: 6px; font-variant-numeric: tabular-nums; }
 .price .coin { width: 15px; height: 15px; }
 
-/* 수첩 (Task 5 fills it) */
-.tally { margin: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 6px 14px; padding: 12px 14px; border-radius: 14px; background: var(--track); font-size: 15px; }
-.tally dt { font-weight: 700; color: var(--chip-sub); }
-.tally dd { margin: 0; font-weight: 700; font-variant-numeric: tabular-nums; }
+/* 수첩 (ui/journal.js, 2D showJournal in the pokju #pane-rec look): a stats table, the filters, the place cards, the
+   note and the files. A worn 수첩 colour (--journal-color on the pane) edges the table and the cards, as in 2D */
+.tally { margin: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; padding: 4px; border-radius: 14px; background: var(--track); font-size: 15px; }
+.tally > div { min-width: 0; padding: 8px 10px; border-radius: 10px; background: rgba(255, 255, 255, .05); }
+.tally dt { font-size: 15px; font-weight: 700; color: var(--chip-sub); white-space: nowrap; }
+.tally dd { margin: 2px 0 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 4px; font-size: 15px; font-variant-numeric: tabular-nums; color: var(--chip-sub); }
+.tally dd b { font-family: var(--display); font-weight: 400; font-size: 24px; line-height: 1.1; color: #fff; }
+.tally dd small { font-size: 15px; white-space: nowrap; }
+#pane-journal:not([data-journal="default"]) .tally { box-shadow: inset 0 4px var(--journal-color); }
+.j-filters { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; padding: 4px; border-radius: 14px; background: var(--track); }
+.j-filters button { min-height: 44px; padding: 0 4px; border: 0; border-radius: 10px; background: transparent; font-size: 15px; font-weight: 700; color: var(--chip-sub); white-space: nowrap; }
+.j-filters button[aria-pressed="true"] { background: rgba(255, 255, 255, .16); color: #fff; }
+.j-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.j-card { min-width: 0; min-height: 44px; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 10px 12px; text-align: left; border: 2px solid var(--line); border-radius: 14px; background: rgba(255, 255, 255, .06); }
+.j-card:hover { background: rgba(255, 255, 255, .11); }
+.j-card[data-found="no"] { background: transparent; border-style: dashed; }
+#pane-journal:not([data-journal="default"]) .j-card { border-color: var(--journal-color); }
+.j-head { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; max-width: 100%; }
+.j-tag { min-width: 0; font-size: 13px; font-weight: 700; line-height: 1.35; color: var(--chip-sub); word-break: keep-all; overflow-wrap: anywhere; }
+.j-stamp { font-size: 13px; font-weight: 700; line-height: 1.3; padding: 2px 9px; border-radius: 999px; white-space: nowrap; background: rgba(53, 224, 138, .16); border: 1px solid rgba(53, 224, 138, .6); color: var(--ok); }
+.j-card b { max-width: 100%; font-family: var(--display); font-weight: 400; font-size: 17px; line-height: 1.25; color: #fff; word-break: keep-all; overflow-wrap: anywhere; }
+.j-card[data-found="no"] b { color: var(--chip-sub); }
+.j-desc { max-width: 100%; font-size: 15px; line-height: 1.45; color: var(--chip-fg); word-break: keep-all; overflow-wrap: anywhere; }
+.j-card[data-found="no"] .j-desc { color: var(--chip-sub); }
+.j-empty { grid-column: 1 / -1; padding: 18px 12px; text-align: center; font-size: 15px; line-height: 1.55; color: var(--chip-sub); border: 2px dashed var(--line); border-radius: 14px; }
+.j-note { display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 2px solid var(--line); border-radius: 14px; }
+.j-note label { font-size: 15px; font-weight: 700; line-height: 1.45; }
+#journal-note { width: 100%; min-height: 104px; resize: vertical; padding: 10px 12px; border: 2px solid var(--line); border-radius: 12px; background: rgba(255, 255, 255, .06); color: #fff; font: 16px/1.6 var(--body); -webkit-user-select: text; user-select: text; }
+#journal-note::placeholder { color: var(--chip-sub); opacity: 1; }
+#journal-note:focus-visible { outline: 3px solid var(--accent); outline-offset: 1px; }
+.j-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.reset-confirm.j-confirm { border-color: rgba(255, 181, 46, .6); background: rgba(255, 181, 46, .08); }
 
 /* 설정: a name and a segmented switch per row (wrapping under the name when narrow) */
 .opt-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 12px; }
@@ -426,6 +457,10 @@ html.reduce-motion .mission .dots i.active { animation: none; }
   .menu .brand > b { font-size: 24px; }
   .menu .foot { padding-top: 6px; }
   .menu .go { min-height: 46px; font-size: 19px; }
+  .tally > div { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 8px; padding: 5px 10px; }   /* one line per figure */
+  .tally dd { margin: 0; }
+  .tally dd b { font-size: 20px; }
+  #journal-note { min-height: 0; height: 80px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

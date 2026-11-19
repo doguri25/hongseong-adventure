@@ -1,7 +1,8 @@
 // In-game HUD (pokju `#hud` layout): wires the static markup in index.html to callbacks and exposes small setters.
-// Top left: home button, where, coins, discoveries. Top centre: the mission card (folds on phones, remembered per layout
-// in the 2D game's `hongseong-hud-v1`). Top right: minimap button (drawn by ui/minimap.js) and the camera pad. Bottom
-// right: speedometer (ui/gauge.js), 탐방 / 대화 / 탈것 round buttons, the vehicle picker, car turns and the ferry.
+// Top left: home button, where, coins, discoveries (a button: the menu's 수첩). Top centre: the mission card (folds on
+// phones, remembered per layout in the 2D game's `hongseong-hud-v1`). Top right: minimap button (drawn by
+// ui/minimap.js) and the camera pad. Bottom right: speedometer (ui/gauge.js), 탐방 / 대화 / 탈것 round buttons, the
+// vehicle picker, car turns and the ferry.
 // Centre: the big notice (ui/notice.js: kept clear of open dialogs) and toasts. Nothing here knows about Three.js or the
 // simulation; main.js decides what to show.
 import { createGauge, speedNumber, factorLabel } from './gauge.js';
@@ -48,6 +49,7 @@ export function createHud(doc, handlers = {}, { storage } = {}) {
   const win = doc.defaultView || globalThis;
 
   $('home-btn').onclick = call('onHome');
+  $('found-btn').onclick = call('onJournal');
   $('minimap').onclick = call('onMap');
   $('cam-btn').onclick = call('onCamera');
   $('compass').onclick = call('onCompass');
@@ -154,6 +156,7 @@ export function createHud(doc, handlers = {}, { storage } = {}) {
     setWhere(where) { text($('where'), where); },
     setStats({ coins, found, total }) {
       text($('coins'), String(coins)); text($('found'), String(found)); text($('found-total'), String(total));
+      $('found-btn').setAttribute('aria-label', `발견 ${found} / ${total}, 발견 수첩 열기`);
       $('found-bar').style.setProperty('--v', (total ? Math.round((found / total) * 1000) / 10 : 0) + '%');
     },
 
