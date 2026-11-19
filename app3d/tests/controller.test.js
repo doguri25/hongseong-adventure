@@ -97,7 +97,7 @@ test('startMission: direct is false when the place is already within reach (2D s
   near.c.startMission('p5');
   assert.equal(near.state.dailyQuests.active, 'p5');
   assert.equal(near.state.dailyQuests.direct, false);
-  assert.ok(near.log.includes('target:p5'));
+  assert.equal(near.c.dialog.kind, 'place', 'in reach: the visit opens (P24), see below');
   const far = setup();
   far.state.dailyQuests = { day: dayKey(NOW), targets: ['p5', 'p6', 'p7'], active: 'p5', direct: true, started: true };
   far.c.startMission('p6');
@@ -162,7 +162,7 @@ test('goTo a story-only place opens its place dialog (physical false) instead of
   const { c, log, player } = setup({ opts: { stories: [story] } });
   player.target = null;
   c.open('menu');
-  assert.equal(c.goTo('story1'), true);
+  assert.equal(c.goTo('story1'), 'story');
   assert.equal(c.dialog.kind, 'place');
   assert.equal(c.dialog.data.place, story);
   assert.equal(c.dialog.data.physical, false);
@@ -176,4 +176,93 @@ test('goTo a story-only place opens its place dialog (physical false) instead of
   c.goTo('p4');
   assert.deepEqual(player.target, places[4].point);
   assert.equal(c.dialog, null);
+});
+
+// P24: a place already in reach opens as a visit (2D navigate -> openPlace) on every 찾아가기 path; the places in reach are
+// held first so the visit does not fire an arrival again
+test('goTo a place already in reach opens it as a physical visit instead of setting a target', () => {
+  const { c, log, player, sounds } = setup({ services: { reachable: (p) => p.id === 'p3', holdReach: (p) => log.push('hold:' + p.id) } });
+  player.target = null;
+  c.open('menu');
+  assert.equal(c.goTo('p3'), 'visit');
+  assert.equal(c.dialog.kind, 'place');
+  assert.equal(c.dialog.data.place.id, 'p3');
+  assert.equal(c.dialog.data.physical, true);
+  assert.equal(player.target, null, 'no walk target');
+  assert.ok(log.indexOf('hold:p3') >= 0 && log.indexOf('hold:p3') < log.indexOf('show:place:p3'), 'held before the dialog opens');
+  assert.deepEqual(log.filter((l) => l === 'pause' || l === 'resume'), ['pause'], 'the menu is replaced: no resume in between');
+  assert.ok(!sounds.includes('move'));
+  c.close();
+  // out of reach: the route, with the 2D move sound (world.walkTo)
+  assert.equal(c.goTo('p4'), 'route');
+  assert.deepEqual(player.target, places[4].point);
+  assert.equal(sounds.at(-1), 'move');
+  assert.equal(c.goTo('nope'), false);
+});
+
+test('startMission for a place in reach starts it (direct false) and opens the visit', () => {
+  const { c, state, log, player } = setup({ services: { reachable: (p) => p.id === 'p5' } });
+  player.target = null;
+  state.dailyQuests = { day: dayKey(NOW), targets: ['p5', 'p6', 'p7'], active: 'p6', direct: true, started: true };
+  assert.equal(c.startMission('p5'), true);
+  assert.equal(state.dailyQuests.active, 'p5');
+  assert.equal(state.dailyQuests.direct, false);
+  assert.equal(c.dialog.kind, 'place');
+  assert.equal(c.dialog.data.physical, true);
+  assert.equal(player.target, null);
+  assert.ok(!log.some((l) => l.startsWith('target:')));
+});
+
+// 죽도 lies across the sea: on the ground, from the mainland, 찾아가기 goes by the 남당항 ferry (2D navigate -> ferry)
+test('goTo 죽도 from the mainland heads for the 남당항 pier, or opens the ferry dialog at the pier', () => {
+  const jukdo = { ...mk(29), id: 'tourmap-jukdo', name: '죽도' };
+  const isles = [...places.slice(0, 29), jukdo];
+  let leg = 'dock';
+  const { c, log, player, sounds } = setup({ opts: { places: isles }, services: { ferryLeg: () => leg, toDock: () => log.push('dock') } });
+  player.target = null;
+  c.open('menu');
+  assert.equal(c.goTo('tourmap-jukdo'), 'dock');
+  assert.equal(c.paused(), false, 'the menu closes');
+  assert.ok(log.includes('dock'));
+  assert.equal(player.target, null, 'no target across the water');
+  assert.ok(!log.includes('target:tourmap-jukdo'));
+  assert.equal(sounds.at(-1), 'move');
+  leg = 'board';   // standing at the pier: the 2D ferry dialog
+  assert.equal(c.goTo('tourmap-jukdo'), 'ferry');
+  assert.equal(c.dialog.kind, 'ferry');
+  c.close();
+  leg = null;   // flying, or already on the island: straight there
+  assert.equal(c.goTo('tourmap-jukdo'), 'route');
+  assert.deepEqual(player.target, jukdo.point);
+});
+
+// P25 (2D visit): a new discovery or a mission bonus plays the chime instead of the arrival sound, never both
+test('an arrival chimes for a new discovery or a mission bonus, else plays the arrival sound', () => {
+  let earned = {};
+  const { c, sounds } = setup({ services: { showDialog: (kind) => (kind === 'place' ? earned : true) } });
+  earned = { reward: { coins: 50, xp: 80 }, mission: null };
+  c.onArrive(places[1], true);
+  assert.deepEqual(sounds, ['discovery']);
+  c.close();
+  earned = { reward: null, mission: { place: 'p2', bonus: 50 } };
+  c.onArrive(places[2], true);
+  assert.deepEqual(sounds, ['discovery', 'discovery']);
+  c.close();
+  earned = { reward: null, mission: { place: 'p3', bonus: 0 } };   // 탐방 미션 완료 without the bonus: the arrival
+  c.onArrive(places[3], true);
+  assert.deepEqual(sounds, ['discovery', 'discovery', 'arrival']);
+  c.close();
+  // a second arrival behind an open dialog sounds as it comes in; its dialog chimes later only if it earned something
+  earned = { reward: null, mission: null };
+  c.onArrive(places[4], true);
+  earned = { reward: { coins: 10, xp: 20 }, mission: null };
+  c.onArrive(places[5], true);
+  assert.deepEqual(sounds.slice(3), ['arrival', 'arrival']);
+  c.close();
+  assert.deepEqual(sounds.slice(3), ['arrival', 'arrival', 'discovery']);
+  // a story opened from the journal that finds the place chimes too (GameAudio.chime when the sound has one)
+  const chimes = [];
+  const withChime = setup({ services: { showDialog: () => ({ reward: { coins: 40 }, mission: null }) }, opts: { sound: { play: (k) => chimes.push(k), chime: () => chimes.push('chime') } } });
+  withChime.c.open('place', { place: places[6], physical: false });
+  assert.deepEqual(chimes, ['chime']);
 });

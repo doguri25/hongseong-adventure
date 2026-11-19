@@ -16,7 +16,6 @@ import { recordQuestVisit } from '#game/quests.js';
 import { PLACES } from '#game/content.js';
 import { symbolFor } from '#game/place-icons.js';
 
-const el = (doc, tag, props = {}, html) => { const e = Object.assign(doc.createElement(tag), props); if (html !== undefined) e.innerHTML = html; return e; };
 
 // every picture a place uses (PLACES[].image), bundled by Vite (P7); place-dialog.test.js checks none is missing
 const IMAGES = {
@@ -84,7 +83,7 @@ export function rewardLine(state, place, view) {
  *   getState()          the shared save state
  *   onChange()          a reward or a solved quiz changed the state: refresh the HUD and save
  *   onAnswer(result)    after each quiz answer (the big notice and the green / red flash)
- *   onGo(place)         여기로 가기 on a place not found yet: head there (ctl.goTo)
+ *   onGo(place)         여기로 가기 on a place not found yet: head there (ctl.goTo, which plays the move sound)
  *   onJournal()         발견 수첩 보기 (ctl.open('menu', {tab: 'journal'}), P16)
  *   onClose()           the dialog asks to close (ctl.close)
  *   sound               {play(kind)}: click (pages and views), retry, correct, coin (P21; ctl.sound)
@@ -180,7 +179,7 @@ export function createPlaceDialog(doc, ctx = {}) {
     if (!state.discovered.includes(p.id)) {   // seen from afar (a pin far away): the quiz waits for a real visit
       body.replaceChildren(h('div', { className: 'quiz' }, h('span', { className: 'q-kick' }, '발견 퀴즈'), h('p', { className: 'lead' }, `${p.name}에 직접 찾아가면 발견 수첩에 기록되고 퀴즈를 풀 수 있어요.`)));
       show('quiz', button('이야기 다시 보기', { id: 'reread', onClick: reread }), spacer(),
-        button('여기로 가기', { id: 'go-there', primary: true, onClick: () => { sound.play('move'); if (onGo) onGo(p); else close(); } }));
+        button('여기로 가기', { id: 'go-there', primary: true, onClick: () => { if (onGo) onGo(p); else close(); } }));
       focus($('go-there'));
       return;
     }
@@ -283,23 +282,4 @@ export function createPlaceDialog(doc, ctx = {}) {
   scrim.addEventListener('pointerdown', (e) => { if (e.target === scrim) close(); });
 
   return { open, hide, close, refreshVoice, get isOpen() { return view.open; }, get place() { return view.place; } };
-}
-
-// The small NPC talk panel: who, where, their story and the district's history.
-export function createNpcDialog(doc, { onClose } = {}) {
-  const $ = (id) => doc.getElementById(id);
-  const root = $('npc-dialog'), body = $('npc-body');
-  function open(npc) {
-    $('npc-area').textContent = npc.area || '홍성군';
-    $('npc-name').textContent = npc.name;
-    body.replaceChildren();
-    for (const t of [npc.story, npc.history]) if (t) body.append(el(doc, 'p', { textContent: t }));
-    root.hidden = false;
-    try { $('npc-done').focus({ preventScroll: true }); } catch {}
-  }
-  function close() { if (root.hidden) return; root.hidden = true; onClose?.(); }
-  $('npc-close').onclick = close; $('npc-done').onclick = close;
-  root.addEventListener('pointerdown', (e) => { if (e.target === root) close(); });
-  doc.addEventListener('keydown', (e) => { if (!root.hidden && e.key === 'Escape') { e.preventDefault(); close(); } });
-  return { open, close, get isOpen() { return !root.hidden; } };
 }

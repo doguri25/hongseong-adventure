@@ -1,8 +1,10 @@
 // Hongseong Adventure 3D: boots the whole county world from the game's own data and runs the game's movement and
-// arrival rules under the pokju-style HUD (ui/hud.js, minimap.js, gauge.js), title menu (ui/menu.js) and county map
-// (ui/county-map.js, search.js). Boot: fetch data -> height field (+ water carving) -> world layers -> road services ->
-// actors, places, NPCs -> restore the session -> the title menu (paused) -> loop (simulate -> camera -> actors/world ->
-// ground, props, buildings -> post render -> HUD -> auto quality every 2 s -> save every 2 s while moving).
+// arrival rules under the pokju-style HUD (ui/hud.js, minimap.js, gauge.js), title menu (ui/menu.js), county map
+// (ui/county-map.js, search.js), NPC talk, ferry, help, about and QR dialogs (ui/npc.js, ferry.js, help.js, qr.js) and
+// the 2D sounds and voice (game/sound.js over #game/audio.js). Boot: fetch data -> height field (+ water carving) ->
+// world layers -> road services -> actors, places, NPCs -> restore the session -> the title menu (paused) -> loop
+// (simulate -> camera -> actors/world -> ground, props, buildings -> post render -> HUD -> auto quality every 2 s ->
+// save every 2 s while moving).
 import * as THREE from 'three';
 import { BOUNDS, M_LON, M_LAT, project, unproject, toRender, fromRender } from './frame.js';
 import { decodeFeatures, decodeBuildings, terrariumHeight } from './data/decode.js';
@@ -32,7 +34,12 @@ import { createHud, josa } from './ui/hud.js';
 import { createMinimap } from './ui/minimap.js';
 import { createController } from './game/controller.js';
 import { missionView } from './game/missions.js';
-import { createPlaceDialog, createNpcDialog } from './ui/place-dialog.js';
+import { createPlaceDialog } from './ui/place-dialog.js';
+import { createNpcDialog } from './ui/npc.js';
+import { createFerryDialog, FERRY_HINT, VOYAGE_LABEL } from './ui/ferry.js';
+import { createHelpDialog, createAboutDialog } from './ui/help.js';
+import { createQrDialog } from './ui/qr.js';
+import { createSound, unlockOnPress } from './game/sound.js';
 import { createMenu } from './ui/menu.js';
 import { createMapDialog, MAP_KINDS } from './ui/county-map.js';
 import { createThumbs } from './ui/thumbs.js';
@@ -41,6 +48,7 @@ import { PLACES } from '#game/content.js';
 import { districtAt, distance, canVisit } from '#game/geography.js';
 import { RoadNavigator } from '#game/navigation.js';
 import { WaterGuard, blocksWater } from '#game/water.js';
+import { GameAudio, Narrator } from '#game/audio.js';
 
 const $ = (id) => document.getElementById(id);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -85,7 +93,7 @@ const hud = createHud(document, {
   onZoom: (k) => { if (live()) G.view.zoom = clamp(G.view.zoom * k, 0.2, 4); },
   onTilt: (d) => { if (live()) G.view.pitchAdj = clamp(G.view.pitchAdj + d, -70, 70); },
   onTurn: (side) => { if (live() && isCar(G.player.mode)) G.turn = side; },
-  onTalk: () => talk(), onFerry: () => boardFerry(), onVisit: () => visit(),
+  onTalk: () => talk(), onFerry: () => ferry(), onVisit: () => visit(),
   onMap: () => { if (live() && !G.ctl.paused()) G.ctl.open('map'); },   // the minimap: 홍성군 전체 지도
   onHome: () => { if (live() && !G.ctl.paused()) G.ctl.open('menu'); },
   onJournal: () => { if (live() && !G.ctl.paused()) G.ctl.open('menu', { tab: 'journal' }); },   // the discovery chip
@@ -229,8 +237,15 @@ async function boot() {
   const minimap = createMinimap($('minimap-canvas'), { image: MINIMAP_IMAGE, world: { w: W, h: H }, places, found: () => state.discovered });
   const docks = ferryDocks(waterGuard, byId.get('namdang').point, byId.get('tourmap-jukdo').point);
 
+  // the 2D sounds and voice (P4 / P13): heard from the first key or pointer press; the Narrator's change flips every
+  // read-aloud button back when the speech ends (P25)
+  const audio = new GameAudio(() => state, (m) => hud.toast(m));
+  const narrator = new Narrator(() => state, () => { G?.dialog?.refreshVoice(); G?.panels?.npc.refreshVoice(); }, (m) => hud.toast(m));
+  const sound = createSound(audio, { narrator });
+
   const post = { current: null };
   G = {
+    audio, narrator, sound, ferryPending: false,
     renderer, scene, camera, sky, lighting, ground, terrain, water, buildings, collider, props, placeLayer, places, npcLayer, actors, minimap,
     field, features, graph, navigator, waterGuard, services, world, state, extra, player, cam, held, docks, byId, post,
     Q, qstate, autoKey, view: null, target: null, missionPoint: null, turn: null, voyage: null, timeKey: extra.time, running: false,
@@ -243,21 +258,31 @@ async function boot() {
   G.view = controls.read().view;   // live object: the camera eases userYaw in follow mode
 
   // dialogs pause the simulation; closing resumes play. Story-only places (no point) open their story on goTo (P19)
-  const ctl = G.ctl = createController({ state, places, stories: PLACES.filter((p) => p.remote), services: controllerServices(), save });
+  const ctl = G.ctl = createController({ state, places, stories: PLACES.filter((p) => p.remote), services: controllerServices(), save, sound, narrator });
+  const changed = () => { refreshStats(); refreshMission(); save(); };
   G.dialog = createPlaceDialog(document, {
     root: $('app'), returnFocus: canvas, getState: () => state, onChange: () => { refreshStats(); save(); },
     onGo: (p) => ctl.goTo(p.id), onJournal: () => ctl.open('menu', { tab: 'journal' }), onClose: () => ctl.close(),
     onAnswer: (r) => (r.correct ? notify('정답!', r.coins ? `+${r.coins}금화` : '복습 완료', 'ok') : notify('다시 생각해 봐요', '', 'danger')),
-    sound: ctl.sound, narrator: ctl.narrator,   // P21: one wiring point for GameAudio / Narrator (Task 8)
+    sound: ctl.sound, narrator: ctl.narrator,   // P21: one wiring point for GameAudio / Narrator
   });
-  G.npcDialog = createNpcDialog(document, { onClose: () => ctl.close() });
+  // the controller's npc, ferry, help, about and qr dialogs (P26: 자료 출처 is the help at its sources tab)
+  const shell = { root: $('app'), returnFocus: canvas, onClose: () => ctl.close(), ctl };
+  G.panels = {
+    npc: createNpcDialog(document, { ...shell, getState: () => state, places, frame: (n) => npcLayer.frame(n), changed }),
+    ferry: createFerryDialog(document, { ...shell, onBoard: () => { ctl.close(); if (nearPier()) boardFerry(false); else ctl.goTo('tourmap-jukdo'); } }),
+    help: createHelpDialog(document, { ...shell, settings: settingsView, setting: applySetting }),
+    about: createAboutDialog(document, shell),
+    qr: createQrDialog(document, { ...shell, toast: (m) => hud.toast(m) }),
+  };
+  unlockOnPress(window, sound, () => state);
+  document.addEventListener('click', (e) => { if (e.target.closest?.('button')) sound.press(); });   // the 2D click on every button
   G.thumbs = createThumbs(renderer, actors);
   G.menu = createMenu(document, {
     root: $('app'), returnFocus: canvas, getState: () => state, places, ctl, thumbs: G.thumbs,
     current: () => ({ mode: G.voyage ? 'boat' : player.mode, pending: player.pending }),
     settings: settingsView, setting: applySetting, dress, reset: resetProgress, importSave: importProgress,
-    changed: () => { refreshStats(); refreshMission(); save(); },
-    onClose: () => ctl.close(),
+    changed, onClose: () => ctl.close(),
   });
   // 홍성군 전체 지도 with 장소 찾기 and 주변 찾기 (P23): the controller's map, search and nearby kinds
   G.mapDialog = createMapDialog(document, {
@@ -286,7 +311,7 @@ async function boot() {
     onLost: () => { G.running = false; hud.lost(true); save(); },
     onRestored: () => { hud.lost(false); applyTime(G.timeKey); start(); },
   });
-  document.addEventListener('visibilitychange', () => { if (document.hidden) save(); else if (live()) ctl.dayTick(); });
+  document.addEventListener('visibilitychange', () => { sound.visibility(document.hidden, state); if (document.hidden) save(); else if (live()) ctl.dayTick(); });
   addEventListener('pagehide', save);
 
   await step('첫 화면을 그리는 중');
@@ -376,7 +401,7 @@ function simulate(dt) {
   const { player, services } = G;
   const r = G.controls.read();
   const manual = Math.hypot(r.x, r.y) > 0.01;
-  if (manual && G.target) clearTarget();   // the stick or keys take over from a tap target
+  if (manual && G.target) { clearTarget(); G.ferryPending = false; }   // the stick or keys take over from a tap target
   const from = [player.x, player.y], modeBefore = player.mode, pendingBefore = player.pending;
 
   if (G.voyage) stepVoyage(dt);
@@ -384,6 +409,7 @@ function simulate(dt) {
     const input = { x: r.x, y: r.y, camYaw: G.cam.yaw, camMode: G.cam.mode, turn: G.turn, target: G.target };
     G.turn = null;
     const res = stepPlayer(player, input, services, dt);
+    if (player.moving && (player.mode === 'walk' || player.mode === 'bike')) G.sound.footstep(performance.now());   // 2D cadence
     for (const e of res.events) onEvent(e);
     if (res.toast) hud.toast(res.toast);
     // tap target reached: walking within 12 m, a finished road route, or a plane over the spot
@@ -393,8 +419,10 @@ function simulate(dt) {
       else if (isFlying(player.mode) && d < player.speed * 0.4 + 20) clearTarget();
     }
     // arrivals (never while flying): the controller opens the first and queues the rest behind it
+    // a trip to 남당항's pier for the ferry opens nothing on the way and the ferry dialog at the end (2D ferryPending)
     const entered = arrivals(G.places, from, [player.x, player.y], G.held, player.mode, G.collider);
-    for (const p of entered) G.ctl.onArrive(p, true);
+    if (!G.ferryPending) for (const p of entered) G.ctl.onArrive(p, true);
+    else if (!G.target) { G.ferryPending = false; if (nearPier()) G.ctl.open('ferry'); }
   }
   if (player.mode !== modeBefore || player.pending !== pendingBefore) { hud.setMode(player.mode, player.pending); save(); }
 }
@@ -411,21 +439,20 @@ function onEvent(e) {
 
 function openPlace(place, physical) { G.ctl.open('place', { place, physical }); }
 
-// The effects the game controller (game/controller.js) asks for; its JSDoc lists the hooks. Dialog kinds without a
-// renderer yet (help, ferry) return false and are dropped without pausing.
+// The effects the game controller (game/controller.js) asks for; its JSDoc lists the hooks.
 function controllerServices() {
   return {
     stopPlayer: () => { clearTarget(); Object.assign(G.player, { speed: 0, vx: 0, vy: 0, turnRate: 0 }); if (G.player.car) haltCar(G.player.car); G.turn = null; },
     resetInput: () => { G.controls.reset(); hud.stick({ visible: false }); hud.closePicker(); },
-    showDialog: (kind, data) => {
-      if (kind === 'place') rewardNotice(data.place, G.dialog.open(data.place, { physical: !!data.physical }));
-      else if (kind === 'npc') G.npcDialog.open(data.npc);
-      else if (kind === 'menu') G.menu.open(data);
+    showDialog: (kind, data) => {   // a place returns what the visit earned (the controller's chime, P25)
+      if (kind === 'place') { const r = G.dialog.open(data.place, { physical: !!data.physical }); rewardNotice(data.place, r); return r; }
+      if (kind === 'menu') G.menu.open(data);
       else if (MAP_KINDS.includes(kind)) G.mapDialog.open(kind, data);
+      else if (G.panels[kind]) G.panels[kind].open(data);
       else return false;
       return true;
     },
-    hideDialog: (kind) => { if (kind === 'place') G.dialog.hide(); else if (kind === 'npc') G.npcDialog.close(); else if (kind === 'menu') G.menu.hide(); else if (MAP_KINDS.includes(kind)) G.mapDialog.hide(); },
+    hideDialog: (kind) => { if (kind === 'place') G.dialog.hide(); else if (kind === 'menu') G.menu.hide(); else if (MAP_KINDS.includes(kind)) G.mapDialog.hide(); else G.panels[kind]?.hide(); },
     onPause: (paused) => {
       if (paused) return;
       G.last = 0; G.frameTimes = []; G.lastCheck = performance.now();   // the slow paused frames must not look like a slow device
@@ -435,6 +462,9 @@ function controllerServices() {
     setTarget: (point, place) => { setTarget(point); if (place) hud.toast(`${place.name}${josa(place.name, 'to')} 가요`); },
     setMode: (mode) => chooseMode(mode),
     reachable: (place) => reachable(place),
+    holdReach: (place) => holdHere(place),
+    ferryLeg: () => { const p = G.player, opt = ferryOption(); return G.voyage || isFlying(p.mode) || p.pending || opt === 'back' ? null : opt === 'out' ? 'board' : 'dock'; },
+    toDock: () => { setTarget(G.docks.namdang); G.ferryPending = true; hud.toast(FERRY_HINT); },
     missionContext: () => ({ player: G.player, navigator: G.navigator }),
     announce: (place) => {
       if (G.announcedAt === G.last) return;   // several places entered in one step: one notice
@@ -456,7 +486,7 @@ function rewardNotice(place, r) {
 }
 
 function setTarget(p) {
-  G.target = [p[0], p[1]];
+  G.target = [p[0], p[1]]; G.ferryPending = false;
   if (G.player.car) { G.player.car.goal = null; G.player.car.route = null; }
 }
 function clearTarget() {
@@ -495,16 +525,22 @@ function ferryOption() {
   return null;
 }
 
-function boardFerry() {
+const nearPier = () => !G.voyage && !isFlying(G.player.mode) && distance([G.player.x, G.player.y], G.docks.namdang) < 400;
+// 배 타고 죽도로 (button or E at 남당항) opens the 2D ferry dialog first; 죽도에서 돌아가기 sails back at once
+function ferry() {
   if (!live() || G.ctl.paused()) return;
-  const opt = ferryOption(); if (!opt) return;
-  const returning = opt === 'back', p = G.player;
-  clearTarget();
+  const opt = ferryOption();
+  if (opt === 'out') G.ctl.open('ferry'); else if (opt === 'back') boardFerry(true);
+}
+function boardFerry(returning) {
+  if (!live() || G.ctl.paused() || G.voyage) return;
+  const p = G.player;
+  clearTarget(); G.ferryPending = false;
   G.voyage = startVoyage(returning, G.docks);
   setPlayerMode(p, 'boat', G.services);
   p.x = G.voyage.start[0]; p.y = G.voyage.start[1]; p.h = 0; p.speed = 0;
-  hud.setMode('boat'); hud.setTurnHint(null);
-  hud.toast(returning ? '남당항으로 돌아가는 중…' : '배를 타고 죽도로 가는 중…', 8000);
+  hud.setMode('boat'); hud.setTurnHint(null); hud.setVoyage(VOYAGE_LABEL[returning ? 'back' : 'out']);
+  G.sound.play('move');   // 2D startVoyage
   save();
 }
 
@@ -516,7 +552,7 @@ function stepVoyage(dt) {
   G.voyage = null;
   setPlayerMode(p, 'walk', G.services);
   p.h = G.field.renderY(p.x, p.y); p.moving = false;
-  hud.setMode(p.mode);
+  hud.setMode(p.mode); hud.setVoyage(null);
   arrivals(G.places, [p.x, p.y], [p.x, p.y], G.held, p.mode, G.collider);   // in reach on landing: held, as the 2D game does
   save();
   const place = G.byId.get(v.returning ? 'namdang' : 'tourmap-jukdo');
@@ -615,8 +651,7 @@ function settingsView() {
     speed: String(s.speed), movement: s.movementMode, quality: G.qstate.mode, camera: G.cam.mode, time: G.timeKey,
   };
 }
-// one 설정 change, with the 2D rules (dist/game.js showHelp: music on turns the sound on); the sound and voice values
-// are saved now and heard once GameAudio / Narrator are wired (Task 8)
+// one 설정 change, with the 2D rules (dist/game.js showHelp: music on turns the sound on), heard at once (game/sound.js)
 function applySetting(key, value) {
   const s = G.state, p = G.player;
   if (key === 'quality') return setQuality(value);
@@ -630,6 +665,7 @@ function applySetting(key, value) {
   else if (key === 'speed') { const v = Number(value); if (SPEEDS.includes(v)) s.speed = p.speedSetting = v; }
   else if (key === 'movement') { s.movementMode = p.movementMode = value === 'free' ? 'free' : 'roads'; clearTarget(); p.roadCursor = null; }
   else return false;
+  G.sound.setting(key, s);
   save();
   return true;
 }
@@ -690,7 +726,12 @@ function tap(cx, cy) {
   const [x, y] = fromRender(hit.point.x, hit.point.z);
   setTarget([x, y]);
   showTapRing(hit.point);
+  G.sound.play('move');   // 2D walkTo
 }
+
+// a place opened as a visit where the player stands: the places in reach are held, so leaving the dialog does not fire
+// an arrival for them again (2D openPlace)
+function holdHere(place) { const p = G.player; arrivals(G.places, [p.x, p.y], [p.x, p.y], G.held, p.mode, G.collider); G.held.add(place.id); }
 
 // a pin tapped while the player is already at the place counts as a visit
 function reachable(place) {
@@ -720,13 +761,13 @@ function visitable() { return G.voyage ? null : nearestVisitable(G.places, G.pla
 function visit() {
   if (!live() || G.ctl.paused()) return;
   const place = visitable();
-  if (place) G.ctl.open('place', { place, physical: true });
+  if (place) { holdHere(place); G.ctl.open('place', { place, physical: true }); }
   else hud.toast(NO_VISIT, 2000);
 }
 
 function action(a) {
   if (!live() || G.ctl.paused()) return;
-  if (a === 'interact') { if (nearNpc()) talk(); else if (ferryOption()) boardFerry(); else visit(); }
+  if (a === 'interact') { if (nearNpc()) talk(); else if (ferryOption()) ferry(); else visit(); }
   else if (a === 'camera') toggleCamera();
   else if (a === 'time') cycleTime();
   else if (a === 'quality') cycleQuality();

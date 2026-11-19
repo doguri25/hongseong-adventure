@@ -2,7 +2,7 @@
 // Top left: home button, where, coins, discoveries (a button: the menu's 수첩). Top centre: the mission card (folds on
 // phones, remembered per layout in the 2D game's `hongseong-hud-v1`). Top right: minimap button (drawn by
 // ui/minimap.js) and the camera pad. Bottom right: speedometer (ui/gauge.js), 탐방 / 대화 / 탈것 round buttons, the
-// vehicle picker, car turns and the ferry.
+// vehicle picker, car turns, the ferry (배 타고 죽도로 at 남당항, 죽도에서 돌아가기 on 죽도) and the voyage chip.
 // Centre: the big notice (ui/notice.js: kept clear of open dialogs) and toasts. Nothing here knows about Three.js or the
 // simulation; main.js decides what to show.
 import { createGauge, speedNumber, factorLabel } from './gauge.js';
@@ -11,7 +11,7 @@ import { createNotice } from './notice.js';
 const CAMERA_LABEL = { tilt: '비스듬히', follow: '뒤따라' };
 const MODE_LABEL = { walk: '걷기', bike: '자전거', car: '자동차', supercar: '슈퍼카', slowplane: '느린 비행기', plane: '비행기', boat: '배' };
 const TURN_HINT = { left: '← 다음 갈림길에서 좌회전', right: '다음 갈림길에서 우회전 →', route: '길을 찾아 가는 중' };
-const FERRY_LABEL = { out: '배 타고 죽도로', back: '배 타고 남당항으로' };
+const FERRY_LABEL = { out: '배 타고 죽도로', back: '죽도에서 돌아가기' };   // out opens the ferry dialog; back sails at once
 export const HUD_KEY = 'hongseong-hud-v1';
 const PREF_KEYS = ['portrait', 'landscape', 'desktop'];
 
@@ -176,6 +176,8 @@ export function createHud(doc, handlers = {}, { storage } = {}) {
     },
 
     setTurnHint(hint) { const el = $('turn-hint'), t = TURN_HINT[hint] || ''; text(el, t); el.hidden = !t; },
+    // the voyage chip (2D #voyage-status): its label while the boat sails, null when it lands
+    setVoyage(label) { const el = $('voyage-status'); text(el, label || ''); el.hidden = !label; },
 
     // npc: {name} | null, ferry: 'out' | 'back' | null, car: boolean (turn buttons), visit: place in reach | null
     setActions(next) {

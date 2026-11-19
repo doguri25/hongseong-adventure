@@ -107,8 +107,7 @@ export function createMenu(doc, ctx) {
     ));
   }
   function start(id) {
-    if (ctx.ctl.startMission(id)) ctx.ctl.sound.play('move');   // closes the menu and heads there (2D goToPlace)
-    else renderMissions();
+    if (!ctx.ctl.startMission(id)) renderMissions();   // closes the menu and heads there with the move sound (2D goToPlace)
   }
   function renew() {
     ctx.ctl.dayTick(Date.now(), true);
@@ -186,13 +185,14 @@ export function createMenu(doc, ctx) {
     renderWardrobe();
   }
 
-  // ---- 설정: two- to four-way switches, the volume, the voice; help rows (Task 8) and the 2D link stay hidden for now
+  // ---- 설정: two- to four-way switches, the volume, the voice; the 안내 rows (도움말, 자료 출처 = the help at its sources,
+  // 만든 사람, QR: P26); the 2D link stays hidden until phase 2b
   const groups = [...panes.settings.querySelectorAll('[data-setting]')];
   for (const g of groups) for (const b of g.querySelectorAll('[data-value]')) b.onclick = () => { ctx.setting(g.dataset.setting, b.dataset.value); ctx.ctl.sound.play('click'); syncSettings(); };
   $('opt-volume').oninput = (e) => ctx.setting('volume', Number(e.target.value));
   $('opt-voice').onchange = (e) => ctx.setting('voice', e.target.value);
   $('voice-test').onclick = () => ctx.ctl.narrator.speak(VOICE_TEST);
-  for (const b of panes.settings.querySelectorAll('[data-open]')) b.onclick = () => ctx.ctl.open(b.dataset.open);
+  for (const b of panes.settings.querySelectorAll('[data-open]')) b.onclick = () => ctx.ctl.open(b.dataset.open, b.dataset.section ? { section: b.dataset.section } : {});
   $('open-2d').hidden = !LITE_2D;
   const synth = win.speechSynthesis;
   if (synth?.addEventListener) synth.addEventListener('voiceschanged', () => { if (openNow && tab === 'settings') fillVoices(); });

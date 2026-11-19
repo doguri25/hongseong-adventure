@@ -166,7 +166,6 @@ html.q-low .panel, html.q-low .dialog { background-color: rgba(12, 14, 28, .96);
 .src .pic-credit { margin: 0 0 10px; padding: 10px 12px 2px; border-radius: 14px; background: var(--track); }
 .src .links { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 10px; }
 .src .links .btn { display: inline-flex; align-items: center; max-width: 100%; padding: 8px 14px; color: #fff; text-decoration: none; line-height: 1.35; text-align: left; word-break: keep-all; overflow-wrap: anywhere; }
-.npc p { margin: 0 0 10px; }
 
 /* ---- HUD (pokju #hud). Chips top-left, mission card top-centre, round minimap and camera pad top-right, speedometer
    and round action buttons bottom-right, floating stick bottom-left. Containers and chips let touches through to the
@@ -694,6 +693,103 @@ html.reduce-motion .map-note.away { transition: none; }
   .map-note { bottom: 6px; padding: 4px 10px; }
   .map-side, .search-view, .nearby-view { padding: 8px 12px 12px; gap: 8px; }
   .near-title { font-size: 19px; }
+}
+
+/* ---- the simple dialogs (ui/help.js createPanelDialog): NPC talk, the ferry, 도움말, 만든 사람, QR. A tab row under the
+   header (talk topics, help tabs), a scrolling body, a footer of buttons. Held upright on a phone the talk and the
+   ferry come up as a sheet from the bottom; on a phone on its side every one takes the full height with a one-line
+   header ---- */
+.panel-dialog > .tabs { flex: none; margin: 10px 14px 0; }
+.panel-dialog > .body { flex: 1 1 auto; min-height: 0; overscroll-behavior: contain; }
+.panel-dialog > footer { flex: none; }
+.panel-dialog footer .btn.tool { padding: 6px 14px; font-size: 14px; background: rgba(255, 255, 255, .05); }
+.panel-dialog footer .btn.primary { margin-left: auto; }   /* on its own line when the footer wraps: still at the right */
+.panel-dialog a.btn { display: inline-flex; align-items: center; color: #fff; text-decoration: none; }
+.panel-dialog .links .btn { max-width: 100%; padding: 8px 14px; line-height: 1.35; text-align: left; word-break: keep-all; overflow-wrap: anywhere; }
+.panel-dialog .body:focus-visible { outline: 3px solid var(--accent); outline-offset: -3px; }
+
+.dialog.npc { width: min(660px, 100%); }
+.npc-talk { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 16px; align-items: start; }
+.npc-portrait { display: block; width: 150px; height: auto; aspect-ratio: 240 / 250; border-radius: 18px; border: 1px solid var(--line); background: radial-gradient(circle at 50% 64%, rgba(138, 92, 255, .42), rgba(34, 225, 255, .14) 60%, rgba(255, 255, 255, .04)); }
+.npc-text { min-width: 0; }
+.npc-text h3 { margin: 0 0 8px; font-family: var(--display); font-weight: 400; font-size: 21px; line-height: 1.3; color: #fff; word-break: keep-all; }
+.npc-speech { margin: 0; padding: 12px 14px; border-radius: 16px; background: rgba(255, 255, 255, .07); border: 1px solid var(--line); font-size: 17px; line-height: 1.7; word-break: keep-all; overflow-wrap: anywhere; }
+.npc-text .note { margin: 8px 0 0; font-size: 15px; line-height: 1.5; color: var(--chip-sub); }
+
+.dialog.ferry { width: min(540px, 100%); }
+#ferry-body p { margin: 0 0 10px; font-size: 16px; line-height: 1.65; word-break: keep-all; }
+#ferry-body p.lead { font-weight: 700; color: #fff; }
+#ferry-body p.sub { margin: 0; font-size: 15px; color: var(--chip-sub); }
+#voyage-status { padding: 8px 14px; font-size: 15px; font-weight: 700; line-height: 1.4; color: var(--cyan); word-break: keep-all; pointer-events: none; }
+
+.dialog.help { width: min(800px, 100%); height: min(720px, 100%); }
+.dialog.about { width: min(620px, 100%); height: min(660px, 100%); }
+.help-sec + .help-sec { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); }
+.help-sec h3 { margin: 0 0 8px; font-family: var(--display); font-weight: 400; font-size: 21px; line-height: 1.3; color: #fff; word-break: keep-all; }
+.help-sec h4 { margin: 0 0 2px; font-size: 16px; line-height: 1.4; color: #fff; }
+.help-sec p { margin: 0 0 10px; font-size: 15px; line-height: 1.65; word-break: keep-all; overflow-wrap: anywhere; }
+.help-sec p.sub { color: var(--chip-sub); }
+.help-sec .links { margin: 0 0 12px; }
+.help-sec .opt-row + .opt-row { margin-top: 8px; }
+.help-sec .opt-row + .links { margin-top: 12px; }
+.keys { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 8px 14px; margin: 0; align-items: baseline; }
+.keys dt { font-size: 14px; font-weight: 700; color: var(--cyan); white-space: nowrap; }
+.keys dd { margin: 0; font-size: 15px; line-height: 1.5; word-break: keep-all; }
+.keys kbd { display: inline-block; min-width: 26px; padding: 1px 7px; border-radius: 7px; border: 1px solid rgba(255, 255, 255, .35); border-bottom-width: 3px; background: rgba(255, 255, 255, .08); font-family: var(--body); font-size: 14px; color: #fff; text-align: center; }
+.credit-item { margin: 0 0 10px; padding: 10px 12px 2px; border-radius: 14px; background: var(--track); }
+.credit-item p { margin-bottom: 6px; }
+.about-info dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 16px; margin: 0; align-items: center; }
+.about-info dt { font-size: 14px; font-weight: 700; color: var(--chip-sub); }
+.about-info dd { margin: 0; font-size: 16px; font-weight: 700; overflow-wrap: anywhere; }
+.about-info dd a.btn { max-width: 100%; padding: 6px 14px; font-size: 15px; overflow-wrap: anywhere; }
+.help-sec p.change-item { padding-left: 12px; border-left: 3px solid var(--accent); }
+
+.dialog.qr { width: min(660px, 100%); }
+.qr-content { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 18px; align-items: start; }
+.qr-img { display: block; width: 200px; height: 200px; padding: 10px; border-radius: 16px; background: #fff; image-rendering: pixelated; }
+.qr-text { min-width: 0; }
+.qr-text h3 { margin: 0 0 8px; font-family: var(--display); font-weight: 400; font-size: 21px; line-height: 1.3; color: #fff; word-break: keep-all; }
+.qr-text p { margin: 0 0 10px; font-size: 15px; line-height: 1.6; word-break: keep-all; }
+.qr-text p.sub { color: var(--chip-sub); }
+.qr-text .btn { margin: 2px 0 10px; }
+.qr-url { color: var(--cyan); font-weight: 700; overflow-wrap: anywhere; -webkit-user-select: all; user-select: all; }
+.qr-text .status { margin: 0; color: var(--ok); font-weight: 700; }
+.qr-text .status:empty { display: none; }
+
+@media (max-width: 720px) {
+  .scrim.npc-scrim, .scrim.ferry-scrim { place-items: end center; }
+  .dialog.npc, .dialog.ferry, .dialog.qr { width: 100%; }
+  .panel-dialog header { padding: 10px 8px 8px 16px; }
+  .panel-dialog > .tabs { margin: 8px 10px 0; }
+  .panel-dialog .body { padding: 12px 14px; }
+  .panel-dialog footer { padding: 8px 10px 10px; }
+  .npc-talk { grid-template-columns: 96px minmax(0, 1fr); gap: 12px; }
+  .npc-portrait { width: 96px; border-radius: 14px; }
+  .npc-text h3 { font-size: 19px; }
+  .keys { grid-template-columns: minmax(0, 1fr); gap: 2px 0; }
+  .keys dd { margin-bottom: 8px; }
+  .qr-content { grid-template-columns: minmax(0, 1fr); justify-items: center; gap: 12px; }
+  .qr-img { width: 168px; height: 168px; }
+  .qr-text { justify-self: stretch; }
+}
+@media (max-height: 460px) {
+  .scrim.npc-scrim, .scrim.ferry-scrim { place-items: center; }
+  .dialog.panel-dialog { height: 100%; }
+  .dialog.ferry { height: auto; }
+  .dialog.npc, .dialog.qr { width: min(720px, 100%); }
+  .panel-dialog header { padding: 4px 6px 4px 14px; gap: 6px; align-items: center; }
+  .panel-dialog header .titles { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 10px; }
+  .panel-dialog h2 { margin: 0; font-size: 20px; }
+  .panel-dialog .blurb { display: none; }
+  .panel-dialog > .tabs { margin: 6px 12px 0; }
+  .panel-dialog .body { padding: 8px 14px; }
+  .panel-dialog footer { padding: 6px 10px 8px; gap: 6px; }
+  .npc-talk { grid-template-columns: 96px minmax(0, 1fr); gap: 12px; }
+  .npc-portrait { width: 96px; border-radius: 14px; }
+  .npc-text h3 { font-size: 18px; margin-bottom: 6px; }
+  .npc-speech { padding: 8px 12px; font-size: 16px; line-height: 1.6; }
+  .qr-content { grid-template-columns: 140px minmax(0, 1fr); gap: 14px; }
+  .qr-img { width: 140px; height: 140px; padding: 7px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

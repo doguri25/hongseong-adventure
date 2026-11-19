@@ -5,8 +5,8 @@
 // within 16 px: one place heads there, several open 주변 찾기 with only those) beside the 2D 지역 목록 (the 11 홍성군
 // districts with their place counts; picking one lists its places nearest first and frames it on the map), the
 // legend of the 2D place symbols and the 18 story-only cards (우리 고장의 문화 이야기). Every 찾아가기 goes through the
-// game controller (2D goToPlace): ctl.goTo heads for a place (a story-only one opens its story, P19), and a place
-// already in reach opens as a visit (2D navigate -> openPlace). It is modal (ui/dom.js openModal) and every way out
+// game controller (2D goToPlace): ctl.goTo heads for a place (a story-only one opens its story, P19; a place already
+// in reach opens as a visit, P24; 죽도 goes by the ferry). It is modal (ui/dom.js openModal) and every way out
 // goes through ctx.onClose -> ctl.close(). Copy is the 2D game's (dist/game.js showTravel, showNearby, dist/search.js).
 import { el, openModal, closeModal } from './dom.js';
 import { createSearch, createNearby, symbolIcon, nearbyPlaces } from './search.js';
@@ -275,8 +275,8 @@ export function createCountyMap(canvas, { image, places = [], districts = [], on
  *   image                  the county picture (URL or the minimap's <img>)
  *   getState(), player()   the shared save state (discovered); the player {x, y}
  *   where()                the player's district line for the header (현재 위치 · …)
- *   reachable(place)       already close enough to visit (2D canVisit)
- *   ctl                    the game controller: goTo(id), open('place', …), sound (click, move)
+ *   reachable(place)       already close enough to visit (2D canVisit): the nearby rows' 찾아가기 / 안내 보기 label
+ *   ctl                    the game controller: goTo(id) (찾아가기, with its sounds), open(kind), sound (click, press)
  *   onClose()              the dialog asks to close (ctl.close)
  */
 export function createMapDialog(doc, ctx) {
@@ -292,13 +292,11 @@ export function createMapDialog(doc, ctx) {
   const from = () => { const p = ctx.player?.(); return p ? [p.x, p.y] : null; };
   let view = 'map', openNow = false, district = '';
 
-  // 찾아가기 (2D goToPlace -> navigate): in reach opens the place as a visit; otherwise the controller heads there (a
-  // story-only place opens its story instead). The trip sounds `move`, as the 2D travel buttons
+  // 찾아가기 (2D goToPlace -> navigate) is the controller's goTo (P24): a place in reach opens as a visit, a story-only
+  // place its story, 죽도 goes by the ferry, any other place becomes the trip (with the move sound). A pin tap that
+  // opens a dialog clicks unless that dialog chimed (a button press clicks by itself, main.js)
   function go(p) {
-    const near = !p.remote && !!ctx.reachable?.(p);
-    sound.play(p.remote || near ? 'click' : 'move');
-    if (near) ctx.ctl.open('place', { place: p, physical: true });
-    else ctx.ctl.goTo(p.id);
+    if (ctx.ctl.goTo(p.id) !== 'route') sound.press?.();
   }
 
   const map = createCountyMap($('county-canvas'), {

@@ -41,7 +41,7 @@ export class NpcLayer {
       const tex = src.texture.clone(); tex.needsUpdate = true;
       const sprite = new THREE.Sprite();   // only used to compute scale/centre once
       showCell(sprite, tex, src.size, cell, NPC_HEIGHT);
-      const entry = { material: new THREE.SpriteMaterial({ map: tex, alphaTest: 0.45, fog: true }), scale: sprite.scale.clone(), center: sprite.center.clone() };
+      const entry = { material: new THREE.SpriteMaterial({ map: tex, alphaTest: 0.45, fog: true }), scale: sprite.scale.clone(), center: sprite.center.clone(), frame: { image: src.texture.image, rect: cell.rect } };
       cache.set(name, entry);
       return entry;
     };
@@ -51,9 +51,12 @@ export class NpcLayer {
       const bubble = new THREE.Sprite(bubbleMat); bubble.scale.set(9, 6.75, 1); bubble.center.set(0.5, 0); bubble.renderOrder = 9; bubble.visible = false;
       bubble.position.set(X, y + NPC_HEIGHT + 2, Z);
       this.group.add(sprite, bubble);
-      return { npc, sprite, bubble, y, X, Z };
+      return { npc, sprite, bubble, y, X, Z, frame: e.frame };
     });
   }
+
+  // the keyed sheet canvas and the [x, y, w, h] cell of this NPC's sprite (the talk dialog's portrait), or null
+  frame(npc) { return this.items.find((it) => it.npc === npc || it.npc.id === npc?.id)?.frame || null; }
 
   // nearest NPC within the talk radius, else null
   nearest(player, radius = TALK_RADIUS) {

@@ -115,7 +115,7 @@ export function createJournal(doc, ctx) {
       const place = ctx.places.find((p) => p.id === card.id) || PLACES.find((p) => p.id === card.id);
       ctx.ctl.sound.play('click');
       ctx.ctl.open('place', { place, physical: false });
-    } else if (ctx.ctl.goTo(card.id)) ctx.ctl.sound.play('move');
+    } else ctx.ctl.goTo(card.id);   // the trip sounds `move` (or the visit opens, P24)
   }
 
   const say = (text, warn = false) => { ui.status.textContent = text; ui.status.classList.toggle('warn', warn); };

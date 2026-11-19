@@ -21,6 +21,13 @@
 // fingers), dragged, a district, the legend and story cards, pin taps, 장소 찾기 (ㅎㅅㅇ, 홍성역, the arrows, Escape, the
 // IME guard, a choice that starts the route), 주변 찾기 (filters, the name filter), the menu's 장소 찾기; sizes, fonts and
 // layout in each view.
+// NPC talk, the ferry, 도움말 / 자료 출처 / 만든 사람 / QR and the sound are checked at all four viewports too (checkTalk):
+// the 대화 button opens the talk dialog (portrait, the three 2D topics, ▷ 읽어 주기, 미션 시작 / 새 미션 받기, E and
+// Escape); at 남당항 the ferry button opens the 2D ferry dialog, boarding shows the voyage chip (no footsteps at sea),
+// 죽도 opens on landing with the chime or the arrival sound (never both) and 죽도에서 돌아가기 sails back; 찾아가기 죽도
+// from the mainland heads for 남당항 with the 2D hint and a place in reach opens as a visit; each 설정 row opens its
+// dialog (help tabs, the downloads resolve, the photo credits, the RELEASE facts, the QR picture and the copy button);
+// 효과음 / 배경음 / 소리 크기 take effect at once with no errors, and walking plays footsteps.
 // Screenshots go to OUT (SMOKE_OUT, default a folder in the system temp directory; SMOKE_ONLY=tablet,phone,landscape
 // runs only those passes).
 import http from 'node:http';
@@ -33,6 +40,8 @@ import { PLACES } from '#game/content.js';
 import { STAMPS, JOURNALS } from '#game/wardrobe.js';
 import { symbolKey } from '#game/place-icons.js';
 import { freshState } from '#game/core.js';
+import { RELEASE } from '#game/release.js';
+import credits from '#game/assets/photo-credits.json' with { type: 'json' };
 
 const require = createRequire(import.meta.url);
 const { chromium } = require('playwright');
@@ -93,12 +102,14 @@ const TEXT_15 = ['#where', '.stats', '.hint', '.credit .lead', '.credit summary'
   '.menu .lead', '.menu .note', '.menu .status', '.mis-card p', '.card .desc', '.product p', '.reset-confirm p', '.tally', '.wallet',
   '#found-btn', '.tally dt', '.tally dd', '.tally small', '.j-desc', '.j-empty', '.j-note label', '#journal-note',
   '.place-hero figcaption', '#place-caption', '.speech', '.speech small', '.quiz .options button', '.quiz .q-text', '.quiz .lead', '.rv p', '.rv .num small', '.src p', '.src .facts span',
-  '.map-note', '.mview .lead', '.cp-text strong', '.story-body p', '.search-input', '.opt-text strong', '.opt-text small', '.search-empty', '.empty-note', '.near-title', '.near-search', '.place-row h4', '.place-row p'];
+  '.map-note', '.mview .lead', '.cp-text strong', '.story-body p', '.search-input', '.opt-text strong', '.opt-text small', '.search-empty', '.empty-note', '.near-title', '.near-search', '.place-row h4', '.place-row p',
+  '#voyage-status', '.npc-speech', '.npc-text .note', '#ferry-body p', '#help-body p', '.help-sec li', '.keys dd', '#about-body p', '#about-body dd', '.qr-text p', '.qr-url', '#qr-status'];
 const LABEL_MIN = [['.travel button span', 13], ['.travel button small', 12], ['.dialog .tag', 13], ['.skill .lbl', 13], ['.skill small', 12], ['.mission-kick', 13], ['#mission-title', 13], ['.mission .badge', 13], ['.mission-foot .btn', 13], ['#speed-factor', 12], ['.cam-pad button', 13],
   ['.menu .tabs [role="tab"]', 13], ['.menu h3', 13], ['.mis-kick', 13], ['.mis-card h4', 13], ['.mis-card .btn', 13], ['.ride-head b', 13], ['.card .factor', 12], ['.shop-cats .cat', 13], ['.card.char b', 13], ['.card.char span', 13], ['.product h4', 13], ['.product .buy', 13], ['.opt-name', 13], ['.seg button', 13], ['.menu select', 13], ['.menu .settings > .btn', 13], ['.reset-confirm .btn', 13], ['.menu .go', 13],
   ['.j-filters button', 13], ['.j-tag', 13], ['.j-stamp', 13], ['.j-card b', 13], ['.j-actions .btn', 13],
   ['#place-kind', 13], ['.dialog .speaker', 13], ['.dialog .page-num', 13], ['#place-footer .btn', 13], ['.q-kick', 13], ['.quiz .options b', 13], ['.voice-status', 13], ['.src .btn', 13], ['.src h3', 13],
-  ['.map-tabs [role="tab"]', 13], ['.map-tools button', 13], ['#map-zoom', 13], ['.map-side h3', 13], ['.districts button', 13], ['.cp-text small', 13], ['.map-more summary', 13], ['.legend-item', 13], ['.story-body h4', 13], ['.story-body .btn', 13], ['.row-tag', 13], ['#map-back', 13], ['.near-filters button', 13], ['.place-row .go', 13], ['.mis-tools .btn', 13]];
+  ['.map-tabs [role="tab"]', 13], ['.map-tools button', 13], ['#map-zoom', 13], ['.map-side h3', 13], ['.districts button', 13], ['.cp-text small', 13], ['.map-more summary', 13], ['.legend-item', 13], ['.story-body h4', 13], ['.story-body .btn', 13], ['.row-tag', 13], ['#map-back', 13], ['.near-filters button', 13], ['.place-row .go', 13], ['.mis-tools .btn', 13],
+  ['.npc-topics [role="tab"]', 13], ['.npc-text h3', 13], ['#npc-footer .btn', 13], ['#ferry-footer .btn', 13], ['.help-tabs [role="tab"]', 13], ['.help-sec h3', 13], ['.help-sec h4', 13], ['.keys dt', 13], ['.panel-dialog .links .btn', 13], ['.panel-dialog footer .btn', 13], ['.about-info dt', 13], ['.qr-text h3', 13], ['#copy-link', 13]];
 // touch screens: nothing interactive in the stick zone (left 42 % of the width, lower 45 % of the height) while
 // playing; the discovery chip (a button: the 수첩) clear of every other HUD piece; overlaps() as ui/dom.js: edges that
 // only touch do not count
@@ -996,6 +1007,365 @@ async function checkMap(page, name, spec, shot) {
   await back();
 }
 
+// A simple dialog's layout (talk, ferry, help, about, QR): the panel inside the screen; its header parts, tab row and
+// tabs, body, footer and footer buttons inside the panel and clear of one another (overlaps() as ui/dom.js; parts
+// nested in one another do not count; body parts are clipped to the scrolling body, so what is scrolled away does
+// not count); no button or link label wider than its box; the body keeps at least three lines of room.
+async function checkPanelLayout(page, name, where, id) {
+  const r = await page.evaluate((id) => {
+    const panel = document.getElementById(id), P = panel.getBoundingClientRect(), bad = [], out = [], wide = [];
+    const overlaps = (a, b) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
+    const inside = (q, o) => q.left >= o.left - 0.5 && q.right <= o.right + 0.5 && q.top >= o.top - 0.5 && q.bottom <= o.bottom + 0.5;
+    const label = (e) => e.id || e.dataset.topic || e.dataset.view || String(e.className).split(' ')[0] || e.tagName;
+    const shown = (e) => { const cs = getComputedStyle(e); return e.closest('[hidden]') === null && cs.display !== 'none' && cs.visibility !== 'hidden'; };
+    const body = panel.querySelector(':scope > .body'), B = body.getBoundingClientRect();
+    const clip = (e) => {
+      const q = e.getBoundingClientRect();
+      if (!body.contains(e) || e === body) return q.width > 0 && q.height > 0 ? q : null;
+      const c = { left: Math.max(q.left, B.left), top: Math.max(q.top, B.top), right: Math.min(q.right, B.right), bottom: Math.min(q.bottom, B.bottom) };
+      return c.right - c.left > 0.5 && c.bottom - c.top > 0.5 ? c : null;
+    };
+    const SEL = ':scope > header, header .titles > *, header .close, :scope > .tabs, :scope > .tabs > [role="tab"], :scope > .body, :scope > footer, :scope > footer > :not(.spacer), .body .links > *, .body .opt-row, .body .seg, .npc-portrait, .npc-text, .qr-img, .qr-text';
+    const parts = [...panel.querySelectorAll(SEL)].filter(shown).map((e) => [e, clip(e)]).filter(([, q]) => q);
+    for (let i = 0; i < parts.length; i++) for (let j = i + 1; j < parts.length; j++) {
+      const [a, ra] = parts[i], [b, rb] = parts[j];
+      if (!a.contains(b) && !b.contains(a) && overlaps(ra, rb)) bad.push(`${label(a)} / ${label(b)}`);
+    }
+    if (!inside(P, { left: 0, top: 0, right: innerWidth, bottom: innerHeight })) out.push('panel');
+    for (const [e, q] of parts) if (!inside(q, P)) out.push(label(e));
+    for (const b of panel.querySelectorAll('button, a.btn')) if (shown(b) && b.clientWidth && b.scrollWidth > b.clientWidth + 1) wide.push(label(b) + '("' + b.textContent.slice(0, 12) + '")');
+    return { parts: parts.length, bad: bad.slice(0, 6), nBad: bad.length, out: out.slice(0, 6), wide: wide.slice(0, 6), room: Math.round(body.clientHeight) };
+  }, id);
+  check(r.nBad === 0 && r.out.length === 0 && r.wide.length === 0 && r.room >= 72, `${name} ${where}: ${r.parts} parts inside the panel and screen, none overlapping, labels fit, body ${r.room} px${r.nBad ? ' — overlap: ' + r.bad.join(', ') : ''}${r.out.length ? ' — outside: ' + r.out.join(', ') : ''}${r.wide.length ? ' — too wide: ' + r.wide.join(', ') : ''}`);
+}
+
+// NPC talk, the ferry, 도움말 / 자료 출처 / 만든 사람 / QR and the sound (Task 8) at this viewport. Each dialog opens paused
+// with the focus inside and the 2D wording, passes the sizes, fonts and layout, and Escape closes it into play.
+async function checkTalk(page, name, spec, shot) {
+  const touch = !!spec.touch;
+  await watchSounds(page);
+  const home = await page.evaluate(() => { const W = window.__hs3d.world; for (let i = 0; i < 4 && W.ctl.paused(); i++) window.__hs3d.closeDialogs(); window.__hs3d.setMode('walk'); return [W.player.x, W.player.y]; });
+  const back = () => page.evaluate(([x, y]) => { const W = window.__hs3d.world; for (let i = 0; i < 4 && W.ctl.paused(); i++) window.__hs3d.closeDialogs(); W.target = null; W.ferryPending = false; window.__hs3d.teleport(x, y); }, home);
+  const escInto = async (what) => {
+    await page.keyboard.press('Escape');
+    const r = await page.evaluate(() => ({ paused: window.__hs3d.ctl.paused(), focus: document.activeElement?.id, open: [...document.querySelectorAll('.scrim')].filter((s) => !s.hidden).map((s) => s.id), inert: document.querySelector('.hud-br').inert }));
+    check(!r.paused && r.focus === 'c' && r.open.length === 0 && !r.inert, `${name}: Escape closes ${what} into play, focus back on the map (${JSON.stringify(r)})`);
+  };
+
+  // ---- the sound: a key press has unlocked GameAudio; 설정's 배경음 / 효과음 / 소리 크기 take effect at once and are saved
+  // (headless Chromium plays to no device: only the state, the music loop and the absence of errors can be checked)
+  await page.keyboard.press('Shift');
+  await sleep(300);
+  const snd = await page.evaluate(async () => {
+    const W = window.__hs3d.world, A = W.audio, wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    const press = (k, v) => document.querySelector(`#pane-settings [data-setting="${k}"] [data-value="${v}"]`).click();
+    for (let i = 0; i < 4 && W.ctl.paused(); i++) window.__hs3d.closeDialogs();
+    document.getElementById('home-btn').click(); document.getElementById('tab-settings').click();
+    const r = { unlocked: !!A?.ctx, wired: W.ctl.sound === W.sound && W.ctl.narrator === W.narrator };
+    press('music', 'on'); await wait(300);
+    r.music = [W.state.sound, W.state.music, !!A?.timer];
+    press('sound', 'off'); await wait(300);
+    r.off = [W.state.sound, W.state.music, !!A?.timer];
+    press('sound', 'on'); await wait(300);
+    r.on = [W.state.sound, !!A?.timer, A?.ctx?.state || null];
+    press('music', 'off'); await wait(100);
+    const saved = JSON.parse(localStorage.getItem('hongseong-adventure-v1'));
+    r.saved = [saved.sound, saved.music];
+    const v = document.getElementById('opt-volume');
+    v.value = '0.3'; v.dispatchEvent(new Event('input', { bubbles: true })); r.volume = W.state.volume;
+    v.value = '0.6'; v.dispatchEvent(new Event('input', { bubbles: true }));
+    r.rows = [...document.querySelectorAll('#pane-settings [data-open]')].filter((b) => !b.hidden).map((b) => b.textContent);
+    return r;
+  });
+  check(snd.unlocked && snd.wired, `${name}: GameAudio unlocked by the first key press, the controller plays through it and reads aloud through the Narrator (${JSON.stringify({ unlocked: snd.unlocked, wired: snd.wired })})`);
+  check(JSON.stringify(snd.music) === '[true,true,true]' && JSON.stringify(snd.off) === '[false,true,false]' && snd.on[0] === true && snd.on[1] === true && JSON.stringify(snd.saved) === '[true,false]' && snd.volume === 0.3,
+    `${name}: 배경음 on starts the music loop, 효과음 off stops all sound (the music loop too; 배경음 stays chosen), on unlocks again, the volume follows the slider, all saved (${JSON.stringify(snd)})`);
+  check(JSON.stringify(snd.rows) === JSON.stringify(['도움말', '자료 출처', '만든 사람', 'QR로 열기']), `${name}: 설정 shows 도움말 / 자료 출처 / 만든 사람 / QR로 열기 (${snd.rows.join(' / ')})`);
+
+  // ---- 도움말 (four tabs), 자료 출처 (the help at its sources), 만든 사람, QR: each from its 설정 row
+  const openRow = (label) => page.evaluate((label) => {
+    const W = window.__hs3d.world;
+    for (let i = 0; i < 4 && W.ctl.paused(); i++) window.__hs3d.closeDialogs();
+    document.getElementById('home-btn').click(); document.getElementById('tab-settings').click();
+    [...document.querySelectorAll('#pane-settings [data-open]')].find((b) => b.textContent === label)?.click();
+    const panel = document.querySelector('.scrim:not([hidden]) [role="dialog"]');
+    return { kind: W.ctl.dialog?.kind, paused: W.ctl.paused(), menu: !document.getElementById('menu').hidden, id: panel?.id, view: panel?.dataset.view || null, focusIn: !!panel && panel.contains(document.activeElement), title: panel?.querySelector('h2')?.textContent };
+  }, label);
+  const help = await openRow('도움말');
+  check(help.kind === 'help' && help.paused && !help.menu && help.id === 'help-panel' && help.view === 'how' && help.focusIn && help.title === '탐방 안내와 설정', `${name}: 도움말 opens the help at 탐방 방법, paused, focus inside (${JSON.stringify(help)})`);
+  const HELP_TABS = [['how', '탐방 방법'], ['settings', '설정'], ['teacher', '선생님'], ['sources', '자료 출처']];
+  for (const [view, label] of HELP_TABS) {
+    const r = await page.evaluate(async (view) => {
+      document.getElementById('htab-' + view).click();
+      await new Promise((f) => setTimeout(f, 150));
+      const body = document.getElementById('help-body'), tab = document.getElementById('htab-' + view);
+      return { view: document.getElementById('help-panel').dataset.view, selected: tab.getAttribute('aria-selected'), label: tab.textContent, heads: [...body.querySelectorAll('h3')].map((h) => h.textContent), text: body.textContent, top: body.scrollTop,
+        keys: [...body.querySelectorAll('.keys dt')].map((d) => d.textContent), seg: [...body.querySelectorAll('[data-hsetting]')].map((g) => g.dataset.hsetting) };
+    }, view);
+    let ok = r.view === view && r.selected === 'true' && r.label === label && r.top === 0;
+    if (view === 'how') ok = ok && r.heads[0] === '어떻게 탐방하나요?' && r.text.includes('① 장소 원 안에 들어가면 안내가 열려요.') && ['E', 'C', 'T', 'Q', 'R · F', '1–6', 'W A S D · 방향키'].every((k) => r.keys.includes(k)) && /두 손가락/.test(r.text) && /휠/.test(r.text);
+    if (view === 'settings') ok = ok && r.heads[0] === '설정' && JSON.stringify(r.seg) === '["sound","music"]';
+    if (view === 'teacher') ok = ok && r.heads[0] === '선생님을 위한 안내' && r.text.includes('아이스크림 초등 사회 3학년 1학기 1단원') && r.text.includes('223개 장소');
+    if (view === 'sources') ok = ok && ['실제 지도와 표현 방식', '이번에 추가한 장소', '사진과 자료 출처'].every((h) => r.heads.includes(h)) && r.text.includes('장식');
+    check(ok, `${name}: help tab ${label} (${JSON.stringify({ ...r, text: r.text.slice(0, 60) })})`);
+    await checkUi(page, name, `help ${view}`, touch);
+    await checkPanelLayout(page, name, `help ${view}`, 'help-panel');
+    await sleep(400);   // let the panel finish painting
+    await shot(`t8-help-${view}`);
+  }
+  // the sources: every download resolves, every web link opens a new tab, all the 2D photo credits
+  const files = await page.evaluate(async () => {
+    const body = document.getElementById('help-body'), links = [...body.querySelectorAll('a[href]')];
+    const downloads = links.filter((a) => a.hasAttribute('download') || !/^https?:/.test(a.getAttribute('href')) || a.href.startsWith(location.origin));
+    const bad = [];
+    for (const a of downloads) {
+      try { const res = await fetch(a.href, { method: a.href.startsWith('data:') ? 'GET' : 'HEAD' }); if (!res.ok) bad.push(a.textContent + ' ' + res.status); } catch (e) { bad.push(a.textContent + ' ' + e.message); }
+    }
+    const web = links.filter((a) => !downloads.includes(a));
+    return { downloads: downloads.length, bad, web: web.length, safe: web.every((a) => a.target === '_blank' && /noopener/.test(a.rel)), credits: body.querySelectorAll('.credit-item').length, names: downloads.map((a) => a.textContent) };
+  });
+  check(files.downloads >= 10 && files.bad.length === 0 && files.web >= 8 && files.safe && files.credits === credits.assets.length, `${name}: 자료 출처 offers ${files.downloads} downloads that all resolve, ${files.web} web links in a new tab and the ${files.credits} 2D photo credits${files.bad.length ? ' — failed: ' + files.bad.join(', ') : ''} (${files.names.slice(0, 4).join(' / ')} …)`);
+  // the help's 설정 shortcuts change the same settings; ArrowLeft moves between the tabs; 메뉴로 돌아가기 opens the menu's 설정
+  const short = await page.evaluate(async () => {
+    const W = window.__hs3d.world, wait = (ms) => new Promise((f) => setTimeout(f, ms));
+    document.getElementById('htab-settings').click(); await wait(100);
+    document.querySelector('#help-body [data-hsetting="music"] [data-value="on"]').click();
+    const r = { music: W.state.music, loop: !!W.audio.timer, pressed: document.querySelector('#help-body [data-hsetting="music"] [data-value="on"]').getAttribute('aria-pressed') };
+    document.querySelector('#help-body [data-hsetting="music"] [data-value="off"]').click();
+    r.off = W.state.music;
+    document.getElementById('htab-settings').focus();
+    document.getElementById('htab-settings').dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true, cancelable: true }));
+    r.arrow = [document.getElementById('help-panel').dataset.view, document.activeElement?.id];
+    document.getElementById('help-menu').click();
+    r.menu = [W.ctl.dialog?.kind, !document.getElementById('menu').hidden, document.getElementById('tab-settings').getAttribute('aria-selected'), document.getElementById('help-dialog').hidden];
+    return r;
+  });
+  check(short.music && short.loop && short.pressed === 'true' && short.off === false && JSON.stringify(short.arrow) === '["how","htab-how"]' && JSON.stringify(short.menu) === '["menu",true,"true",true]', `${name}: the help's 배경음 shortcut works, ArrowLeft moves to 탐방 방법, 메뉴로 돌아가기 opens the menu at 설정 (${JSON.stringify(short)})`);
+  const sources = await openRow('자료 출처');
+  check(sources.kind === 'help' && sources.view === 'sources' && sources.focusIn && !sources.menu, `${name}: 자료 출처 opens the help at its sources tab (${JSON.stringify(sources)})`);
+  await escInto('the help');
+  const about = await openRow('만든 사람');
+  const ab = await page.evaluate(() => { const b = document.getElementById('about-body'); return { text: b.textContent, mail: b.querySelector('a[href^="mailto:"]')?.getAttribute('href'), changes: b.querySelectorAll('.change-item').length, blurb: document.querySelector('#about-panel .blurb')?.textContent }; });
+  check(about.kind === 'about' && about.paused && about.focusIn && about.title === '홍성 탐험대' && ab.blurb === `버전 ${RELEASE.version}` && [RELEASE.creator, RELEASE.organization, RELEASE.email, `${RELEASE.version} · ${RELEASE.date}`].every((t) => ab.text.includes(t)) && ab.mail === 'mailto:' + RELEASE.email && ab.changes === RELEASE.changes.length,
+    `${name}: 만든 사람 shows the RELEASE facts (${RELEASE.creator}, ${RELEASE.organization}, ${RELEASE.version}) and ${ab.changes} changes (${JSON.stringify({ ...about, mail: ab.mail })})`);
+  await checkUi(page, name, 'about', touch);
+  await checkPanelLayout(page, name, 'about', 'about-panel');
+  await sleep(400);
+  await shot('t8-about');
+  await escInto('만든 사람');
+  const qr = await openRow('QR로 열기');
+  await page.waitForFunction(() => { const i = document.getElementById('qr-img'); return i && i.complete; }, null, { timeout: 10000, polling: 200 }).catch(() => {});
+  const q = await page.evaluate(async () => {
+    const img = document.getElementById('qr-img'), b = document.getElementById('qr-body');
+    const r = { w: img.naturalWidth, alt: img.alt, head: b.querySelector('h3')?.textContent, url: b.querySelector('.qr-url')?.textContent, text: b.textContent, copy: document.getElementById('copy-link')?.textContent };
+    document.getElementById('copy-link').click();
+    for (let i = 0; i < 30 && !document.getElementById('qr-status').textContent; i++) await new Promise((f) => setTimeout(f, 100));
+    r.toast = document.getElementById('qr-status').textContent;
+    return r;
+  });
+  check(qr.kind === 'qr' && qr.paused && qr.focusIn && qr.title === '태블릿으로 모험을 이어가요' && q.w > 0 && q.alt === '홍성 모험 수첩 데모 접속 QR 코드' && q.head === '카메라로 QR 코드를 비춰 주세요' && q.url === 'https://hongseong-adventure-demo.anyconium.chatgpt.site' && q.text.includes('각 기기에 따로 저장') && q.copy === '접속 주소 복사' && ['접속 주소를 복사했어요.', '아래에 표시된 주소를 길게 눌러 복사해 주세요.'].includes(q.toast),
+    `${name}: QR로 열기 shows the 2D game's QR (${q.w}px) and wording, 접속 주소 복사 answers "${q.toast}"`);
+  await checkUi(page, name, 'QR', touch);
+  await checkPanelLayout(page, name, 'QR', 'qr-panel');
+  await sleep(400);
+  await shot('t8-qr');
+  await escInto('the QR');
+
+  // ---- NPC talk: next to a guide the 대화 button shows and opens the talk dialog
+  await back();
+  const npc = await page.evaluate(async () => {
+    const W = window.__hs3d.world;
+    for (const it of W.npcLayer.items.slice(0, 12)) {
+      window.__hs3d.closeDialogs();
+      if (!window.__hs3d.teleport(it.npc.point[0] + 6, it.npc.point[1])) continue;
+      await new Promise((r) => setTimeout(r, 700));
+      if (!document.getElementById('npc-talk').hidden && W.npcLayer.nearest(W.player)) return W.npcLayer.nearest(W.player).npc.id;
+    }
+    return null;
+  });
+  check(!!npc, `${name}: the 대화 button shows next to an NPC (${npc})`);
+  if (npc) {
+    const talk = await page.evaluate(() => {
+      const W = window.__hs3d.world, n = W.npcLayer.nearest(W.player).npc;
+      window.__sounds.length = 0;
+      document.getElementById('npc-talk').click();
+      const c = document.getElementById('npc-portrait'), d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data, colours = new Set();
+      let painted = 0;
+      for (let i = 0; i < d.length; i += 4) if (d[i + 3] > 128) { painted++; colours.add((d[i] >> 4) << 8 | (d[i + 1] >> 4) << 4 | d[i + 2] >> 4); }
+      return {
+        kind: W.ctl.dialog?.kind, paused: W.ctl.paused(), focusIn: !!document.activeElement?.closest('#npc-panel'),
+        name: document.getElementById('npc-title').textContent, area: document.getElementById('npc-tag').textContent, heading: document.getElementById('npc-heading').textContent, text: document.getElementById('npc-speech').textContent,
+        want: { name: n.name, area: n.area, heading: n.area + '의 이야기', text: `${n.history} ${n.story}`.trim(), source: n.source },
+        topics: [...document.querySelectorAll('#npc-topics [role="tab"]')].map((b) => b.textContent + (b.getAttribute('aria-selected') === 'true' ? '*' : '')),
+        read: document.getElementById('npc-read')?.textContent, next: document.getElementById('npc-next').textContent, source: document.getElementById('npc-source')?.href,
+        painted: Math.round(painted / (c.width * c.height) * 100), colours: colours.size,
+      };
+    });
+    const w = talk.want;
+    check(talk.kind === 'npc' && talk.paused && talk.focusIn && talk.name === w.name && talk.area === w.area && talk.heading === w.heading && talk.text === w.text && talk.source === w.source
+      && JSON.stringify(talk.topics) === '["지역 이야기*","게임 도움","미션 도움"]' && talk.read === '▷ 읽어 주기' && ['미션 시작', '새 미션 받기'].includes(talk.next),
+    `${name}: 대화 opens ${talk.name} (${talk.area}): "${talk.heading}", the 2D region text, topics ${talk.topics.join(' / ')}, ${talk.read} / ${talk.next}`);
+    check(talk.painted > 4 && talk.colours > 12, `${name}: the talk dialog draws the NPC's portrait (${talk.painted}% painted, ${talk.colours} colours)`);
+    await checkUi(page, name, 'npc talk', touch);
+    await checkPanelLayout(page, name, 'npc region', 'npc-panel');
+    await sleep(400);
+    await shot('t8-npc');
+    const topics = await page.evaluate(() => {
+      const get = () => ({ heading: document.getElementById('npc-heading').textContent, text: document.getElementById('npc-speech').textContent, sel: document.querySelector('#npc-topics [aria-selected="true"]')?.dataset.topic });
+      document.querySelector('#npc-topics [data-topic="help"]').click();
+      const help = get();
+      document.querySelector('#npc-topics [data-topic="help"]').focus();
+      document.querySelector('#npc-topics [data-topic="help"]').dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, cancelable: true }));
+      return { help, mission: { ...get(), focus: document.activeElement?.dataset.topic, next: document.getElementById('npc-next').textContent } };
+    });
+    const m = topics.mission;
+    check(topics.help.heading === '어떻게 탐방할까요?' && topics.help.sel === 'help' && topics.help.text.includes('죽도는 남당항에서 배로 갈 수 있어') && m.heading === '다음 목적지는 어디일까요?' && m.sel === 'mission' && m.focus === 'mission'
+      && (m.next === '미션 시작' ? m.text.startsWith('지금 목표는 ') && m.text.includes('직행 보너스 50금화') : m.text.startsWith('오늘의 미션을 모두 마쳤구나')),
+    `${name}: 게임 도움 and 미션 도움 (ArrowRight) show the 2D texts (${JSON.stringify(topics)})`);
+    await checkUi(page, name, 'npc mission', touch);
+    await checkPanelLayout(page, name, 'npc mission', 'npc-panel');
+    await sleep(400);
+    await shot('t8-npc-mission');
+    await page.evaluate(() => document.getElementById('npc-read').click());
+    await sleep(1600);
+    const read = await page.evaluate(() => document.getElementById('npc-read').textContent);
+    check(['▷ 읽어 주기', '■ 읽기 멈추기'].includes(read), `${name}: ▷ 읽어 주기 asks the Narrator to read (button "${read}")`);
+    const go = await page.evaluate(() => {
+      const W = window.__hs3d.world, label = document.getElementById('npc-next').textContent, active = W.state.dailyQuests?.active;
+      window.__sounds.length = 0;
+      document.getElementById('npc-next').click();
+      const r = { label, active, kind: W.ctl.dialog?.kind || null, paused: W.ctl.paused(), target: !!W.target, place: W.dialog.isOpen ? W.dialog.place?.id : null, tab: document.getElementById('tab-missions').getAttribute('aria-selected'), sounds: window.__sounds.slice() };
+      W.target = null; W.player.route = null;
+      return r;
+    });
+    const started = go.label === '미션 시작' ? (!go.paused && go.target && go.sounds.includes('move')) || (go.kind === 'place' && go.place === go.active) : go.kind === 'menu' && go.tab === 'true';
+    check(started, `${name}: ${go.label} ${go.label === '미션 시작' ? 'closes the talk and heads for the mission' : 'brings new missions in the menu'} (${JSON.stringify(go)})`);
+    await page.evaluate(() => { const W = window.__hs3d.world; for (let i = 0; i < 4 && W.ctl.paused(); i++) window.__hs3d.closeDialogs(); document.getElementById('c').focus(); });
+    await page.keyboard.press('KeyE');
+    const byKey = await page.evaluate(() => ({ kind: window.__hs3d.ctl.dialog?.kind, focusIn: !!document.activeElement?.closest('#npc-panel') }));
+    check(byKey.kind === 'npc' && byKey.focusIn, `${name}: E next to the NPC opens the talk (${JSON.stringify(byKey)})`);
+    await escInto('the talk');
+  }
+
+  // ---- 찾아가기: a place in reach opens as a visit (P24); 죽도 from the mainland heads for 남당항 with the 2D hint
+  await back();
+  const reach = await page.evaluate(async () => {
+    const W = window.__hs3d.world;
+    for (const p of W.places.slice(0, 40)) {
+      if (p.ring || p.id === 'tourmap-jukdo') continue;
+      window.__hs3d.closeDialogs();
+      if (!window.__hs3d.teleport(p.point[0] + 6, p.point[1] + 6)) continue;
+      await new Promise((r) => setTimeout(r, 300));
+      const r = W.ctl.goTo(p.id);
+      if (r === 'route') { W.target = null; W.player.route = null; continue; }
+      return { id: p.id, r, open: W.dialog.isOpen ? W.dialog.place?.id : null, physical: W.ctl.dialog?.data?.physical, target: !!W.target };
+    }
+    return null;
+  });
+  check(!!reach && reach.r === 'visit' && reach.open === reach.id && reach.physical === true && !reach.target, `${name}: 찾아가기 a place already in reach opens it as a visit (${JSON.stringify(reach)})`);
+  await back();
+  const hint = await page.evaluate(() => {
+    const W = window.__hs3d.world;
+    window.__sounds.length = 0;
+    const r = W.ctl.goTo('tourmap-jukdo'), t = W.target;
+    const out = { r, dock: !!t && Math.hypot(t[0] - W.docks.namdang[0], t[1] - W.docks.namdang[1]) < 5, island: !!t && Math.hypot(t[0] - W.byId.get('tourmap-jukdo').point[0], t[1] - W.byId.get('tourmap-jukdo').point[1]) < 5, toast: document.getElementById('toast').textContent, pending: !!W.ferryPending, sounds: window.__sounds.slice() };
+    W.target = null; W.player.route = null; W.ferryPending = false;
+    return out;
+  });
+  check(hint.r === 'dock' && hint.dock && !hint.island && hint.pending && hint.toast === '남당항으로 이동한 뒤 배를 타요.' && hint.sounds.includes('move'), `${name}: 찾아가기 죽도 from the mainland heads for 남당항 with the 2D hint (${JSON.stringify(hint)})`);
+
+  // ---- the ferry: 배 타고 죽도로 at 남당항 opens the 2D ferry dialog; boarding sails with the voyage chip
+  const pier = await page.evaluate(async () => {
+    const W = window.__hs3d.world;
+    window.__hs3d.closeDialogs();
+    const at = window.__hs3d.teleport(W.docks.namdang[0] + 30, W.docks.namdang[1]);
+    await new Promise((r) => setTimeout(r, 900));
+    const b = document.getElementById('ferry-btn');
+    return { at: !!at, shown: !b.hidden, text: b.textContent };
+  });
+  check(pier.at && pier.shown && pier.text === '배 타고 죽도로', `${name}: at 남당항 the ferry button reads "${pier.text}"`);
+  const fd = await page.evaluate(() => {
+    const W = window.__hs3d.world;
+    document.getElementById('ferry-btn').click();
+    return { kind: W.ctl.dialog?.kind, paused: W.ctl.paused(), focus: document.activeElement?.id, title: document.getElementById('ferry-title')?.textContent, tag: document.querySelector('#ferry-panel .tag')?.textContent, body: document.getElementById('ferry-body')?.textContent || '', board: document.getElementById('board-ferry')?.textContent, voyage: !!W.voyage };
+  });
+  check(fd.kind === 'ferry' && fd.paused && fd.focus === 'board-ferry' && fd.title === '죽도로 떠나는 배 여행' && fd.tag === '남당항 ↔ 죽도' && fd.body.includes('죽도는 바다로 둘러싸인 섬이에요. 남당항에서 배를 타고 찾아가 볼까요?') && fd.body.includes('게임에서는 기다리는 시간과 요금을 생략했어요.') && fd.board === '남당항으로 가서 배 타기' && !fd.voyage,
+    `${name}: the ferry button opens 죽도로 떠나는 배 여행 (2D wording) before boarding (${JSON.stringify({ ...fd, body: fd.body.slice(0, 40) })})`);
+  await checkUi(page, name, 'ferry dialog', touch);
+  await checkPanelLayout(page, name, 'ferry dialog', 'ferry-panel');
+  await sleep(400);
+  await shot('t8-ferry');
+  const sail = await page.evaluate(async () => {
+    const W = window.__hs3d.world, A = W.audio, f = A.footstep;
+    let steps = 0;
+    A.footstep = function (t) { steps++; return f.call(this, t); };
+    window.__sounds.length = 0;
+    document.getElementById('board-ferry').click();
+    const chip = () => { const c = document.getElementById('voyage-status'); return c.hidden ? '' : c.textContent; };
+    const r = { paused: W.ctl.paused(), voyage: !!W.voyage, mode: W.player.mode, chip: chip(), sounds: window.__sounds.slice() };
+    await new Promise((res) => setTimeout(res, 1500));
+    r.elapsed = W.voyage ? Math.round(W.voyage.elapsed * 100) / 100 : -1; r.steps = steps; r.button = document.getElementById('ferry-btn').hidden; r.chipLater = chip();
+    A.footstep = f;
+    return r;
+  });
+  check(!sail.paused && sail.voyage && sail.mode === 'boat' && sail.chip === '배를 타고 죽도로 가는 중…' && sail.chipLater === sail.chip && sail.button && sail.sounds.includes('move') && sail.elapsed > 0 && sail.steps === 0,
+    `${name}: 남당항으로 가서 배 타기 sails with the voyage chip "${sail.chip}", no footsteps at sea (${JSON.stringify(sail)})`);
+  await checkUi(page, name, 'voyage', touch);
+  await sleep(400);
+  await shot('t8-voyage');
+  const land = await page.evaluate(async () => {
+    const W = window.__hs3d.world, found = W.state.discovered.includes('tourmap-jukdo');
+    window.__sounds.length = 0;
+    if (W.voyage) W.voyage.elapsed = W.voyage.duration - 0.05;
+    for (let i = 0; i < 80 && !W.dialog.isOpen; i++) await new Promise((r) => setTimeout(r, 250));
+    return { found, place: W.dialog.isOpen ? W.dialog.place?.id : null, voyage: !!W.voyage, chip: !document.getElementById('voyage-status').hidden, mode: W.player.mode, sounds: window.__sounds.slice(), nowFound: W.state.discovered.includes('tourmap-jukdo') };
+  });
+  const chimed = land.sounds.includes('discovery'), arrived = land.sounds.includes('arrival');
+  check(land.place === 'tourmap-jukdo' && !land.voyage && !land.chip && land.mode === 'walk' && land.nowFound && chimed !== arrived && (land.found || chimed),
+    `${name}: landing on 죽도 opens its place with ${chimed ? 'the chime' : 'the arrival sound'} only (${JSON.stringify(land)})`);
+  const island = await page.evaluate(async () => {
+    const W = window.__hs3d.world;
+    for (let i = 0; i < 4 && W.ctl.paused(); i++) window.__hs3d.closeDialogs();
+    await new Promise((r) => setTimeout(r, 900));
+    const b = document.getElementById('ferry-btn');
+    return { shown: !b.hidden, text: b.textContent, paused: W.ctl.paused() };
+  });
+  check(island.shown && island.text === '죽도에서 돌아가기' && !island.paused, `${name}: on 죽도 the button reads "${island.text}"`);
+  await checkUi(page, name, 'on 죽도', touch);
+  await sleep(400);
+  await shot('t8-jukdo');
+  const ret = await page.evaluate(async () => {
+    const W = window.__hs3d.world;
+    document.getElementById('ferry-btn').click();
+    const c = document.getElementById('voyage-status');
+    const r = { voyage: !!W.voyage, returning: W.voyage?.returning, chip: c.hidden ? '' : c.textContent, paused: W.ctl.paused() };
+    if (W.voyage) W.voyage.elapsed = W.voyage.duration - 0.05;
+    for (let i = 0; i < 80 && !W.dialog.isOpen; i++) await new Promise((f) => setTimeout(f, 250));
+    r.place = W.dialog.isOpen ? W.dialog.place?.id : null; r.mode = W.player.mode;
+    for (let i = 0; i < 4 && W.ctl.paused(); i++) window.__hs3d.closeDialogs();
+    return r;
+  });
+  check(ret.voyage && ret.returning && ret.chip === '남당항으로 돌아가는 중…' && !ret.paused && ret.place === 'namdang' && ret.mode === 'walk', `${name}: 죽도에서 돌아가기 sails back to 남당항 (${JSON.stringify(ret)})`);
+
+  // ---- footsteps while walking (the 2D cadence), from the start spot
+  await back();
+  const steps = await page.evaluate(async () => {
+    const W = window.__hs3d.world, A = W.audio, f = A.footstep;
+    let n = 0;
+    A.footstep = function (t) { n++; return f.call(this, t); };
+    window.__hs3d.setMode('walk');
+    W.target = [W.player.x + 240, W.player.y + 40];
+    const x0 = W.player.x, y0 = W.player.y;
+    await new Promise((r) => setTimeout(r, 2000));
+    A.footstep = f;
+    const moved = Math.round(Math.hypot(W.player.x - x0, W.player.y - y0));
+    W.target = null; W.player.route = null;
+    return { n, moved };
+  });
+  check(steps.moved < 1 || steps.n > 0, `${name}: walking plays footsteps (${steps.n} calls over ${steps.moved} m)`);
+  await back();
+}
+
 async function run(browser, base, spec) {
   const { name, viewport, touch } = spec;
   const ctx = await browser.newContext({ viewport, hasTouch: touch, isMobile: touch, deviceScaleFactor: touch ? 2 : 1, locale: 'ko-KR' });
@@ -1048,6 +1418,7 @@ async function run(browser, base, spec) {
   }
   if (!await checkJournal(page, name, spec, shot)) { check(errors.length === 0, `${name}: no pageerror (${errors.join(' | ').slice(0, 400)})`); await ctx.close(); return; }
   await checkMap(page, name, spec, shot);
+  await checkTalk(page, name, spec, shot);
   await shot('1-start');
   if (spec.quick) {
     // touch tablet: the credit stays a collapsed toggle, and a short still touch in the stick zone taps the map
