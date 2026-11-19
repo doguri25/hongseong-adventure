@@ -36,11 +36,21 @@ osm_path = os.environ.get('OSM_BUILDINGS')
 if osm_path and os.path.exists(osm_path):
     seen = {json.dumps(k['p'][:2]) for k in keep if 'building' in k['t']}
     n = 0
-    for e in json.load(open(osm_path))['elements']:
-        if e.get('type') != 'way' or 'geometry' not in e: continue
-        pts = [project([g['lon'], g['lat']]) for g in e['geometry']]
+    src = json.load(open(osm_path))
+    shapes = []
+    if 'elements' in src:   # Overpass JSON (out geom)
+        shapes = [(e.get('tags', {}), [[g['lon'], g['lat']] for g in e['geometry']]) for e in src['elements'] if e.get('type') == 'way' and 'geometry' in e]
+    else:                   # GeoJSON, e.g. an overpass-turbo export
+        for f in src.get('features', []):
+            g = f.get('geometry') or {}
+            rings = [g['coordinates'][0]] if g.get('type') == 'Polygon' else [p[0] for p in g['coordinates']] if g.get('type') == 'MultiPolygon' else []
+            props = f.get('properties', {}); props = props.get('tags', props)
+            shapes += [(props, r) for r in rings]
+    for tags0, ring in shapes:
+        if 'building' not in tags0 or len(ring) < 4: continue
+        pts = [project(p) for p in ring]
         if json.dumps(pts[:2]) in seen: continue
-        tags = {k: v for k, v in e['tags'].items() if k in ('building', 'building:levels', 'height', 'name', 'amenity')}
+        tags = {k: v for k, v in tags0.items() if k in ('building', 'building:levels', 'height', 'name', 'amenity')}
         keep.append({'t': tags, 'p': pts, 'h': []}); n += 1
     print('osm buildings added', n)
 
