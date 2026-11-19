@@ -5,7 +5,16 @@ import { project, unproject } from '../frame.js';
 export const EXTRA_KEY = 'hongseong-3d-v1';
 export const MODES = ['walk', 'bike', 'car', 'supercar', 'slowplane', 'plane'];
 export const TRAVEL_SPEED = { walk: 'walk', bike: 'bike', car: 'fast', supercar: 'faster', slowplane: 'plane', plane: 'plane' };
+export const FROM_TRAVEL_SPEED = { walk: 'walk', bike: 'bike', fast: 'car', faster: 'supercar', plane: 'plane' };
 export const defaultExtra = () => ({ camera: 'tilt', time: 'day', quality: 'auto', travel: null });
+
+// The travel mode to start in. The shared `state.travelSpeed` is the authority (the 2D game may have changed it since
+// the 3D last ran); the 3D-only `extra.travel` only refines it when both agree (slowplane and plane share 'plane').
+export function restoreTravel(state, extra) {
+  const speed = state?.travelSpeed, travel = extra?.travel;
+  if (MODES.includes(travel) && TRAVEL_SPEED[travel] === speed) return travel;
+  return FROM_TRAVEL_SPEED[speed] || 'walk';
+}
 
 const read = (storage, key) => { try { const t = storage.getItem(key); return t ? JSON.parse(t) : null; } catch { return null; } };
 

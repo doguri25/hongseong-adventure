@@ -24,7 +24,7 @@ import { createPlayer, stepPlayer, setMode as setPlayerMode, TOAST } from './sim
 import { createCamera, stepCamera } from './sim/camera.js';
 import { arrivals, CAR_REACH, CONTACT } from './sim/arrival.js';
 import { createControls } from './input/controls.js';
-import { loadSession, saveSession, startPosition, MODES } from './game/session.js';
+import { loadSession, saveSession, startPosition, restoreTravel, MODES } from './game/session.js';
 import { ferryDocks, startVoyage, advanceVoyage } from './game/ferry.js';
 import { createHud, josa } from './ui/hud.js';
 import { createPlaceDialog, createNpcDialog } from './ui/place-dialog.js';
@@ -40,7 +40,6 @@ const isFlying = (m) => m === 'slowplane' || m === 'plane';
 const isCar = (m) => m === 'car' || m === 'supercar';
 const W = (BOUNDS[2] - BOUNDS[0]) * M_LON, H = (BOUNDS[3] - BOUNDS[1]) * M_LAT;
 const MOVE_BOUNDS = [60, 60, W - 60, H - 60];
-const FROM_TRAVEL_SPEED = { walk: 'walk', bike: 'bike', fast: 'car', faster: 'supercar', plane: 'plane' };
 const QUALITY_ORDER = ['auto', 'high', 'medium', 'low'];
 const TIME_ORDER = ['day', 'dusk', 'night'];
 const HOLE = { walk: 34, bike: 34, car: 62, supercar: 62, boat: 62, slowplane: 110, plane: 110 };
@@ -219,8 +218,9 @@ async function boot() {
   });
   G.npcDialog = createNpcDialog(document, { onClose: resume });
 
-  // restore the travel mode (falls back to walking when, say, a car has no road nearby)
-  const travel = extra.travel || FROM_TRAVEL_SPEED[state.travelSpeed] || 'walk';
+  // restore the travel mode: the shared travelSpeed wins over a stale 3D-only one (falls back to walking when, say, a
+  // car has no road nearby)
+  const travel = restoreTravel(state, extra);
   if (travel !== 'walk') { const r = setPlayerMode(player, travel, services); if (!r.ok) hud.toast(r.toast); }
   hud.setMode(player.mode, player.pending);
   hud.setCamera(cam.mode);

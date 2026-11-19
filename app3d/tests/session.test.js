@@ -1,10 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { loadSession, saveSession, startPosition } from '../src/game/session.js';
+import { loadSession, saveSession, startPosition, restoreTravel } from '../src/game/session.js';
 import { startVoyage, advanceVoyage } from '../src/game/ferry.js';
 import { createCollider } from '../src/sim/collider.js';
 import { WaterGuard } from '#game/water.js';
-import { freshState, discover, STORAGE_KEY } from '#game/core.js';
+import { freshState, discover, sanitizeState, STORAGE_KEY } from '#game/core.js';
 import { project, unproject, BOUNDS } from '../src/frame.js';
 
 const fakeStorage = () => { const m = new Map(); return { m, getItem: (k) => (m.has(k) ? m.get(k) : null), setItem: (k, v) => void m.set(k, String(v)) }; };
@@ -102,4 +102,31 @@ test('voyage reaches the far dock at t=8 s, heading along the crossing', () => {
   const e = startVoyage(false, { namdang: [0, 0], jukdo: [100, 0] });
   assert.ok(Math.abs(advanceVoyage(e, 1).heading - Math.PI / 2) < 1e-9, 'east is pi/2');
   assert.equal(advanceVoyage(startVoyage(false, docks), 100).done, true);
+});
+
+test('restoreTravel: a travel mode changed in the 2D game wins over the stale 3D one', () => {
+  const st = fakeStorage(), state = freshState();
+  saveSession(st, state, { travel: 'car' }, { x: 24000, y: 3700, mode: 'car' });   // the 3D last ran as a car
+  assert.equal(restoreTravel(...Object.values(loadSession(st))), 'car');
+  // the 2D game then switches to the bike and writes its own save (as dist/game.js does: JSON of its sanitized state)
+  const twoD = sanitizeState(JSON.parse(st.getItem(STORAGE_KEY)));
+  twoD.travelSpeed = 'bike';
+  st.setItem(STORAGE_KEY, JSON.stringify(twoD));
+  const back = loadSession(st);
+  assert.equal(back.extra.travel, 'car', 'the 3D-only value is still the old one');
+  assert.equal(restoreTravel(back.state, back.extra), 'bike');
+  // a 2D save with no 3D values at all
+  for (const [speed, mode] of [['walk', 'walk'], ['bike', 'bike'], ['fast', 'car'], ['faster', 'supercar'], ['plane', 'plane']]) {
+    const only2d = fakeStorage(), s2 = freshState(); s2.travelSpeed = speed;
+    only2d.setItem(STORAGE_KEY, JSON.stringify(s2));
+    const b = loadSession(only2d);
+    assert.equal(restoreTravel(b.state, b.extra), mode, speed);
+  }
+  // the 3D value refines a shared one: both planes save 'plane'
+  assert.equal(restoreTravel({ travelSpeed: 'plane' }, { travel: 'slowplane' }), 'slowplane');
+  assert.equal(restoreTravel({ travelSpeed: 'plane' }, { travel: 'plane' }), 'plane');
+  assert.equal(restoreTravel({ travelSpeed: 'faster' }, { travel: 'supercar' }), 'supercar');
+  assert.equal(restoreTravel({ travelSpeed: 'walk' }, { travel: 'slowplane' }), 'walk');
+  assert.equal(restoreTravel({ travelSpeed: 'nope' }, { travel: null }), 'walk');
+  assert.equal(restoreTravel(null, null), 'walk');
 });
