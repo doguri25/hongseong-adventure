@@ -72,10 +72,10 @@ test('unlockOnPress: the first key or pointer press unlocks while the sound is o
   audio.unlock = async () => { audio.log.push('unlock'); return runs; };
   const s = createSound(audio);
   unlockOnPress(target, s, () => state);
-  assert.deepEqual([...listeners.keys()].sort(), ['keydown', 'pointerdown']);
+  assert.deepEqual([...listeners.keys()].sort(), ['click', 'keydown', 'pointerdown', 'pointerup']);
   await listeners.get('pointerdown')();   // an untrusted press: the context stays suspended, keep listening
   assert.deepEqual(audio.log, ['unlock']);
-  assert.equal(listeners.size, 2);
+  assert.equal(listeners.size, 4);
   runs = true;
   await listeners.get('keydown')();
   assert.deepEqual(audio.log, ['unlock', 'unlock']);
@@ -87,4 +87,25 @@ test('unlockOnPress: the first key or pointer press unlocks while the sound is o
   await listeners.get('pointerdown')();
   assert.deepEqual(audio2.log, []);
   assert.equal(listeners.size, 0);
+});
+
+// final review I4: a touch's pointerdown is no user activation (the audio context stays suspended); its pointerup and
+// click are, so those unlock too, in the capture phase like the others
+test('unlockOnPress: a touch unlocks on its pointerup or click, not only on pointerdown or a key', async () => {
+  const listeners = new Map();
+  const target = {
+    addEventListener: (t, f, c) => { assert.equal(c, true, t + ' in the capture phase'); listeners.set(t, f); },
+    removeEventListener: (t, f) => { if (listeners.get(t) === f) listeners.delete(t); },
+  };
+  const audio = fakeAudio(), s = createSound(audio);
+  let activated = false;
+  audio.unlock = async () => { audio.log.push('unlock'); return activated; };
+  unlockOnPress(target, s, () => ({ sound: true }));
+  assert.deepEqual([...listeners.keys()].sort(), ['click', 'keydown', 'pointerdown', 'pointerup']);
+  await listeners.get('pointerdown')();   // the touch begins: no activation yet
+  assert.equal(listeners.size, 4);
+  activated = true;
+  await listeners.get('pointerup')();   // the touch ends: the context runs
+  assert.deepEqual(audio.log, ['unlock', 'unlock']);
+  assert.equal(listeners.size, 0, 'all four listeners removed');
 });

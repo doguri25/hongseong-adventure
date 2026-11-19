@@ -127,3 +127,24 @@ test('walking with the stick, a quick touch on the right still taps', () => {
   t += 600; fire(target, 'pointerup', touch(1, 100, 250));
   assert.equal(calls.taps.length, 1);
 });
+
+// final review I3: a thumb resting still in the stick zone (a school tablet held in both hands) must not turn every tap
+// of the other hand into a two-finger press: only a second finger that lands within the tap window of the first does
+test('a thumb resting still in the stick zone does not stop a quick tap on the right', () => {
+  const { target, env, fire, calls } = setup();
+  let t = 1000; env.performance = { now: () => t };
+  fire(target, 'pointerdown', touch(1, 100, 300));   // the resting thumb, held still
+  t += 1000;
+  fire(target, 'pointerdown', touch(2, 800, 300)); t += 80; fire(target, 'pointerup', touch(2, 800, 300));
+  assert.deepEqual(calls.taps, [[800, 300]]);
+  t += 900;
+  fire(target, 'pointerdown', touch(3, 700, 200)); t += 60; fire(target, 'pointerup', touch(3, 700, 200));
+  assert.deepEqual(calls.taps, [[800, 300], [700, 200]], 'every tap while the thumb rests');
+  t += 500; fire(target, 'pointerup', touch(1, 100, 300));
+  assert.equal(calls.taps.length, 2, 'the long-held thumb itself is no tap');
+  // pressed together (within the tap window) it is still a two-finger press
+  fire(target, 'pointerdown', touch(4, 100, 300)); t += 120;
+  fire(target, 'pointerdown', touch(5, 800, 300)); t += 80; fire(target, 'pointerup', touch(5, 800, 300));
+  t += 20; fire(target, 'pointerup', touch(4, 100, 300));
+  assert.equal(calls.taps.length, 2, 'two fingers pressed together');
+});

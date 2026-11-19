@@ -12,7 +12,8 @@ export function createControls(target, { onTap, onAction, onStick } = {}, env = 
   const pointers = new Map();
   // sx, sy, t, moved: where and when the stick touch began, so a short still touch there still counts as a tap.
   // multi (on the stick and on each pointer): another finger shared the screen with it while it was still (a pinch or
-  // a two-finger press), so lifting it is no tap; a quick touch while the stick is already walking still taps
+  // a two-finger press), so lifting it is no tap; a quick touch while the stick is already walking, or while a thumb
+  // has rested still in the stick zone for longer than a tap, still taps
   const stick = { id: null, ox: 0, oy: 0, x: 0, y: 0, sx: 0, sy: 0, t: 0, moved: false, multi: false };
   let pinchDist = 0;
 
@@ -39,7 +40,7 @@ export function createControls(target, { onTap, onAction, onStick } = {}, env = 
       for (const p of pointers.values()) p.multi = true;
       emitStick(true); return;
     }
-    const multi = pointers.size > 0 || (stick.id !== null && !stick.moved);
+    const multi = pointers.size > 0 || (stick.id !== null && !stick.moved && now() - stick.t < TAP_MS);
     if (multi) { for (const p of pointers.values()) p.multi = true; if (stick.id !== null) stick.multi = true; }
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY, t: now(), moved: false, multi });
     if (pointers.size === 2) { const [a, b] = [...pointers.values()]; pinchDist = Math.hypot(a.x - b.x, a.y - b.y); }

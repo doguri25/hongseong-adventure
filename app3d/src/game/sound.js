@@ -37,17 +37,18 @@ export function createSound(audio, { now = () => globalThis.performance.now(), n
 
 /**
  * Browsers start audio only from a key or pointer press: the first press after boot unlocks the sound when it is on
- * (2D unlockAudio). Listening goes on until the audio really runs (a synthetic press cannot start it), and stops at
- * once when the sound is off (turning it on in 설정 unlocks then). Returns the function that stops listening.
+ * (2D unlockAudio). A touch's pointerdown is no user activation, so its pointerup and click unlock too. Listening goes
+ * on until the audio really runs (a synthetic press cannot start it), and stops at once when the sound is off (turning
+ * it on in 설정 unlocks then). Returns the function that stops listening.
  */
+const UNLOCK_EVENTS = ['pointerdown', 'pointerup', 'click', 'keydown'];
 export function unlockOnPress(target, sound, getState) {
-  const stop = () => { target.removeEventListener('pointerdown', press, true); target.removeEventListener('keydown', press, true); };
+  const stop = () => { for (const type of UNLOCK_EVENTS) target.removeEventListener(type, press, true); };
   async function press() {
     const state = getState();
     if (!state.sound) { stop(); return; }
     if (await sound.unlock(state)) stop();
   }
-  target.addEventListener('pointerdown', press, true);
-  target.addEventListener('keydown', press, true);
+  for (const type of UNLOCK_EVENTS) target.addEventListener(type, press, true);
   return stop;
 }
