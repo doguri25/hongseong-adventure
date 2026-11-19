@@ -154,6 +154,7 @@ async function boot() {
   const autoKey = autoStartKey({ coarse: matchMedia('(pointer: coarse)').matches, deviceMemory: window.navigator.deviceMemory });
   const qstate = qualityState(extra.quality, autoKey), Q = QUALITY[qstate.key];
   const low = qstate.key === 'low';
+  document.documentElement.classList.toggle('q-low', low);   // ui/theme.css drops backdrop blur under html.q-low
   renderer.shadowMap.enabled = qstate.shadow > 0;
 
   const scene = new THREE.Scene();
@@ -481,6 +482,7 @@ function applyQuality(next) {
   const prev = G.qstate;
   if (next === prev) return;
   G.qstate = next; G.Q = QUALITY[next.key];
+  document.documentElement.classList.toggle('q-low', next.key === 'low');
   const rebuild = next.msaa !== prev.msaa;
   if (rebuild) {   // the render target's multisampling is fixed at creation: a new post chain, the old one freed
     G.post.current.dispose();

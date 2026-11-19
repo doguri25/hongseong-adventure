@@ -3,153 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#2c4636">
+<meta name="theme-color" content="#0b0c18">
 <title>홍성 탐험대 3D</title>
-<style>
-/* Temporary phase-1 HUD (phase 2 restyles everything): the spike's journal-paper panels over a full-screen 3D view.
-   Brand, place and stats top-left; tools top-right; compass and camera pad on the right; travel modes bottom-right;
-   floating stick bottom-left; actions (talk, ferry, car turns) bottom-centre; dialogs centred. */
-:root{
-  --paper:#fbf6e6; --paper-strong:#fffaf0; --ink:#233629; --ink-soft:#56685a; --field:#2f6b4f; --sun:#e1702c; --line:#d9cfb2; --wrong:#b5523b;
-  --font:'NanumRound','Apple SD Gothic Neo','Noto Sans KR',system-ui,sans-serif;
-  --safe-t:env(safe-area-inset-top,0px); --safe-r:env(safe-area-inset-right,0px); --safe-b:env(safe-area-inset-bottom,0px); --safe-l:env(safe-area-inset-left,0px);
-  color-scheme:light;
-}
-[hidden]{display:none!important}
-*{box-sizing:border-box}
-html,body{margin:0;height:100%}
-body{background:#2c4636;color:var(--ink);font-family:var(--font);font-size:15px;overflow:hidden;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:none;-webkit-text-size-adjust:100%}
-#app{position:fixed;inset:0;overflow:hidden}
-#c{position:absolute;inset:0;width:100%;height:100%;display:block;outline:none;touch-action:none}
-.panel{background:color-mix(in srgb,var(--paper) 93%,transparent);border:1px solid var(--line);border-radius:14px;box-shadow:0 6px 18px #1d2b2133;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
-button{font:inherit;color:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
-button:focus-visible,summary:focus-visible{outline:3px solid var(--sun);outline-offset:2px}
-button:disabled{opacity:.45;cursor:default}
+<link rel="stylesheet" href="./src/ui/theme.css">
 
-/* top row */
-.hud-top{position:absolute;top:calc(10px + var(--safe-t));left:calc(12px + var(--safe-l));right:calc(12px + var(--safe-r));display:flex;gap:8px;align-items:flex-start;pointer-events:none}
-.hud-top>*{pointer-events:auto}
-.chip{padding:7px 12px 8px;display:flex;flex-direction:column;gap:3px;min-width:0;max-width:min(320px,48vw)}
-.chip b{font-weight:700;font-size:16px;color:var(--field);white-space:nowrap}
-#where{font-size:15px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.stats{display:flex;gap:12px;font-size:15px;color:var(--ink-soft);font-variant-numeric:tabular-nums;white-space:nowrap}
-.stats strong{color:var(--ink)}
-.tools{margin-left:auto;display:flex;gap:2px;padding:3px;flex-wrap:wrap;justify-content:flex-end}
-.tools button{border:0;background:transparent;border-radius:10px;min-height:44px;min-width:44px;padding:6px 10px;font-size:15px;display:flex;gap:6px;align-items:center;justify-content:center;white-space:nowrap}
-.tools button:hover{background:#efe6cc}
-.tools button b{font-weight:700;color:var(--field)}
-#fps{font-size:13px;color:var(--ink-soft);align-self:center;padding:0 6px;font-variant-numeric:tabular-nums;min-width:44px}
-
-/* right column: compass and camera pad */
-.compass{position:absolute;right:calc(14px + var(--safe-r));top:calc(74px + var(--safe-t));width:48px;height:48px;border-radius:50%;display:grid;place-items:center;padding:0}
-.compass svg{width:36px;height:36px}
-.cam-pad{position:absolute;right:calc(14px + var(--safe-r));top:calc(130px + var(--safe-t));display:flex;flex-direction:column;gap:2px;padding:2px;border-radius:26px}
-.cam-pad button{width:44px;height:44px;border:0;border-radius:50%;background:transparent;font-size:22px;font-weight:700;line-height:1;display:grid;place-items:center;color:var(--field)}
-.cam-pad button:hover{background:#efe6cc}
-.cam-pad svg{width:22px;height:22px}
-
-/* travel modes */
-.travel{position:absolute;right:calc(12px + var(--safe-r));bottom:calc(12px + var(--safe-b));display:flex;gap:2px;padding:4px}
-.travel button{border:0;background:transparent;border-radius:11px;min-height:52px;padding:5px 8px 4px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;min-width:62px}
-.travel button svg{width:24px;height:24px}
-.travel button span{font-size:13px;font-weight:700;white-space:nowrap}
-.travel button small{font-size:12px;color:var(--ink-soft);font-variant-numeric:tabular-nums}
-.travel button[aria-pressed="true"]{background:var(--field);color:var(--paper-strong)}
-.travel button[aria-pressed="true"] small{color:#d8ead9}
-.travel button.landing{outline:2px dashed var(--field);outline-offset:-3px}
-
-/* actions above the travel bar */
-.actions{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(84px + var(--safe-b));display:flex;gap:8px;align-items:center;pointer-events:none}
-.actions>*{pointer-events:auto}
-.act{border:1px solid var(--line);background:var(--paper-strong);border-radius:22px;min-height:44px;padding:8px 16px;font-size:15px;font-weight:700;color:var(--field);box-shadow:0 4px 12px #1d2b2133;white-space:nowrap}
-.act:hover{background:#efe6cc}
-.act.turn{min-width:52px;padding:8px 12px}
-#turn-hint{position:absolute;left:50%;bottom:calc(140px + var(--safe-b));transform:translateX(-50%);padding:8px 14px;font-size:15px;font-weight:700;color:var(--field);white-space:nowrap;pointer-events:none}
-
-/* stick */
-#stick{position:absolute;width:132px;height:132px;margin:-66px 0 0 -66px;border-radius:50%;background:#fffaf033;border:2px solid #fffaf099;box-shadow:0 0 0 1px #23362922 inset;pointer-events:none;z-index:2}
-#knob{position:absolute;left:50%;top:50%;width:56px;height:56px;margin:-28px 0 0 -28px;border-radius:50%;background:var(--paper-strong);box-shadow:0 4px 12px #0004;border:2px solid var(--field)}
-
-
-/* messages */
-#toast{position:absolute;left:50%;top:calc(78px + var(--safe-t));transform:translateX(-50%);padding:10px 16px;font-size:15px;line-height:1.45;opacity:0;transition:opacity .25s;pointer-events:none;width:max-content;max-width:min(520px,82vw);text-align:center;z-index:4}
-#toast.show{opacity:1}
-#arrive{position:absolute;left:50%;bottom:calc(140px + var(--safe-b));transform:translateX(-50%);padding:12px 18px;display:flex;flex-direction:column;align-items:center;gap:3px;width:max-content;max-width:min(460px,88vw);text-align:center;pointer-events:none}
-#arrive b{font-size:18px;color:var(--field)}
-#arrive span{font-size:15px;color:var(--ink-soft)}
-
-/* bottom-left corner: how to move, and the credit line (an attribution block on wide mouse screens, a toggle on touch
-   screens so it never covers the stick corner) */
-.corner{position:absolute;left:calc(12px + var(--safe-l));bottom:calc(12px + var(--safe-b));display:flex;flex-direction:column;align-items:flex-start;gap:8px;max-width:min(560px,calc(100vw - 480px));pointer-events:none}
-.corner>*{pointer-events:auto}
-.hint{margin:0;font-size:15px;color:#fffaf0;text-shadow:0 1px 3px #000c;line-height:1.45;pointer-events:none}
-@media (pointer:coarse){.hint-mouse{display:none}}
-@media not (pointer:coarse){.hint-touch{display:none}}
-.credit{font-size:15px;line-height:1.5;color:var(--ink-soft);padding:0;border-radius:12px}
-.credit summary{list-style:none;cursor:pointer;min-height:44px;min-width:44px;display:flex;align-items:center;gap:6px;padding:6px 12px;font-weight:700;color:var(--field)}
-.credit summary::-webkit-details-marker{display:none}
-.credit p{margin:0;padding:0 12px 8px}
-.credit p.lead{color:var(--ink);font-size:15px;padding-top:8px}
-.credit p.attrib{font-size:13px}   /* the OSM / Terrain Tiles credit itself may stay small; the sentence above is 15 px */
-@media (min-width:721px) and (pointer:fine){.credit summary{display:none}}
-
-/* dialogs */
-.scrim{position:absolute;inset:0;background:#10201866;z-index:6;display:grid;place-items:center;padding:calc(12px + var(--safe-t)) calc(12px + var(--safe-r)) calc(12px + var(--safe-b)) calc(12px + var(--safe-l))}
-.dialog{width:min(560px,100%);max-height:100%;display:flex;flex-direction:column;background:var(--paper-strong);border:1px solid var(--line);border-radius:18px;box-shadow:0 18px 48px #0006;overflow:hidden;-webkit-user-select:text;user-select:text}
-.dialog header{display:flex;align-items:flex-start;gap:10px;padding:14px 14px 10px 18px;border-bottom:1px solid var(--line)}
-.dialog header .titles{flex:1;min-width:0}
-.dialog h2{margin:2px 0 0;font-size:20px;color:var(--field)}
-.dialog .tag{display:inline-block;font-size:13px;color:var(--paper-strong);background:var(--field);border-radius:8px;padding:2px 8px}
-.dialog .blurb{margin:4px 0 0;font-size:15px;color:var(--ink-soft)}
-.dialog .close{flex:none;width:44px;height:44px;border:0;border-radius:50%;background:transparent;font-size:24px;line-height:1;color:var(--ink-soft)}
-.dialog .close:hover{background:#efe6cc}
-.dialog .body{padding:14px 18px;overflow:auto;touch-action:pan-y;-webkit-overflow-scrolling:touch;font-size:16px;line-height:1.65}
-.dialog .body strong{color:var(--field)}
-.dialog .meta{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:15px;color:var(--ink-soft);margin-bottom:6px}
-.dialog .reward{margin:12px 0 0;font-size:15px;font-weight:700;color:var(--sun)}
-.dialog footer{display:flex;flex-wrap:wrap;gap:8px;padding:10px 14px calc(12px + 0px);border-top:1px solid var(--line);align-items:center}
-.dialog footer .spacer{flex:1}
-.btn{border:1px solid var(--line);background:var(--paper);border-radius:12px;min-height:44px;padding:8px 14px;font-size:15px;font-weight:700}
-.btn:hover:not(:disabled){background:#efe6cc}
-.btn.primary{background:var(--field);border-color:var(--field);color:var(--paper-strong)}
-.btn.primary:hover:not(:disabled){background:#285c43}
-.quiz h3{margin:0 0 10px;font-size:17px;line-height:1.5}
-.quiz .options{display:flex;flex-direction:column;gap:8px}
-.quiz .options button{display:flex;gap:10px;align-items:flex-start;text-align:left;border:1px solid var(--line);background:var(--paper);border-radius:12px;min-height:48px;padding:10px 12px;font-size:16px;line-height:1.45}
-.quiz .options button b{flex:none;width:26px;height:26px;border-radius:50%;background:var(--field);color:var(--paper-strong);display:grid;place-items:center;font-size:14px}
-.quiz .options button.wrong{border-color:var(--wrong);background:#f6e2dc}
-.quiz .options button.correct{border-color:var(--field);background:#dcefe0}
-.quiz .feedback{margin:12px 0 0;padding:10px 12px;border-radius:12px;background:#f2ecd9;font-size:15px}
-.npc p{margin:0 0 10px}
-
-/* overlays */
-#loading,#lost,#fatal{position:absolute;inset:0;display:grid;place-items:center;background:#2c4636;color:var(--paper-strong);font-size:17px;z-index:8;text-align:center;padding-inline:calc(16px + var(--safe-l)) calc(16px + var(--safe-r))}
-#loading p,#lost p,#fatal p{margin:10px auto 0;font-size:15px;color:#cfe0d2;max-width:420px;line-height:1.5}
-#loading-bar{width:min(280px,70vw);height:6px;margin:14px auto 0;border-radius:3px;background:#ffffff26;overflow:hidden}
-#loading-bar i{display:block;height:100%;width:0;background:var(--paper);transition:width .2s}
-#lost button{margin-top:16px;border:0;border-radius:12px;min-height:44px;padding:10px 18px;background:var(--paper);color:var(--ink);font-weight:700}
-
-@media (max-width:720px){
-  .chip{max-width:52vw;padding:6px 10px 7px}
-  .chip b{font-size:15px}
-  .stats{gap:8px}
-  .tools{flex-wrap:nowrap;gap:0;padding:2px}
-  .tools button{padding:6px 8px;font-size:14px}
-  .tools .lbl,#fps{display:none}
-  .travel{left:calc(8px + var(--safe-l));right:calc(8px + var(--safe-r));justify-content:space-between;padding:3px;gap:0}
-  .travel button{min-width:0;flex:1;padding:5px 2px 4px}
-  .travel button span{font-size:13px;white-space:normal;line-height:1.1;text-align:center;word-break:keep-all}   /* 느린 / 비행기 wraps */
-  .travel button small{font-size:12px}
-  .hint{display:none}
-  .travel button svg{width:22px;height:22px}
-  .actions{bottom:calc(102px + var(--safe-b))}
-  #turn-hint,#arrive{bottom:calc(158px + var(--safe-b))}
-  .corner{top:calc(84px + var(--safe-t));bottom:auto;left:calc(12px + var(--safe-l));max-width:min(320px,calc(100vw - 96px))}
-  .credit p.lead{padding-top:0}
-}
-@media (max-height:460px){.compass{top:calc(62px + var(--safe-t))}.cam-pad{top:calc(116px + var(--safe-t));flex-direction:row}.hint{display:none}.corner{top:calc(80px + var(--safe-t));bottom:auto}}
-@media (prefers-reduced-motion:reduce){#toast,#loading-bar i{transition:none}}
-</style>
 </head>
 <body>
 <div id="app">
@@ -170,7 +27,7 @@ button:disabled{opacity:.45;cursor:default}
     </div>
   </header>
 
-  <button class="compass panel" id="compass" title="북쪽 보기" aria-label="북쪽이 위로 오게 보기"><svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="17" fill="none" stroke="#d9cfb2" stroke-width="1.5"/><path d="M20 5 25 20H15Z" fill="#e1702c"/><path d="M20 35 25 20H15Z" fill="#9aa79a"/><text x="20" y="13.5" font-size="7" text-anchor="middle" fill="#fffaf0" font-weight="700" font-family="sans-serif">N</text></svg></button>
+  <button class="compass panel" id="compass" title="북쪽 보기" aria-label="북쪽이 위로 오게 보기"><svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="17" fill="none" stroke="rgba(255,255,255,.4)" stroke-width="1.5"/><path d="M20 5 25 20H15Z" fill="#22e1ff"/><path d="M20 35 25 20H15Z" fill="#ff2d95"/><text x="20" y="13.5" font-size="7" text-anchor="middle" fill="#0b0c18" font-weight="700" font-family="sans-serif">N</text></svg></button>
   <div class="cam-pad panel" role="group" aria-label="카메라 조절">
     <button id="zoom-in" title="가까이 (+)" aria-label="가까이">+</button>
     <button id="zoom-out" title="멀리 (-)" aria-label="멀리">−</button>
@@ -205,7 +62,7 @@ button:disabled{opacity:.45;cursor:default}
 
   <div id="turn-hint" class="panel" hidden role="status"></div>
   <div id="arrive" class="panel" hidden role="status"><b id="arrive-name"></b><span id="arrive-sub"></span></div>
-  <div id="toast" class="panel" role="status" aria-live="polite"></div>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
   <div class="scrim" id="place-dialog" hidden>
     <section class="dialog" role="dialog" aria-modal="true" aria-labelledby="place-name">
