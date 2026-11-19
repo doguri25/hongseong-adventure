@@ -314,6 +314,154 @@ function roadIndex(skip = ['track', 'path', 'footway', 'cycleway', 'steps']) {
   };
 }
 
+// ---------- road graph for the car. Ways are split at junctions into edges; the car rides one edge keeping to the
+// right-hand lane, and at each junction takes the branch the player asked for (or the straightest one).
+function makeRoadGraph() {
+  const SKIP = ['path', 'footway', 'cycleway', 'steps', 'pedestrian'];
+  const ways = D.features.filter(f => ROAD[f.t.highway] && !SKIP.includes(f.t.highway) && f.p.length > 1);
+  const key = p => Math.round(p[0] * 2) + ',' + Math.round(p[1] * 2), uses = new Map();
+  for (const f of ways) f.p.forEach((p, i) => { const k = key(p); uses.set(k, (uses.get(k) || 0) + (i === 0 || i === f.p.length - 1 ? 2 : 1)); });
+  const edges = [], nodes = new Map();
+  const node = p => { const k = key(p); if (!nodes.has(k)) nodes.set(k, {key: k, x: p[0], z: p[1], links: []}); return nodes.get(k); };
+  for (const f of ways) {
+    let start = 0;
+    for (let i = 1; i < f.p.length; i++) {
+      if (i !== f.p.length - 1 && !(uses.get(key(f.p[i])) > 1)) continue;
+      const pts = f.p.slice(start, i + 1), L = [0];
+      for (let k = 1; k < pts.length; k++) L.push(L[k - 1] + Math.hypot(pts[k][0] - pts[k - 1][0], pts[k][1] - pts[k - 1][1]));
+      if (L.at(-1) > .5) {
+        const a = node(pts[0]), b = node(pts.at(-1)), e = {id: edges.length, pts, L, len: L.at(-1), half: ROAD[f.t.highway][0] / 2, oneway: f.t.oneway === 'yes' || f.t.oneway === '-1', way: f.t.oneway === 'yes' ? 1 : f.t.oneway === '-1' ? -1 : 0, a, b};
+        edges.push(e); a.links.push({e, end: 0}); b.links.push({e, end: 1});
+      }
+      start = i;
+    }
+  }
+  const C = 60, grid = new Map(), gk = (i, j) => i * 100000 + j;
+  for (const e of edges) for (let k = 1; k < e.pts.length; k++) {
+    const a = e.pts[k - 1], b = e.pts[k];
+    for (let i = Math.floor(Math.min(a[0], b[0]) / C); i <= Math.floor(Math.max(a[0], b[0]) / C); i++) for (let j = Math.floor(Math.min(a[1], b[1]) / C); j <= Math.floor(Math.max(a[1], b[1]) / C); j++) { const q = gk(i, j); if (!grid.has(q)) grid.set(q, []); grid.get(q).push([e, k]); }
+  }
+  function at(e, s) {
+    s = clamp(s, 0, e.len); let lo = 0, hi = e.L.length - 1;
+    while (hi - lo > 1) { const m = (lo + hi) >> 1; if (e.L[m] <= s) lo = m; else hi = m; }
+    const a = e.pts[lo], b = e.pts[hi], t = (s - e.L[lo]) / ((e.L[hi] - e.L[lo]) || 1); return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
+  }
+  function tangent(e, s, dir) {   // travel direction, smoothed over a few metres so corners turn gently
+    const w = Math.min(10, e.len / 2), p = at(e, s - w), q = at(e, s + w), dx = (q[0] - p[0]) * dir, dz = (q[1] - p[1]) * dir, l = Math.hypot(dx, dz) || 1; return [dx / l, dz / l];
+  }
+  function departure(l) { const w = Math.min(18, l.e.len), p = at(l.e, l.end === 0 ? 0 : l.e.len), q = at(l.e, l.end === 0 ? w : l.e.len - w), dx = q[0] - p[0], dz = q[1] - p[1], n = Math.hypot(dx, dz) || 1; return [dx / n, dz / n]; }
+  function nearest(x, z, maxR = 200) {
+    const i0 = Math.floor(x / C), j0 = Math.floor(z / C); let best = null;
+    for (let ring = 0; ring * C <= maxR + C; ring++) {
+      for (let i = i0 - ring; i <= i0 + ring; i++) for (let j = j0 - ring; j <= j0 + ring; j++) {
+        if (Math.max(Math.abs(i - i0), Math.abs(j - j0)) !== ring) continue;
+        for (const [e, k] of grid.get(gk(i, j)) || []) {
+          const a = e.pts[k - 1], b = e.pts[k], dx = b[0] - a[0], dz = b[1] - a[1], l = dx * dx + dz * dz, t = l ? clamp(((x - a[0]) * dx + (z - a[1]) * dz) / l, 0, 1) : 0;
+          const d = Math.hypot(x - a[0] - dx * t, z - a[1] - dz * t); if (!best || d < best.d) best = {e, s: e.L[k - 1] + (e.L[k] - e.L[k - 1]) * t, d};
+        }
+      }
+      if (best && best.d < ring * C) break;
+    }
+    return best && best.d <= maxR ? best : null;
+  }
+  // A* over junctions from the node ahead (and, with a penalty, the node behind) to the edge nearest the goal
+  function route(state, goal, tx, tz) {
+    const starts = [{n: state.dir > 0 ? state.e.b : state.e.a, cost: state.dir > 0 ? state.e.len - state.s : state.s, turn: false},
+                    {n: state.dir > 0 ? state.e.a : state.e.b, cost: (state.dir > 0 ? state.s : state.e.len - state.s) + 250, turn: true}];
+    if (state.e === goal.e) { const ahead = state.dir > 0 ? goal.s >= state.s : goal.s <= state.s; return {turn: !ahead, edges: []}; }
+    const h = n => Math.hypot(n.x - tx, n.z - tz), best = new Map(), open = [];
+    for (const s of starts) { best.set(s.n.key, {g: s.cost, prev: null, via: null, turn: s.turn}); open.push({n: s.n, f: s.cost + h(s.n)}); }
+    let found = null, guard = 0;
+    while (open.length && guard++ < 20000) {
+      let bi = 0; for (let i = 1; i < open.length; i++) if (open[i].f < open[bi].f) bi = i;
+      const {n} = open.splice(bi, 1)[0], cur = best.get(n.key);
+      if (n === goal.e.a || n === goal.e.b) { const total = cur.g + (n === goal.e.a ? goal.s : goal.e.len - goal.s); if (!found || total < found.total) found = {n, total}; if (open.every(o => o.f >= found.total)) break; continue; }
+      for (const l of n.links) {
+        if (l.e === state.e && best.get(n.key).prev === null) continue;
+        const m = l.end === 0 ? l.e.b : l.e.a, wrong = l.e.way && l.e.way !== (l.end === 0 ? 1 : -1), g = cur.g + l.e.len * (wrong ? 4 : 1), old = best.get(m.key);
+        if (!old || g < old.g) { best.set(m.key, {g, prev: n, via: l.e, turn: cur.turn}); open.push({n: m, f: g + h(m)}); }
+      }
+    }
+    if (!found) return null;
+    const list = []; let k = found.n.key; while (best.get(k).prev) { const b = best.get(k); list.unshift(b.via.id); k = b.prev.key; }
+    list.push(goal.e.id); return {turn: best.get(found.n.key).turn, edges: list};
+  }
+  return {edges, nodes, at, tangent, departure, nearest, route};
+}
+
+function placeCarOnRoad(maxR = 600) {
+  const G = world.graph, n = G.nearest(PLAYER.x, PLAYER.z, maxR); if (!n) return false;
+  const tg = G.tangent(n.e, n.s, 1), h = Math.atan2(tg[0], -tg[1]), dir = Math.abs(wrapAngle(h - PLAYER.heading)) < Math.PI / 2 ? 1 : -1;
+  PLAYER.road = {e: n.e, s: n.s, dir, lane: null, intent: null, intentT: 0, route: null, goal: null, backT: 0};
+  PLAYER.speed = 0; PLAYER.heading = dir > 0 ? h : wrapAngle(h + Math.PI); PLAYER.target = null;
+  carPose(0); return true;
+}
+function carPose(dt) {
+  const R = PLAYER.road, G = world.graph, p = G.at(R.e, R.s), tg = G.tangent(R.e, R.s, R.dir), lane = R.e.oneway ? 0 : R.e.half * .5;
+  R.lane = R.lane === null || !dt ? lane : damp(R.lane, lane, 3, dt);
+  PLAYER.x = p[0] - tg[1] * R.lane; PLAYER.z = p[1] + tg[0] * R.lane;   // keep right: (-tz, tx) is the right-hand side
+  const h = Math.atan2(tg[0], -tg[1]), prev = PLAYER.heading;
+  PLAYER.heading = dt ? dampAngle(PLAYER.heading, h, 9, dt) : h; PLAYER.turnRate = dt ? wrapAngle(PLAYER.heading - prev) / dt : 0;
+  PLAYER.vx = tg[0] * PLAYER.speed; PLAYER.vz = tg[1] * PLAYER.speed;
+}
+function setTurnHint(R) {
+  const el = $('turn-hint'), txt = R && typeof R.intent === 'string' ? (R.intent === 'left' ? '← 다음 갈림길에서 좌회전' : '다음 갈림길에서 우회전 →') : R && R.route ? '길을 찾아 가는 중' : '';
+  if (el.textContent !== txt) el.textContent = txt; el.hidden = !txt;
+}
+function driveCar(dt, ix, iy, dx, dz, mag, manual) {
+  const R = PLAYER.road, G = world.graph, V = VEH.car, travel = G.tangent(R.e, R.s, R.dir);
+  let throttle = 0;
+  if (manual) {
+    PLAYER.target = null; R.route = null; R.goal = null;
+    if (CAM.mode === 'follow') { throttle = iy; if (Math.abs(ix) > .45) { R.intent = ix > 0 ? 'right' : 'left'; R.intentLeft = 1500; } }   // kept until the next real junction (or 1.5 km)
+    else {
+      const dot = (dx * travel[0] + dz * travel[1]) / (mag || 1); throttle = dot > -.35 ? mag : -mag;
+      if (dot < .8) { R.intent = {h: Math.atan2(dx, -dz)}; R.intentT = 1.2; }   // stick points along another road: take it at the next junction
+    }
+  } else if (PLAYER.target) {
+    if (!R.goal) {
+      const goal = G.nearest(PLAYER.target[0], PLAYER.target[1], 500), plan = goal && G.route(R, goal, PLAYER.target[0], PLAYER.target[1]);
+      if (!plan) { toast('그곳까지 이어진 차도를 찾지 못했어요'); PLAYER.target = null; }
+      else { R.goal = goal; R.route = plan.edges; R.intent = null; if (plan.turn) { R.dir = -R.dir; PLAYER.speed = 0; } }
+    }
+    if (R.goal) { const left = R.e === R.goal.e ? Math.abs(R.goal.s - R.s) : 1e9; throttle = clamp(left / 120, .25, 1); }
+  }
+  if (typeof R.intent === 'string') { if ((R.intentLeft -= PLAYER.speed * dt) <= 0) R.intent = null; } else if ((R.intentT -= dt) <= 0) R.intent = null;
+  // stopped and still holding back: turn round once; let go and hold again to turn round again
+  if (throttle < -.3 && PLAYER.speed < 8) { if (!R.turned && (R.backT += dt) > .6) { R.dir = -R.dir; R.backT = 0; R.turned = true; R.intent = null; toast('차를 반대로 돌렸어요'); } } else { R.backT = 0; if (throttle > -.3) R.turned = false; }
+  if (throttle > .01) { const t = V.speed * Math.min(1, throttle); PLAYER.speed = damp(PLAYER.speed, t, PLAYER.speed < t ? V.accel : V.brake, dt); }
+  else if (throttle < -.01) PLAYER.speed = Math.max(0, damp(PLAYER.speed, 0, V.brake * (1.5 + 2.5 * -throttle), dt) - 2 * dt);
+  else PLAYER.speed = damp(PLAYER.speed, 0, V.brake * .5, dt);
+  const prevE = R.e, prevS = R.s, prevDir = R.dir;
+  let remaining = PLAYER.speed * dt, guard = 0;
+  while (remaining > 0 && guard++ < 12) {
+    if (R.goal && R.e === R.goal.e) { const to = (R.goal.s - R.s) * R.dir; if (to >= 0 && to <= remaining) { R.s = R.goal.s; PLAYER.speed = 0; PLAYER.target = null; R.goal = null; R.route = null; remaining = 0; break; } }
+    const room = R.dir > 0 ? R.e.len - R.s : R.s;
+    if (remaining < room) { R.s += R.dir * remaining; break; }
+    remaining -= room; R.s = R.dir > 0 ? R.e.len : 0;
+    const node = R.dir > 0 ? R.e.b : R.e.a, cands = node.links.filter(l => l.e !== R.e);
+    if (!cands.length) { PLAYER.speed = 0; if (performance.now() - (R.endNote || 0) > 3000) { R.endNote = performance.now(); toast('길이 끝났어요. 아래 버튼을 누르고 있으면 차를 돌려요.'); } break; }
+    let next = null;
+    if (R.route && R.route.length) { next = cands.find(l => l.e.id === R.route[0]) || null; if (next) R.route.shift(); }
+    if (!next) {
+      const arr = G.tangent(R.e, R.s, R.dir), hArr = Math.atan2(arr[0], -arr[1]);
+      // a left or right turn is a 35-150 degree turn; anything sharper is a U-turn onto the other carriageway, used only if nothing else
+      const score = l => { const d = G.departure(l), hDep = Math.atan2(d[0], -d[1]), turn = wrapAngle(hDep - hArr), a = Math.abs(turn);
+        const wrong = l.e.way && l.e.way !== (l.end === 0 ? 1 : -1) ? 2 : 0, back = a > 2.6 ? 20 : 0;
+        if (R.intent === 'left') return back + wrong + (turn < -.6 && turn > -2.6 ? Math.abs(turn + Math.PI / 2) : 10 + a);
+        if (R.intent === 'right') return back + wrong + (turn > .6 && turn < 2.6 ? Math.abs(turn - Math.PI / 2) : 10 + a);
+        if (R.intent && R.intent.h !== undefined) return back + wrong + Math.abs(wrapAngle(hDep - R.intent.h));
+        return back + wrong + a; };
+      next = cands.reduce((a, b) => score(a) <= score(b) ? a : b);
+      if (cands.length > 1) { (world.junctionLog || (world.junctionLog = [])).push({intent: typeof R.intent === 'string' ? R.intent : null, turn: Math.round(wrapAngle(Math.atan2(G.departure(next)[0], -G.departure(next)[1]) - hArr) * 180 / Math.PI), options: cands.length}); if (typeof R.intent === 'string') { const d = G.departure(next), t = wrapAngle(Math.atan2(d[0], -d[1]) - hArr); if (R.intent === 'left' ? t < -.6 && t > -2.6 : t > .6 && t < 2.6) R.intent = null; } }   // kept until a junction actually offers that turn
+    }
+    R.e = next.e; R.dir = next.end === 0 ? 1 : -1; R.s = next.end === 0 ? 0 : next.e.len;
+  }
+  const p = G.at(R.e, R.s);
+  if (Math.abs(p[0]) > BOUND[0] || Math.abs(p[1]) > BOUND[1]) { R.e = prevE; R.s = prevS; R.dir = prevDir; PLAYER.speed = 0; if (performance.now() - (R.endNote || 0) > 3000) { R.endNote = performance.now(); toast('지도 끝이에요. 아래 버튼을 누르고 있으면 차를 돌려요.'); } }
+  carPose(dt); setTurnHint(R);
+}
+
 // fill residential/commercial land with slab apartments (facing south, as in Korean new towns) and village houses
 function fillerBuildings(roads, real) {
   const out = [], realBoxes = real.map(f => bboxOf(f.p));
@@ -709,7 +857,7 @@ async function build() {
   world.classes = classMaps();
   await step('건물을 세우는 중');
   world.buildings = makeBuildings(facadeTextures()); scene.add(world.buildings.mesh);
-  world.carRoads = roadIndex(['path', 'footway', 'cycleway', 'steps', 'pedestrian']);   // cars keep to carriageways, farm tracks included
+  world.graph = makeRoadGraph();   // cars keep to carriageways (farm tracks included) and follow them
   await step('나무를 심는 중');
   world.trees = makeTrees(world.classes, Q.trees); world.trees.forEach(t => scene.add(t));
   world.lamps = makeLamps(world.buildings.roads, world.buildings.collider, world.classes); world.lamps.group.forEach(m => scene.add(m));
@@ -785,7 +933,7 @@ function tapToMove(cx, cy) {
   if (!world.terrain) return;
   ray.setFromCamera(new THREE.Vector2(cx / innerWidth * 2 - 1, -(cy / innerHeight) * 2 + 1), camera);
   const hit = ray.intersectObject(world.terrain, false)[0]; if (!hit) return;
-  PLAYER.target = [hit.point.x, hit.point.z];
+  PLAYER.target = [hit.point.x, hit.point.z]; if (PLAYER.road) { PLAYER.road.goal = null; PLAYER.road.route = null; }
   const ring = world.tapRing || (world.tapRing = new THREE.Mesh(new THREE.RingGeometry(2.2, 3, 32).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({color: 0xfffaf0, transparent: true, depthWrite: false})));
   ring.position.set(hit.point.x, hit.point.y + .4, hit.point.z); ring.userData.t = 0; scene.add(ring);
 }
@@ -798,12 +946,6 @@ function readInput() {
 }
 
 // ---------- modes, camera, time, quality buttons
-function snapToRoad() {
-  const n = world.carRoads.nearest(PLAYER.x, PLAYER.z, 600); if (!n) return false;
-  PLAYER.x = n.qx; PLAYER.z = n.qz; PLAYER.y = heightAt(n.qx, n.qz);
-  const h = Math.atan2(n.ux, -n.uz); PLAYER.heading = Math.abs(wrapAngle(h - PLAYER.heading)) < Math.PI / 2 ? h : h + Math.PI; PLAYER.speed = 0;
-  return true;
-}
 function setMode(mode) {
   if (mode === PLAYER.mode && !PLAYER.pending) return;
   const flying = m => m === 'slowplane' || m === 'plane';
@@ -812,7 +954,8 @@ function setMode(mode) {
     PLAYER.pending = mode; toast('천천히 내려앉는 중이에요'); markMode(mode); return;
   }
   PLAYER.pending = null;
-  if (mode === 'car' && !flying(PLAYER.mode)) { if (!snapToRoad()) { toast('가까운 차도가 없어요. 도로 가까이 가서 타요.'); markMode(PLAYER.mode); return; } toast('가까운 차도에서 출발해요. 자동차는 도로로만 다녀요.'); }
+  if (mode !== 'car') { PLAYER.road = null; setTurnHint(null); }
+  if (mode === 'car' && !flying(PLAYER.mode)) { if (!placeCarOnRoad()) { toast('가까운 차도가 없어요. 도로 가까이 가서 타요.'); markMode(PLAYER.mode); return; } toast('차도에서 출발해요. 길을 따라 알아서 달리고, 좌우 버튼으로 다음 갈림길에서 돌 방향을 골라요.'); }
   if (flying(mode) && !flying(PLAYER.mode)) { PLAYER.alt = PLAYER.y; PLAYER.speed = Math.max(PLAYER.speed, VEH[mode].speed * .25); toast(mode === 'slowplane' ? '느린 비행기로 천천히 떠올라요. 마을을 내려다보기 좋아요.' : '비행기로 높이 날아올라요!'); }
   else if (flying(mode)) toast(mode === 'slowplane' ? '느린 비행기로 바꿨어요' : '빠른 비행기로 바꿨어요');
   PLAYER.mode = mode; markMode(mode);
@@ -850,6 +993,8 @@ function simulate(dt) {
     if (d < stop) PLAYER.target = null; else { dx = tx / d; dz = tz / d; mag = clamp(d / 30, .35, 1); }
   }
   const before = [PLAYER.x, PLAYER.z];
+  if (PLAYER.mode === 'car' && PLAYER.road && !PLAYER.pending) driveCar(dt, ix, iy, dx, dz, mag, manual);
+  else {
   if (PLAYER.mode === 'walk') {
     const tvx = dx * V.speed * mag, tvz = dz * V.speed * mag;
     PLAYER.vx = damp(PLAYER.vx, tvx, V.accel, dt); PLAYER.vz = damp(PLAYER.vz, tvz, V.accel, dt);
@@ -879,13 +1024,6 @@ function simulate(dt) {
   for (let k = 0; k < steps; k++) {
     nx = clamp(nx + PLAYER.vx * dt / steps, -BOUND[0], BOUND[0]); nz = clamp(nz + PLAYER.vz * dt / steps, -BOUND[1], BOUND[1]);
     if (!solid) continue;
-    if (PLAYER.mode === 'car') {
-      const n = world.carRoads.nearest(nx, nz, 400), limit = n ? Math.max(1.5, n.half - 1) : 0;
-      if (n && n.d > limit) {
-        const ox = (nx - n.qx) / n.d, oz = (nz - n.qz) / n.d; nx = n.qx + ox * limit; nz = n.qz + oz * limit;
-        const out = Math.sin(PLAYER.heading) * ox - Math.cos(PLAYER.heading) * oz; if (out > .2) PLAYER.speed *= 1 - .5 * out * dt * 8;
-      }
-    }
     const r = world.buildings.collider.resolve(nx, nz, rad); if (!r.hit) continue;
     nx = r.x; nz = r.z;
     const into = PLAYER.vx * r.nx + PLAYER.vz * r.nz;   // slide: drop the part of the motion that goes into the wall
@@ -899,6 +1037,7 @@ function simulate(dt) {
     if (performance.now() - (PLAYER.waterNote || 0) > 3000) { PLAYER.waterNote = performance.now(); toast('물은 건널 수 없어요. 다리나 비행기를 이용해요.'); }
   }
   PLAYER.x = nx; PLAYER.z = nz;
+  }
   const ground = heightAt(PLAYER.x, PLAYER.z);
   if (flying || PLAYER.pending) {
     const ahead = heightAt(PLAYER.x + PLAYER.vx * 1.5, PLAYER.z + PLAYER.vz * 1.5), desired = PLAYER.pending ? ground : Math.max(ground, ahead) + V.alt;
@@ -907,7 +1046,7 @@ function simulate(dt) {
     PLAYER.bank = damp(PLAYER.bank, clamp(-(PLAYER.turnRate || 0) * .55, -.75, .75), 3, dt);
     if (PLAYER.pending && PLAYER.alt - ground < 1.5) {
       let m = PLAYER.pending; PLAYER.pending = null; PLAYER.speed *= .2;
-      if (m === 'car' && !snapToRoad()) { m = 'walk'; markMode('walk'); toast('가까운 차도가 없어서 걸어서 내렸어요'); } else toast(m === 'walk' ? '땅에 내렸어요' : '도로에 내려 자동차로 바꿨어요');
+      if (m === 'car' && !placeCarOnRoad()) { m = 'walk'; markMode('walk'); toast('가까운 차도가 없어서 걸어서 내렸어요'); } else toast(m === 'walk' ? '땅에 내렸어요' : '도로에 내려 자동차로 바꿨어요');
       PLAYER.mode = m; PLAYER.y = heightAt(PLAYER.x, PLAYER.z);
     }
   } else PLAYER.y = ground;
@@ -989,7 +1128,7 @@ function updateActors(dt, t) {
   }
   if (nearest) $('where').textContent = `${nearest.p.short || nearest.p.name} ${nd < 60 ? '바로 앞' : Math.round(nd / 10) * 10 + 'm'}`;
   const ground = PLAYER.mode === 'walk' || PLAYER.mode === 'car';
-  if (ground && nearest && nd < 60 && world.arrived !== nearest) { world.arrived = nearest; nearest.seen = true; $('arrive-name').textContent = nearest.p.name + '에 도착했어요'; $('arrive-sub').textContent = '게임에서는 여기서 이야기와 퀴즈가 열려요'; $('arrive').hidden = false; clearTimeout(world.arriveTimer); world.arriveTimer = setTimeout(() => $('arrive').hidden = true, 3200); }
+  if (ground && nearest && nd < (PLAYER.mode === 'car' ? 110 : 60) && world.arrived !== nearest) { world.arrived = nearest; nearest.seen = true; $('arrive-name').textContent = nearest.p.name + '에 도착했어요'; $('arrive-sub').textContent = '게임에서는 여기서 이야기와 퀴즈가 열려요'; $('arrive').hidden = false; clearTimeout(world.arriveTimer); world.arriveTimer = setTimeout(() => $('arrive').hidden = true, 3200); }
   if (world.arrived && nearest !== world.arrived && nd > 30) world.arrived = null;
   if (world.tapRing?.parent) { const r = world.tapRing; r.userData.t += dt; r.material.opacity = Math.max(0, 1 - r.userData.t / 1.2); r.scale.setScalar(1 + r.userData.t * .8); if (r.userData.t > 1.2 || !PLAYER.target) scene.remove(r); }
 }

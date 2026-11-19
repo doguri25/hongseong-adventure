@@ -46,6 +46,7 @@ button:focus-visible{outline:3px solid var(--sun);outline-offset:2px}
 .cam-pad button:hover{background:#efe6cc}
 .cam-pad svg{width:22px;height:22px}
 .compass svg{width:34px;height:34px;transition:transform .08s linear}
+#turn-hint{position:absolute;left:50%;bottom:calc(96px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);padding:8px 14px;font-size:14px;font-weight:700;color:var(--field);white-space:nowrap;pointer-events:none}
 #toast{position:absolute;left:50%;top:calc(76px + env(safe-area-inset-top,0px));transform:translateX(-50%);padding:9px 16px;font-size:14px;opacity:0;transition:opacity .25s;pointer-events:none;max-width:min(520px,86vw);text-align:center}
 #toast.show{opacity:1}
 #arrive{position:absolute;left:50%;bottom:calc(98px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);padding:12px 18px;display:flex;flex-direction:column;align-items:center;gap:3px;max-width:min(460px,88vw);text-align:center}
@@ -99,6 +100,7 @@ button:focus-visible{outline:3px solid var(--sun);outline-offset:2px}
     <button data-mode="slowplane" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M4 9h16M8 19h8"/><circle cx="12" cy="3" r="1"/></svg><span>느린 비행기</span><small>×4</small></button>
     <button data-mode="plane" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2c1 1 1.4 3 1.4 5v3l7 4v2l-7-2v4l2.5 2v1.5L12 20.5 8.1 21.5V20l2.5-2v-4l-7 2v-2l7-4V7c0-2 .4-4 1.4-5Z"/></svg><span>비행기</span><small>×16</small></button>
   </nav>
+  <div id="turn-hint" class="panel" hidden role="status"></div>
   <div id="toast" class="panel" role="status"></div>
   <div id="arrive" class="panel" hidden role="status"><b id="arrive-name"></b><span id="arrive-sub"></span></div>
   <div id="loading"><div>3D 내포를 짓는 중이에요<p id="loading-step">지형을 올리는 중</p></div></div>
