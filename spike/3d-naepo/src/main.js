@@ -844,7 +844,8 @@ function simulate(dt) {
   let [ix, iy] = readInput();
   const yaw = CAM.yaw, fx = Math.sin(yaw), fz = -Math.cos(yaw), rx = Math.cos(yaw), rz = Math.sin(yaw);
   let dx = rx * ix + fx * iy, dz = rz * ix + fz * iy, mag = Math.min(1, Math.hypot(dx, dz));
-  if (mag < .01 && PLAYER.target) {
+  const manual = mag >= .01;
+  if (!manual && PLAYER.target) {
     const tx = PLAYER.target[0] - PLAYER.x, tz = PLAYER.target[1] - PLAYER.z, d = Math.hypot(tx, tz), stop = PLAYER.mode === 'walk' ? 12 : PLAYER.speed * .4 + 20;
     if (d < stop) PLAYER.target = null; else { dx = tx / d; dz = tz / d; mag = clamp(d / 30, .35, 1); }
   }
@@ -854,12 +855,23 @@ function simulate(dt) {
     PLAYER.vx = damp(PLAYER.vx, tvx, V.accel, dt); PLAYER.vz = damp(PLAYER.vz, tvz, V.accel, dt);
     PLAYER.speed = Math.hypot(PLAYER.vx, PLAYER.vz); if (PLAYER.speed > .5) PLAYER.heading = Math.atan2(PLAYER.vx, -PLAYER.vz);
   } else {
-    if (mag > .01) {
-      const want = Math.atan2(dx, -dz), diff = wrapAngle(want - PLAYER.heading), rate = V.turn * (flying ? 1 : clamp(PLAYER.speed / 10, .35, 1));
-      const turn = clamp(diff, -rate * dt, rate * dt); PLAYER.heading += turn; PLAYER.turnRate = turn / dt;
-      const target = V.speed * mag * (flying ? 1 : Math.max(.3, Math.cos(Math.min(Math.abs(diff), 1.4))));
-      PLAYER.speed = damp(PLAYER.speed, target, PLAYER.speed < target ? V.accel : V.brake, dt);
-    } else { PLAYER.speed = damp(PLAYER.speed, 0, V.brake, dt); PLAYER.turnRate = damp(PLAYER.turnRate || 0, 0, 4, dt); }
+    // Vehicles steer and throttle like a car. Behind the wheel camera: left/right steer, up speeds up, down brakes.
+    // Map camera: the stick points where to go; pointing backwards brakes instead of spinning round.
+    // The side to turn comes from the stick's sideways part, so a target dead behind no longer always turns left.
+    let steer = 0, throttle = 0;
+    const h = PLAYER.heading, along = dx * Math.sin(h) - dz * Math.cos(h), lateral = dx * Math.cos(h) + dz * Math.sin(h), angle = Math.atan2(lateral, along);
+    if (manual && CAM.mode === 'follow') { steer = clamp(ix, -1, 1); throttle = iy; }
+    else if (manual) {
+      if (Math.abs(angle) > 1.92) throttle = -mag;
+      else { steer = clamp(angle / .7, -1, 1); throttle = mag * Math.max(.3, Math.cos(Math.min(Math.abs(angle), 1.4))); }
+    } else if (PLAYER.target) {   // tap to move: may turn right round, slowly
+      steer = Math.abs(angle) > 2.6 ? (lateral >= 0 ? 1 : -1) : clamp(angle / .7, -1, 1); throttle = mag * Math.max(.3, Math.cos(Math.min(Math.abs(angle), 1.4)));
+    }
+    const rate = V.turn * (flying ? 1 : clamp(PLAYER.speed / 40, .35, 1));
+    PLAYER.turnRate = damp(PLAYER.turnRate || 0, steer * rate, 10, dt); PLAYER.heading = wrapAngle(PLAYER.heading + PLAYER.turnRate * dt);
+    if (throttle > .01) { const target = V.speed * Math.min(1, throttle); PLAYER.speed = damp(PLAYER.speed, target, PLAYER.speed < target ? V.accel : V.brake, dt); }
+    else if (throttle < -.01) PLAYER.speed = Math.max(0, damp(PLAYER.speed, 0, V.brake * (1.5 + 2.5 * -throttle), dt) - 2 * dt);
+    else PLAYER.speed = damp(PLAYER.speed, 0, V.brake * .6, dt);
     PLAYER.vx = Math.sin(PLAYER.heading) * PLAYER.speed; PLAYER.vz = -Math.cos(PLAYER.heading) * PLAYER.speed;
   }
   let nx = PLAYER.x, nz = PLAYER.z;
