@@ -1,5 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { HeightField } from '../src/world/heightfield.js';
+import { createCollider } from '../src/sim/collider.js';
+import { buildRoadGraph } from '../src/sim/roadgraph.js';
+import { WaterGuard } from '#game/water.js';
+import { RoadNavigator } from '#game/navigation.js';
+import { createPlayer, stepPlayer } from '../src/sim/player.js';
 import { createTravel, startTrip, endTrip, accessLimit, tripStep, tripEnded, tripToast, landHint, FERRY_STOPPED, AT_ACCESS } from '../src/game/travel.js';
 
 const place = (id, x, y, name = '장소' + id) => ({ id, name, point: [x, y] });
@@ -151,4 +157,29 @@ test('tripEnded: within 12 m on foot, a road route run out or stopped by water, 
   assert.equal(tripEnded(t, at(970, { mode: 'slowplane', speed: 50 }), []), true, '30 m short at 50 m/s: within speed x 0.4 + 20 = 40 m');
   assert.equal(tripEnded(t, at(500, { mode: 'car' }), []), false);
   assert.equal(tripEnded(t, at(500, { mode: 'car' }), ['arrived']), true);
+});
+
+// phase 2a final review: a second 길 안내 press for the same place kept the old route (same routeKey), so it never replanned
+test('a repeated guided press for the same place replans and still opens the place at the route end', () => {
+  const road = [[-600, 0], [0, 0], [600, 0]];
+  const features = [{ kind: 'road', tags: { highway: 'tertiary' }, points: road, holes: [], bounds: [-600, 0, 600, 0] }];
+  const s = {
+    field: new HeightField({ w: 241, h: 241, cell: 25 }, new Float32Array(241 * 241).fill(10)), bounds: [-3000, -3000, 3000, 3000],
+    collider: createCollider([]), graph: buildRoadGraph(features), water: new WaterGuard(features), navigator: new RoadNavigator(features),
+  };
+  const p = createPlayer({ x: -200, y: 0, movementMode: 'roads' }), t = createTravel();
+  const cafe = place('cafe', 300, 200, '카페');   // 200 m off the road
+  const step = () => {
+    const { events } = stepPlayer(p, { x: 0, y: 0, camYaw: 0, camMode: 'tilt', target: t.target, maxAccess: accessLimit(t) }, s, 1 / 30);
+    return tripStep(t, { ended: tripEnded(t, p, events), at: [p.x, p.y], access: p.routeAccess, reach: () => false });
+  };
+  startTrip(t, cafe.point, { place: cafe }, p);
+  for (let i = 0; i < 60; i++) step();
+  assert.ok(p.x > -200 && p.routeAccess, 'walking the first route');
+  startTrip(t, cafe.point, { place: cafe }, p);   // the same press again
+  assert.equal(p.route, null); assert.equal(p.routeKey, null);
+  let r = null;
+  for (let i = 0; i < 600 && !(r = step()).ended; i++);
+  assert.deepEqual(r.open, [cafe]);
+  assert.ok(r.hold);
 });

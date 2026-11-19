@@ -442,7 +442,8 @@ function onEvent(e) {
 function controllerServices() {
   return {
     stopPlayer: () => {   // a dialog ends the trip; one to the pier says so when play resumes (M1)
-      if (clearTarget().ferry) G.note = FERRY_STOPPED;
+      const ferryTrip = clearTarget().ferry;   // the ferry dialog itself (opened at the pier) is no interruption
+      if (ferryTrip && G.ctl?.dialog?.kind !== 'ferry') G.note = FERRY_STOPPED;
       Object.assign(G.player, { speed: 0, vx: 0, vy: 0, turnRate: 0 }); if (G.player.car) haltCar(G.player.car); G.turn = null; },
     resetInput: () => { G.controls.reset(); hud.stick({ visible: false }); hud.closePicker(); },
     showDialog: (kind, data) => {   // a place returns what the visit earned (the controller's chime, P25)

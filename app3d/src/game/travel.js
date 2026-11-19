@@ -28,7 +28,7 @@ export function createTravel() { return { target: null, place: null, access: nul
  */
 export function startTrip(t, point, { place = null, ferry = false } = {}, player = null) {
   t.target = [point[0], point[1]]; t.place = place; t.access = null; t.ferry = !!ferry;
-  if (player) { player.routeAccess = null; if (player.car) { player.car.goal = null; player.car.route = null; } }
+  if (player) { player.route = null; player.routeKey = null; player.routeAccess = null; if (player.car) { player.car.goal = null; player.car.route = null; } }
 }
 
 /** End the trip (arrived, stopped, replaced) and, with the player, its road route: -> what it was ({place, access, ferry}). */

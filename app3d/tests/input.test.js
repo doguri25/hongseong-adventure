@@ -148,3 +148,19 @@ test('a thumb resting still in the stick zone does not stop a quick tap on the r
   t += 20; fire(target, 'pointerup', touch(4, 100, 300));
   assert.equal(calls.taps.length, 2, 'two fingers pressed together');
 });
+
+// phase 2a final review: a still finger resting on the RIGHT half must not make the other hand's later tap a two-finger press
+test('a still finger resting on the right half does not turn the other hand\'s later tap into a two-finger press', () => {
+  const { target, env, fire, calls } = setup();
+  let t = 1000; env.performance = { now: () => t };
+  fire(target, 'pointerdown', touch(1, 700, 300));   // resting, held still
+  t += 1000;
+  fire(target, 'pointerdown', touch(2, 900, 300)); t += 80; fire(target, 'pointerup', touch(2, 900, 300));
+  assert.deepEqual(calls.taps, [[900, 300]]);
+  t += 500; fire(target, 'pointerup', touch(1, 700, 300));
+  // two fingers landing together stay a two-finger press
+  fire(target, 'pointerdown', touch(3, 700, 300)); t += 100;
+  fire(target, 'pointerdown', touch(4, 900, 300)); t += 80; fire(target, 'pointerup', touch(4, 900, 300));
+  t += 20; fire(target, 'pointerup', touch(3, 700, 300));
+  assert.equal(calls.taps.length, 1, 'two fingers pressed together');
+});

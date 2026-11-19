@@ -36,12 +36,13 @@ export function createControls(target, { onTap, onAction, onStick } = {}, env = 
     const leftSide = e.clientX < (env.innerWidth || 0) * 0.42 && e.pointerType !== 'mouse';
     if (leftSide && stick.id === null) {
       stick.id = e.pointerId; stick.ox = stick.sx = e.clientX; stick.oy = stick.sy = e.clientY; stick.x = stick.y = 0;
-      stick.t = now(); stick.moved = false; stick.multi = pointers.size > 0;
-      for (const p of pointers.values()) p.multi = true;
+      stick.t = now(); stick.moved = false; stick.multi = [...pointers.values()].some((p) => now() - p.t < TAP_MS);
+      for (const p of pointers.values()) if (now() - p.t < TAP_MS) p.multi = true;
       emitStick(true); return;
     }
-    const multi = pointers.size > 0 || (stick.id !== null && !stick.moved && now() - stick.t < TAP_MS);
-    if (multi) { for (const p of pointers.values()) p.multi = true; if (stick.id !== null) stick.multi = true; }
+    const fresh = [...pointers.values()].filter((p) => now() - p.t < TAP_MS);   // a finger resting longer is no second finger
+    const multi = fresh.length > 0 || (stick.id !== null && !stick.moved && now() - stick.t < TAP_MS);
+    if (multi) { for (const p of fresh) p.multi = true; if (stick.id !== null) stick.multi = true; }
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY, t: now(), moved: false, multi });
     if (pointers.size === 2) { const [a, b] = [...pointers.values()]; pinchDist = Math.hypot(a.x - b.x, a.y - b.y); }
   }
@@ -81,7 +82,7 @@ export function createControls(target, { onTap, onAction, onStick } = {}, env = 
       return;
     }
     const p = pointers.get(e.pointerId); pointers.delete(e.pointerId); if (!p) return;
-    if (e.type === 'pointerup' && !p.moved && !p.multi && pointers.size === 0 && now() - p.t < TAP_MS) onTap?.(e.clientX, e.clientY);
+    if (e.type === 'pointerup' && !p.moved && !p.multi && [...pointers.values()].every((q) => !q.moved) && now() - p.t < TAP_MS) onTap?.(e.clientX, e.clientY);
   }
 
   const lost = e => { // cancelled or lost capture: drop that pointer without a tap
