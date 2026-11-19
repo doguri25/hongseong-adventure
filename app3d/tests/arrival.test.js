@@ -75,3 +75,16 @@ test('nearestPlace uses the point or the building contact, whichever is closer',
   assert.equal(nearestPlace([], { x: 0, y: 0 }, c), null);
   assert.equal(nearestPlace(ps, { x: 0, y: 0 }, none).distance, 0);
 });
+
+test('a car parked at the wall of a large building fires once, and again after leaving > 80 m and returning', () => {
+  const ring = [[-400, -400], [400, -400], [400, 400], [-400, 400]];
+  const c = createCollider([ring]), ps = [place('big', 0, 0, { ring })];   // wall is 400 m from the point
+  const held = new Set(), fired = [];
+  const step = (a, b) => { for (const p of arrivals(ps, a, b, held, 'car', c)) fired.push(p.id); };
+  for (const [a, b] of line(-800, -440, 0, 4).slice(1).map((v, i, l) => [i ? l[i - 1] : [-800, 0], v])) step(a, b);
+  assert.equal(fired.length, 1);
+  for (let i = 0; i < 60; i++) step([-440, 0], [-440, 0]);   // parked 40 m from the wall (contact 50)
+  assert.equal(fired.length, 1);
+  step([-440, 0], [-600, 0]); step([-600, 0], [-440, 0]);     // 200 m away: contact 210 > 80, outside point reach
+  assert.equal(fired.length, 2);
+});

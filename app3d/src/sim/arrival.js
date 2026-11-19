@@ -22,31 +22,32 @@ export function nearestPlace(places, player, collider) {
   return best;
 }
 
+// The single re-arm rule: a held place re-arms only when the player is outside every way it could have fired,
+// i.e. beyond the mode's point radius + margin AND (if it has a ring) beyond wall contact + 20 m.
+function outsideAll(p, mode, from, to, collider) {
+  const car = isCar(mode), r = (car ? CAR_REACH : placeRadius(p)) + (car ? CAR_REARM : 3);
+  if (distance(from, p.point) <= r || distance(to, p.point) <= r) return false;
+  return !p.ring || contactOf(p, to[0], to[1], collider) > CONTACT + CONTACT_REARM;
+}
+
 // Places entered during the step from -> to. `held` is a Set of ids that fired and have not re-armed.
 export function arrivals(places, from, to, held, mode, collider) {
   if (!isGround(mode)) return [];
   const entered = [];
-  const car = isCar(mode);
-  if (car) {
+  if (isCar(mode)) {
     for (const p of places) {
-      if (distance(from, p.point) > CAR_REACH + CAR_REARM && (distance(to, p.point) > CAR_REACH + CAR_REARM)) held.delete(p.id);
+      if (held.has(p.id) && outsideAll(p, mode, from, to, collider)) held.delete(p.id);
       if (!held.has(p.id) && segmentDistance(p.point, from, to) <= CAR_REACH) { held.add(p.id); entered.push(p); }
     }
   } else {
-    // a place held by building contact stays held until contact is lost, even when the walker is outside the point radius
-    const keep = places.filter((p) => p.ring && held.has(p.id) && contactOf(p, from[0], from[1], collider) <= CONTACT + CONTACT_REARM);
-    const rest = keep.length ? places.filter((p) => !keep.includes(p)) : places;
-    entered.push(...updateEncounters(rest, from, to, held));
+    // updateEncounters re-arms by point distance only, so wall-held places are kept out of it until outsideAll says so
+    const keep = places.filter((p) => held.has(p.id) && !outsideAll(p, mode, from, to, collider));
+    entered.push(...updateEncounters(keep.length ? places.filter((p) => !keep.includes(p)) : places, from, to, held));
   }
   // building contact (all ground modes)
   for (const p of places) {
-    if (!p.ring || entered.includes(p)) continue;
-    const c = contactOf(p, to[0], to[1], collider);
-    if (held.has(p.id)) {
-      if (c > CONTACT + CONTACT_REARM && !car && distance(to, p.point) > placeRadius(p) + 3) held.delete(p.id);
-      continue;
-    }
-    if (c <= CONTACT) { held.add(p.id); entered.push(p); }
+    if (!p.ring || entered.includes(p) || held.has(p.id)) continue;
+    if (contactOf(p, to[0], to[1], collider) <= CONTACT) { held.add(p.id); entered.push(p); }
   }
   return entered.sort((a, b) => distance(to, a.point) - distance(to, b.point));
 }
