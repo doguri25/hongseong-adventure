@@ -61,6 +61,34 @@ async function dragStick(page, label) {
   }, { ms: 5000, label });
 }
 
+// Accessibility floor for the temporary HUD: every visible control is at least 44x44 CSS px, every sentence a child
+// reads is at least 15 px; short labels inside buttons and chips may be smaller (travel name 13, its factor 12, tags 13).
+const TEXT_15 = ['#where', '.stats', '.hint', '.credit .lead', '.credit summary', '#toast', '#arrive span', '#turn-hint', '.act', '#npc-body', '#place-body', '.dialog .blurb', '.dialog .meta', '.dialog .reward', '.quiz .feedback', '#loading-step', '#lost p'];
+const LABEL_MIN = [['.travel button span', 13], ['.travel button small', 12], ['.dialog .tag', 13], ['.tools button', 13]];
+async function measureUi(page) {
+  return page.evaluate(({ TEXT_15, LABEL_MIN }) => {
+    const small = [], fonts = [];
+    let controls = 0;
+    for (const el of document.querySelectorAll('button, summary, a[href], [role="button"], input, select')) {
+      const r = el.getBoundingClientRect(), cs = getComputedStyle(el);
+      if (!r.width || !r.height || cs.visibility === 'hidden' || cs.display === 'none') continue;
+      controls++;
+      if (r.width < 43.5 || r.height < 43.5) small.push(`${el.id || el.dataset.mode || el.className || el.tagName}("${el.textContent.trim().slice(0, 10)}") ${r.width.toFixed(1)}x${r.height.toFixed(1)}`);
+    }
+    const rules = [...TEXT_15.map((s) => [s, 15]), ...LABEL_MIN];
+    for (const [sel, min] of rules) for (const el of document.querySelectorAll(sel)) {
+      const px = parseFloat(getComputedStyle(el).fontSize);
+      if (px < min) fonts.push(`${sel} ${px}px < ${min}`);
+    }
+    return { controls, small, fonts };
+  }, { TEXT_15, LABEL_MIN });
+}
+async function checkUi(page, name, where) {
+  const ui = await measureUi(page);
+  check(ui.small.length === 0, `${name} ${where}: ${ui.controls} visible controls are >= 44x44${ui.small.length ? ' — too small: ' + ui.small.join(', ') : ''}`);
+  check(ui.fonts.length === 0, `${name} ${where}: sentences >= 15 px, labels at their minimum${ui.fonts.length ? ' — ' + ui.fonts.join(', ') : ''}`);
+}
+
 async function run(browser, base, spec) {
   const { name, viewport, touch } = spec;
   const ctx = await browser.newContext({ viewport, hasTouch: touch, isMobile: touch, deviceScaleFactor: touch ? 2 : 1, locale: 'ko-KR' });
@@ -92,6 +120,8 @@ async function run(browser, base, spec) {
   check(info.lamps > 0, `${name}: street lamps (${info.lamps})`);
   check(info.terrainChunks > 0, `${name}: terrain chunks built (${info.terrainChunks})`);
   await shot('1-start');
+  await checkUi(page, name, 'start');
+  if (spec.touch) { await page.evaluate(() => { document.getElementById('credit').open = true; }); await sleep(300); await checkUi(page, name, 'credit open'); await shot('1b-credit-open'); await page.evaluate(() => { document.getElementById('credit').open = false; }); }
 
   // floating stick (walking)
   const drag = await dragStick(page, name);
@@ -106,6 +136,7 @@ async function run(browser, base, spec) {
     check(r.ok || r.toast.length > 0, `${name}: setMode('${mode}') ${r.ok ? 'accepted' : 'refused'} -> mode ${r.mode}${r.pending ? ' (landing as ' + r.pending + ')' : ''}${r.toast ? ' · toast "' + r.toast + '"' : ''}`);
     await sleep(mode === 'plane' || mode === 'car' ? 6000 : 2500);
     if (mode === 'car' || mode === 'plane' || mode === 'bike') await shot(`3-mode-${mode}`);
+    if (mode === 'car') await checkUi(page, name, 'car (turn buttons)');
   }
   // camera and time presets render
   await page.evaluate(() => { window.__hs3d.toggleCamera(); window.__hs3d.applyTime('night'); });
@@ -118,6 +149,14 @@ async function run(browser, base, spec) {
   check(dialog.open, `${name}: place dialog opens (${dialog.text.replace(/\s+/g, ' ')})`);
   await sleep(1500);
   await shot('5-place-dialog');
+  await checkUi(page, name, 'place dialog');
+  for (let i = 0; i < 8; i++) {   // page through to the quiz step (read-only here: the quiz screen offers "여기로 가기")
+    const label = await page.evaluate(() => { const b = document.querySelector('#place-footer .btn.primary'); if (!b) return ''; const t = b.textContent; if (/다음|퀴즈/.test(t)) b.click(); return t; });
+    if (!/다음|퀴즈/.test(label)) break;
+    await sleep(300);
+  }
+  await checkUi(page, name, 'quiz step');
+  await shot('5b-quiz-step');
   await page.evaluate(() => document.getElementById('place-close').click());
 
   if (spec.tour) {
@@ -128,6 +167,7 @@ async function run(browser, base, spec) {
     check(!!coast && ferry.shown, `${name}: ferry button near 남당항 ("${ferry.text}")`);
     await sleep(1500);
     await shot('7-west-coast-namdang');
+    await checkUi(page, name, 'ferry and talk buttons');
     await page.evaluate(() => { const W = window.__hs3d.world, p = W.byId.get('hongju').point; window.__hs3d.teleport(p[0], p[1] + 150); W.view.zoom = 3.2; W.view.pitchAdj = -8; });
     await sleep(10000);
     await page.evaluate(() => window.__hs3d.closeDialogs());
@@ -151,6 +191,7 @@ async function run(browser, base, spec) {
   check(lost.ext && lost.visible, `${name}: #lost visible after WEBGL_lose_context`);
   check(lost.paused, `${name}: render loop paused after context loss`);
   await shot('6-context-lost');
+  await checkUi(page, name, 'context lost');
   check(errors.length === 0, `${name}: still no pageerror after context loss${errors.length ? ' — ' + errors.join(' | ').slice(0, 600) : ''}`);
   await ctx.close();
 }
@@ -164,7 +205,7 @@ async function main() {
   try {
     for (const spec of [
       { name: 'desktop', viewport: { width: 1280, height: 760 }, touch: false, tour: true },
-      { name: 'phone', viewport: { width: 390, height: 844 }, touch: true },
+      { name: 'phone', viewport: { width: 390, height: 844 }, touch: true, tour: true },
     ]) await run(browser, base, spec);
   } finally {
     await browser.close();
