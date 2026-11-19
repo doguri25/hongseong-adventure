@@ -2,7 +2,7 @@
 
 `python3 tools/3d/prepare_world.py` regenerates `app3d/public/data/` (committed; deploy builds have no network).
 
-Inputs: `dist/map-county.json`, `spike/3d-naepo/data/{county,naepo}-buildings.geojson`, Terrarium tiles
+Inputs: `app2d/map-county.json`, `spike/3d-naepo/data/{county,naepo}-buildings.geojson`, Terrarium tiles
 (`https://s3.amazonaws.com/elevation-tiles-prod/terrarium/13/{x}/{y}.png`, cached in `build/dem-cache/`, gitignored).
 Needs Python 3, Pillow, numpy, curl.
 

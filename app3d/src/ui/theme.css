@@ -1,6 +1,6 @@
 /* 홍성 탐험대 3D: the shared look (tokens, glass, buttons, tabs, cards, notices) and the HUD / dialog layout.
    Tokens follow 폭주구구단 (pokju-edu). Display face: Black Han Sans (bundled by Vite from @fontsource, OFL);
-   body face: NanumSquareRound ('NanumRound', loaded from dist/assets by world/places.js). No runtime CDN.
+   body face: NanumSquareRound ('NanumRound', loaded from app2d/assets by world/places.js). No runtime CDN.
    Low graphics quality: main.js puts `q-low` on <html>; every backdrop blur below is switched off under it. */
 @import '@fontsource/black-han-sans/korean-400.css';
 @import '@fontsource/black-han-sans/latin-400.css';
@@ -619,7 +619,7 @@ html.reduce-motion .map-note.away { transition: none; }
 .cp-text strong { font-size: 16px; line-height: 1.3; color: #fff; word-break: keep-all; overflow-wrap: anywhere; }
 .cp-text small { font-size: 13px; font-weight: 700; line-height: 1.35; color: var(--chip-sub); }
 .cp-go { flex: none; font-size: 18px; color: var(--cyan); }
-/* the 2D place pictogram in its colour (dist/place-icons.js) */
+/* the 2D place pictogram in its colour (app2d/place-icons.js) */
 .psym { flex: none; width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: var(--symbol-color, var(--accent)); box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, .6); }
 .psym svg { width: 20px; height: 20px; fill: none; stroke: #fff; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .map-more { border: 1px solid var(--line); border-radius: 14px; background: rgba(255, 255, 255, .04); }

@@ -1,5 +1,5 @@
 // Travel targets (pure: no DOM, no three.js): where the explorer is heading and why, ported from the 2D game's
-// world.js walkTo / navigate / boardFerry and the step's encounter rule (dist/world.js l.80-83, 94-104; P24 widened).
+// world.js walkTo / navigate / boardFerry and the step's encounter rule (app2d/world.js l.80-83, 94-104; P24 widened).
 // A trip is one of
 //   a ground tap   {target}                         every place entered on the way opens (2D: no routePlace)
 //   a guided trip  {target, place}                  찾아가기, 길 안내, a mission's 출발 or a pin (ctl.goTo): only its own

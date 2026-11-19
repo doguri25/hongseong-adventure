@@ -56,7 +56,7 @@ test('shopFollowsCorePurchase: unaffordable, buy, take off, wear again; coins ne
   assert.equal(snapshot(s), was);
 });
 
-test('pressItem gives exactly what dist/core.js purchase gives on a copy of the same state', () => {
+test('pressItem gives exactly what app2d/core.js purchase gives on a copy of the same state', () => {
   const a = freshState(), b = freshState();
   a.coins = b.coins = 300;
   for (const id of ['star-stamp', 'star-stamp', 'ring-sun', 'gold-journal', 'ring-sun', 'outfit-mint', 'trail-music', 'trail-music']) {

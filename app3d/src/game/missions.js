@@ -1,5 +1,5 @@
-// Daily missions for the 3D app (pure). refreshMissions ports dist/game.js refreshQuests; missionView ports the 2D
-// quest card text. The rules themselves (ensureQuests, activeQuest, ...) stay in dist/quests.js.
+// Daily missions for the 3D app (pure). refreshMissions ports app2d/game.js refreshQuests; missionView ports the 2D
+// quest card text. The rules themselves (ensureQuests, activeQuest, ...) stay in app2d/quests.js.
 import { ensureQuests, activeQuest, questCompleted, dayKey, DIRECT_BONUS } from '#game/quests.js';
 import { distance } from '#game/geography.js';
 import { unproject } from '../frame.js';
@@ -46,7 +46,7 @@ export function missionView(state, places) {
 }
 
 /**
- * The menu's 탐방 tab: today's targets as the 2D mission list (dist/game.js showMissions). cards: {id, name, area, blurb,
+ * The menu's 탐방 tab: today's targets as the 2D mission list (app2d/game.js showMissions). cards: {id, name, area, blurb,
  * number ('✓' when done, else 1-3), kicker, status: 'done'|'active'|'open', action (the button: 미션 완료 is disabled)};
  * allDone offers 새 미션 받기 (true with no targets, as the 2D list).
  */

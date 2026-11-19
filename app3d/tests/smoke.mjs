@@ -1,5 +1,8 @@
-// Headless browser smoke check for the built 3D app (run: npm run build:3d && node app3d/tests/smoke.mjs).
-// Serves build/app3d with a tiny static server, opens it in Chromium (SwiftShader WebGL) at a desktop and a phone
+// Headless browser smoke check for the built site (run: npm run build && node app3d/tests/smoke.mjs).
+// Serves dist/ (the 3D at the root, the frozen 2D under 2d/) with a tiny static server under the GitHub Pages sub-path
+// /hongseong-adventure/, so an absolute /… URL in either game misses the site: every request must stay under it and
+// find its file. The 2D pass opens /hongseong-adventure/2d/ and checks the page (title 홍성 모험 수첩, v1.3.6) boots its
+// map with no page errors. The 3D is then opened at /hongseong-adventure/ in Chromium (SwiftShader WebGL) at a desktop and a phone
 // viewport, waits for window.__hs3d.ready, then checks: no page errors, all six travel modes are accepted or refused
 // with a toast, the floating stick moves the player, and a lost WebGL context shows #lost. A quick touch-tablet pass
 // checks the credit stays collapsed, a short touch in the stick zone taps, and action keys pressed while the world
@@ -40,7 +43,7 @@
 // dialog; the QR's first focus wholly in view, ring included; the ferry dialog's at-the-pier wording; and, at the desktop and tablet
 // (checkGuided), a guided walk in 길로만 mode to 홍성초등학교 that opens it at the route end, and a guided trip through
 // 홍성읍 that opens only its target and keeps the 직행 bonus.
-// Screenshots go to OUT (SMOKE_OUT, default a folder in the system temp directory; SMOKE_ONLY=tablet,phone,landscape
+// Screenshots go to OUT (SMOKE_OUT, default a folder in the system temp directory; SMOKE_ONLY=2d,tablet,phone,landscape
 // runs only those passes).
 import http from 'node:http';
 import fs from 'node:fs';
@@ -59,7 +62,9 @@ const require = createRequire(import.meta.url);
 const { chromium } = require('playwright');
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const ROOT = path.resolve(here, '../../build/app3d');
+const ROOT = path.resolve(here, '../../dist');
+// the site's path on GitHub Pages (https://doguri25.github.io/hongseong-adventure/): dist/ is served only under it
+const SUB = '/hongseong-adventure/';
 const OUT = process.env.SMOKE_OUT || path.join(os.tmpdir(), 'hongseong-3d-smoke');
 const READY_MS = Number(process.env.SMOKE_READY_MS) || 240000;
 const MODES = ['walk', 'bike', 'car', 'supercar', 'slowplane', 'plane'];
@@ -69,17 +74,28 @@ const MIME = {
   '.svg': 'image/svg+xml', '.glb': 'model/gltf-binary', '.woff2': 'font/woff2', '.woff': 'font/woff', '.wasm': 'application/wasm', '.txt': 'text/plain',
 };
 
+// Serves root at SUB as GitHub Pages does: a folder answers with its index.html, a folder asked for without its
+// trailing slash is redirected to it. A request outside SUB (an absolute /… URL) or for a missing file gets a 404 and
+// is noted in server.misses (the browser's own /favicon.ico probe aside).
 function serve(root) {
+  const misses = [];
   const server = http.createServer((req, res) => {
     const url = decodeURIComponent(new URL(req.url, 'http://x').pathname);
-    let file = path.normalize(path.join(root, url));
-    if (!file.startsWith(root)) { res.writeHead(403).end(); return; }
-    if (fs.existsSync(file) && fs.statSync(file).isDirectory()) file = path.join(file, 'index.html');
+    const miss = (status) => { if (url !== '/favicon.ico') misses.push(`${status} ${req.method} ${url}`); res.writeHead(status, { 'content-type': 'text/plain' }).end('not found'); };
+    if (url + '/' === SUB) { res.writeHead(301, { location: SUB }).end(); return; }
+    if (!url.startsWith(SUB)) { miss(404); return; }
+    let file = path.normalize(path.join(root, url.slice(SUB.length)));
+    if (file !== root && !file.startsWith(root + path.sep)) { miss(403); return; }
+    if (fs.existsSync(file) && fs.statSync(file).isDirectory()) {
+      if (!url.endsWith('/')) { res.writeHead(301, { location: url + '/' }).end(); return; }
+      file = path.join(file, 'index.html');
+    }
     fs.readFile(file, (err, body) => {
-      if (err) { res.writeHead(404, { 'content-type': 'text/plain' }).end('not found'); return; }
+      if (err) { miss(404); return; }
       res.writeHead(200, { 'content-type': MIME[path.extname(file).toLowerCase()] || 'application/octet-stream', 'cache-control': 'no-store' }).end(body);
     });
   });
+  server.misses = misses;
   return new Promise((resolve) => server.listen(0, '127.0.0.1', () => resolve(server)));
 }
 
@@ -1747,7 +1763,7 @@ async function checkWardrobeFx(page, name, spec, shot, sheets) {
   await page.evaluate(() => { const W = window.__hs3d.world; W.target = null; W.player.route = null; });
 }
 
-async function run(browser, base, spec) {
+async function run(browser, site, spec) {
   const { name, viewport, touch } = spec;
   const ctx = await browser.newContext({ viewport, hasTouch: touch, isMobile: touch, deviceScaleFactor: touch ? 2 : 1, locale: 'ko-KR' });
   const page = await ctx.newPage();
@@ -1776,7 +1792,7 @@ async function run(browser, base, spec) {
     });
   }
   const t0 = Date.now();
-  await page.goto(base + '/index.html', { waitUntil: 'load' });
+  await page.goto(site, { waitUntil: 'load' });
   // the loading screen (sizes and fonts) while the world is being built
   const loading = await page.evaluate(() => { const l = document.getElementById('loading'); return !!l && !l.hidden && getComputedStyle(l).display !== 'none' && !window.__hs3d; });
   if (loading) { await checkUi(page, name, 'loading screen', touch); await shot('0-loading'); } else console.log(`  ${name}: the loading screen was gone before it could be measured`);
@@ -1966,25 +1982,51 @@ async function run(browser, base, spec) {
   await ctx.close();
 }
 
+// The frozen 2D, copied to dist/2d/ by npm run build: /hongseong-adventure/2d/ serves its page (title 홍성 모험 수첩,
+// v1.3.6), which loads its map with every request under the sub-path (server.misses, checked in main) and no page error.
+async function check2d(browser, site) {
+  const name = '2d';
+  const ctx = await browser.newContext({ viewport: { width: 1280, height: 760 }, locale: 'ko-KR' });
+  const page = await ctx.newPage();
+  const errors = [];
+  page.on('pageerror', (e) => errors.push(String(e && e.stack || e)));
+  page.on('console', (m) => { if (m.type() === 'error') console.log(`  [${name} console.error] ${m.text().slice(0, 300)}`); });
+  const res = await page.goto(site + '2d/', { waitUntil: 'load' }).catch(() => null);
+  const status = res ? res.status() : 0;
+  let map = false;
+  try { await page.waitForFunction(() => document.getElementById('map-loading')?.hidden === true, null, { timeout: 60000, polling: 250 }); map = true; } catch {}
+  await sleep(1500);
+  const r = await page.evaluate(() => ({ path: location.pathname, title: document.title, version: document.querySelector('.area-pill .demo-tag')?.textContent || '', canvas: !!document.getElementById('map') }));
+  check(status === 200 && r.path === '/hongseong-adventure/2d/' && r.title.startsWith('홍성 모험 수첩') && r.version === 'v1.3.6', `${name}: ${r.path} serves the 2D page (HTTP ${status}, title "${r.title}", ${r.version})`);
+  check(map && r.canvas, `${name}: the 2D map loads under the sub-path (#map-loading hidden)`);
+  await page.screenshot({ path: path.join(OUT, `${name}-0-boot.png`) });
+  check(errors.length === 0, `${name}: no pageerror${errors.length ? ' — ' + errors.join(' | ').slice(0, 600) : ''}`);
+  await ctx.close();
+}
+
 async function main() {
-  if (!fs.existsSync(path.join(ROOT, 'index.html'))) { console.error('build/app3d/index.html missing: run npm run build:3d first'); process.exit(1); }
+  if (!fs.existsSync(path.join(ROOT, 'index.html'))) { console.error('dist/index.html missing: run npm run build first'); process.exit(1); }
   fs.mkdirSync(OUT, { recursive: true });
   const server = await serve(ROOT);
-  const base = `http://127.0.0.1:${server.address().port}`;
+  const site = `http://127.0.0.1:${server.address().port}${SUB}`;
+  const only = process.env.SMOKE_ONLY ? process.env.SMOKE_ONLY.split(',') : null;
   // a UTF-8 locale for the browser: without one (LANG unset) Linux Chromium saves the Korean download names as "download"
   const env = { ...process.env, LANG: /utf-?8/i.test(process.env.LANG || '') ? process.env.LANG : 'C.UTF-8' };
   const browser = await chromium.launch({ env, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--enable-webgl'] });
   try {
+    if (!only || only.includes('2d')) await check2d(browser, site);
     for (const spec of [
       { name: 'desktop', viewport: { width: 1280, height: 760 }, touch: false, tour: true, guided: true },
       { name: 'phone', viewport: { width: 390, height: 844 }, touch: true, tour: true },
       { name: 'tablet', viewport: { width: 1024, height: 768 }, touch: true, quick: true, keysWhileLoading: true, guided: true },
       { name: 'landscape', viewport: { width: 844, height: 390 }, touch: true, quick: true },
-    ].filter((s) => !process.env.SMOKE_ONLY || process.env.SMOKE_ONLY.split(',').includes(s.name))) await run(browser, base, spec);
+    ].filter((s) => !only || only.includes(s.name))) await run(browser, site, spec);
   } finally {
     await browser.close();
     server.close();
   }
+  const misses = server.misses;
+  check(misses.length === 0, `every request stayed under ${SUB} and found its file${misses.length ? ` — ${misses.length} did not: ${[...new Set(misses)].slice(0, 12).join(', ')}` : ''}`);
   console.log(`screenshots: ${OUT}`);
   if (failures.length) { console.log(`\n${failures.length} check(s) failed`); process.exit(1); }
   console.log('\nsmoke: all checks passed');

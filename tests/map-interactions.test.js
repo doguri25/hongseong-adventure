@@ -1,15 +1,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {World} from '../dist/world.js';
-import {Cartography} from '../dist/cartography.js';
-import {OverviewMap} from '../dist/overview-map.js';
-import {surfaceKind,buildingStyle} from '../dist/map-style.js';
-import {PLACES} from '../dist/content.js';
-import {freshState} from '../dist/core.js';
-import {createNpcs,createDecorations} from '../dist/npcs.js';
-import {WaterGuard} from '../dist/water.js';
-import {RoadNavigator} from '../dist/navigation.js';
+import {World} from '../app2d/world.js';
+import {Cartography} from '../app2d/cartography.js';
+import {OverviewMap} from '../app2d/overview-map.js';
+import {surfaceKind,buildingStyle} from '../app2d/map-style.js';
+import {PLACES} from '../app2d/content.js';
+import {freshState} from '../app2d/core.js';
+import {createNpcs,createDecorations} from '../app2d/npcs.js';
+import {WaterGuard} from '../app2d/water.js';
+import {RoadNavigator} from '../app2d/navigation.js';
 
 test('water remains water inside a park; material styles do not change geographic polygons',()=>{
  assert.equal(surfaceKind({natural:'water',leisure:'park',water:'sea'}),'ocean');
@@ -29,7 +29,7 @@ test('late zoom tiles are discarded and visible tiles survive cache pressure fro
  c.clearTiles();assert.equal(c.generation,4);assert.equal(c.tiles.size,0);
 });
 
-const data=JSON.parse(readFileSync(new URL('../dist/map-county.json',import.meta.url)));
+const data=JSON.parse(readFileSync(new URL('../app2d/map-county.json',import.meta.url)));
 const map=Object.assign(Object.create(World.prototype),{origin:data.origin,mLon:111320*Math.cos(data.origin[1]*Math.PI/180),mLat:111320});
 const features=data.features.map(f=>{const points=f.points.map(p=>map.project(p));return{...f,points,holes:(f.holes||[]).map(r=>r.map(p=>map.project(p))),bounds:[Math.min(...points.map(p=>p[0])),Math.min(...points.map(p=>p[1])),Math.max(...points.map(p=>p[0])),Math.max(...points.map(p=>p[1]))]};});
 test('all 58 NPCs have finite dry coordinates and a nearby walkable road',()=>{

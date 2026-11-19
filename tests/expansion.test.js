@@ -1,20 +1,20 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync,existsSync} from 'node:fs';
-import {PLACES} from '../dist/content.js';
-import {EXPANSION_PLACES} from '../dist/expansion-places.js';
-import {searchPlaces} from '../dist/search.js';
-import {WaterGuard} from '../dist/water.js';
-import {World} from '../dist/world.js';
-import {RoadNavigator,isWalkingRoad} from '../dist/navigation.js';
-import {freshState,distance} from '../dist/core.js';
-import {DIRECTIONS,heading,frameIndex} from '../dist/motion-sprites.js';
-import {MOTION_CELLS} from '../dist/motion-cells.js';
+import {PLACES} from '../app2d/content.js';
+import {EXPANSION_PLACES} from '../app2d/expansion-places.js';
+import {searchPlaces} from '../app2d/search.js';
+import {WaterGuard} from '../app2d/water.js';
+import {World} from '../app2d/world.js';
+import {RoadNavigator,isWalkingRoad} from '../app2d/navigation.js';
+import {freshState,distance} from '../app2d/core.js';
+import {DIRECTIONS,heading,frameIndex} from '../app2d/motion-sprites.js';
+import {MOTION_CELLS} from '../app2d/motion-cells.js';
 const polygon=(points,holes=[])=>({points,holes,tags:{natural:'water',water:'reservoir'},bounds:[Math.min(...points.map(p=>p[0])),Math.min(...points.map(p=>p[1])),Math.max(...points.map(p=>p[0])),Math.max(...points.map(p=>p[1]))]});
 const lake=polygon([[120,0],[180,0],[180,300],[120,300]]);
 const road=points=>({points,tags:{highway:'residential'}});
 const emptyWorld=()=>Object.assign(Object.create(World.prototype),{state:{...freshState(),movementMode:'free'},position:[100,100],camera:[100,100],max:[1000,1000],water:new WaterGuard([lake]),navigator:new RoadNavigator([]),route:[],places:[],npcs:[],keys:new Set(),joy:[0,0],held:new Set(),events:{toast(){},sound(){},save(){},near(){},paused:()=>false},updateLocation(){},draw(){}});
-const data=JSON.parse(readFileSync(new URL('../dist/map-county.json',import.meta.url))),ml=111320*Math.cos(data.origin[1]*Math.PI/180),project=p=>[(p[0]-data.origin[0])*ml,(data.origin[1]-p[1])*111320];
+const data=JSON.parse(readFileSync(new URL('../app2d/map-county.json',import.meta.url))),ml=111320*Math.cos(data.origin[1]*Math.PI/180),project=p=>[(p[0]-data.origin[0])*ml,(data.origin[1]-p[1])*111320];
 const features=data.features.map(f=>({...f,points:f.points.map(project),holes:(f.holes||[]).map(r=>r.map(project))})).map(f=>({...f,bounds:[Math.min(...f.points.map(p=>p[0])),Math.min(...f.points.map(p=>p[1])),Math.max(...f.points.map(p=>p[0])),Math.max(...f.points.map(p=>p[1]))]}));
 test('autocomplete finds partial names, Korean initials, original brands and forest aliases',()=>{
  for(const[q,id]of [['홍성역','new-hongseong-station'],['ㅎㅅㅇ','new-hongseong-station'],['ㄱㅊㅇ','new-gwangcheon-station'],['내당한우','new-naedang'],['남산 휴양림','new-namsan'],['오서산휴양림','new-oseo-forest'],['내포버스정류장','new-naepo-bus'],['내포 놀이터','new-terrain-play']])assert.equal(searchPlaces(PLACES,q)[0]?.id,id,q);
@@ -43,7 +43,7 @@ test('real coast-to-island ferry reaches dry points both ways, restores zoom and
 });
 test('all six sprites provide two frames for each actual movement direction',()=>{
  const vectors=[[1,0],[1,1],[0,1],[-1,1],[-1,0],[-1,-1],[0,-1],[1,-1]];assert.deepEqual(vectors.map(v=>heading(...v)),DIRECTIONS);assert.equal(heading(0,0,'nw'),'nw');
- for(const mode of ['walk','bike','fast','faster','plane','boat']){assert(existsSync(new URL('../dist/assets/motion-'+mode+'.png',import.meta.url)));assert.equal(MOTION_CELLS[mode].length,16);for(const d of DIRECTIONS){const a=frameIndex(d,Math.PI/2,true),b=frameIndex(d,Math.PI*1.5,true);assert.notEqual(a,b);assert.equal(frameIndex(d,Math.PI*1.5,false),a);for(const i of[a,b]){const[x,y,w,h]=MOTION_CELLS[mode][i];assert(x>=0&&y>=0&&w>0&&h>0&&x+w<=1254&&y+h<=1254);}}}
+ for(const mode of ['walk','bike','fast','faster','plane','boat']){assert(existsSync(new URL('../app2d/assets/motion-'+mode+'.png',import.meta.url)));assert.equal(MOTION_CELLS[mode].length,16);for(const d of DIRECTIONS){const a=frameIndex(d,Math.PI/2,true),b=frameIndex(d,Math.PI*1.5,true);assert.notEqual(a,b);assert.equal(frameIndex(d,Math.PI*1.5,false),a);for(const i of[a,b]){const[x,y,w,h]=MOTION_CELLS[mode][i];assert(x>=0&&y>=0&&w>0&&h>0&&x+w<=1254&&y+h<=1254);}}}
 });
 test('expansion uses distinct activity icons and actual OSM rail ways without turning tracks into walking roads',()=>{
  assert.equal(EXPANSION_PLACES.length,18);assert.equal(EXPANSION_PLACES.filter(p=>p.symbol==='restaurant').length,6);assert.equal(EXPANSION_PLACES.find(p=>p.id==='new-oseo-forest').area,'보령시 청라면');assert.equal(EXPANSION_PLACES.find(p=>p.id==='new-naepo-bus').area,'예산군 삽교읍');

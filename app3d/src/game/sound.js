@@ -1,4 +1,4 @@
-// The game's sounds (P4 / P13): the 2D GameAudio (dist/audio.js: small synthesized tones, the music loop, footsteps)
+// The game's sounds (P4 / P13): the 2D GameAudio (app2d/audio.js: small synthesized tones, the music loop, footsteps)
 // behind the one object the controller and every UI module play through (ctl.sound). On top of GameAudio it adds the
 // 2D game's click on every button press, without doubling a sound the button already made, and the effects of the
 // 설정 sound rows and of the page being hidden. No DOM here: main.js hands in the event target and the state.

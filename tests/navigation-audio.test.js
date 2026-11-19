@@ -1,11 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {RoadNavigator,isWalkingRoad} from '../dist/navigation.js';
-import {chooseKoreanVoice,Narrator,GameAudio} from '../dist/audio.js';
-import {freshState,sanitizeState,distance} from '../dist/core.js';
-import {WaterGuard} from '../dist/water.js';
-import {World} from '../dist/world.js';
+import {RoadNavigator,isWalkingRoad} from '../app2d/navigation.js';
+import {chooseKoreanVoice,Narrator,GameAudio} from '../app2d/audio.js';
+import {freshState,sanitizeState,distance} from '../app2d/core.js';
+import {WaterGuard} from '../app2d/water.js';
+import {World} from '../app2d/world.js';
 const road=points=>({points,tags:{highway:'residential',oneway:'yes'}});
 test('walking route follows corners in either direction and excludes motorways',()=>{
  const n=new RoadNavigator([road([[0,0],[100,0],[100,100]]),{points:[[0,0],[100,100]],tags:{highway:'motorway'}}]);
@@ -25,7 +25,7 @@ test('mode switching cancels navigation and preserves mode and sound preferences
  }finally{globalThis.document=oldDocument;}
 });
 test('real county paths connect Naepo to Hongseong, Gwangcheon and coast',()=>{
- const d=JSON.parse(readFileSync(new URL('../dist/map-county.json',import.meta.url))),ml=111320*Math.cos(d.origin[1]*Math.PI/180),project=p=>[(p[0]-d.origin[0])*ml,(d.origin[1]-p[1])*111320];const n=new RoadNavigator(d.features.filter(isWalkingRoad).map(f=>({...f,points:f.points.map(project)})));
+ const d=JSON.parse(readFileSync(new URL('../app2d/map-county.json',import.meta.url))),ml=111320*Math.cos(d.origin[1]*Math.PI/180),project=p=>[(p[0]-d.origin[0])*ml,(d.origin[1]-p[1])*111320];const n=new RoadNavigator(d.features.filter(isWalkingRoad).map(f=>({...f,points:f.points.map(project)})));
  for(const end of [[126.6636829,36.602093],[126.625,36.5046],[126.47125,36.53865]]){const r=n.route(project(d.start),project(end),350);assert(r);assert(r.points.length>10);assert(r.gap<=350);for(const p of r.points)assert(n.nearest(p).d<.001);}
 });
 test('Google Korean precedes Windows; explicit Korean selection overrides; no English fallback',()=>{

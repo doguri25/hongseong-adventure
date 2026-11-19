@@ -1,4 +1,4 @@
-// Game frame shared with dist/world.js (World.project). Metres; x east, y south.
+// Game frame shared with app2d/world.js (World.project). Metres; x east, y south.
 export const ORIGIN = [126.4, 36.69];
 export const BOUNDS = [126.4, 36.45, 126.79, 36.69];
 export const M_LAT = 111320;

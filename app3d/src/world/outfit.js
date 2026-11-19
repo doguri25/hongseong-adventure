@@ -1,4 +1,4 @@
-// Outfit tint: the 2D game colours its explorer with CSS filters (dist/wardrobe.js OUTFIT_FILTERS). This composes the same
+// Outfit tint: the 2D game colours its explorer with CSS filters (app2d/wardrobe.js OUTFIT_FILTERS). This composes the same
 // hue-rotate / saturate / sepia filters (W3C filter-effects matrices) into one RGB 3x3 row-major matrix.
 const IDENTITY = [1, 0, 0, 0, 1, 0, 0, 0, 1];
 

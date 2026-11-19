@@ -1,21 +1,21 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync,existsSync} from 'node:fs';
-import {PLACES,SHOP} from '../dist/content.js';
-import {freshState,sanitizeState,discover,purchase} from '../dist/core.js';
-import {CHARACTERS,OUTFIT_FILTERS,STAMPS,TRAILS,RINGS,JOURNALS} from '../dist/wardrobe.js';
-import {SPARSE_NPCS} from '../dist/sparse-npcs.js';
-import {createNpcs} from '../dist/npcs.js';
-import {RoadNavigator} from '../dist/navigation.js';
-import {WaterGuard} from '../dist/water.js';
-import {districtAt,distance,SpatialIndex} from '../dist/geography.js';
-import {OverviewMap} from '../dist/overview-map.js';
-import {Cartography,tileLayout} from '../dist/cartography.js';
-import {World} from '../dist/world.js';
-import {symbolFor} from '../dist/place-icons.js';
-import {fitPlaceDialog} from '../dist/layout.js';
-import {RELEASE} from '../dist/release.js';
-const data=JSON.parse(readFileSync(new URL('../dist/map-county.json',import.meta.url))),ml=111320*Math.cos(data.origin[1]*Math.PI/180),project=p=>[(p[0]-data.origin[0])*ml,(data.origin[1]-p[1])*111320];
+import {PLACES,SHOP} from '../app2d/content.js';
+import {freshState,sanitizeState,discover,purchase} from '../app2d/core.js';
+import {CHARACTERS,OUTFIT_FILTERS,STAMPS,TRAILS,RINGS,JOURNALS} from '../app2d/wardrobe.js';
+import {SPARSE_NPCS} from '../app2d/sparse-npcs.js';
+import {createNpcs} from '../app2d/npcs.js';
+import {RoadNavigator} from '../app2d/navigation.js';
+import {WaterGuard} from '../app2d/water.js';
+import {districtAt,distance,SpatialIndex} from '../app2d/geography.js';
+import {OverviewMap} from '../app2d/overview-map.js';
+import {Cartography,tileLayout} from '../app2d/cartography.js';
+import {World} from '../app2d/world.js';
+import {symbolFor} from '../app2d/place-icons.js';
+import {fitPlaceDialog} from '../app2d/layout.js';
+import {RELEASE} from '../app2d/release.js';
+const data=JSON.parse(readFileSync(new URL('../app2d/map-county.json',import.meta.url))),ml=111320*Math.cos(data.origin[1]*Math.PI/180),project=p=>[(p[0]-data.origin[0])*ml,(data.origin[1]-p[1])*111320];
 const features=data.features.map(f=>{const points=f.points.map(project);return{...f,points,holes:(f.holes||[]).map(r=>r.map(project)),bounds:[Math.min(...points.map(p=>p[0])),Math.min(...points.map(p=>p[1])),Math.max(...points.map(p=>p[0])),Math.max(...points.map(p=>p[1]))]};});
 test('new residents occupy 44 separate, dry, reachable low-density road sites across all eleven townships',()=>{
  const nav=new RoadNavigator(features),water=new WaterGuard(features),mapped=PLACES.filter(p=>!p.remote).map(p=>({...p,point:project([p.lon,p.lat])})),start=nav.nearest(project(data.start)),npcs=createNpcs(mapped,nav,project);
@@ -28,7 +28,7 @@ test('three character choices and all 22 cosmetic items remain functional after 
  const state=freshState();for(const p of PLACES)discover(state,p.id);
  for(const item of SHOP){assert(values[item.slot][item.value]);const before=state.coins;assert(purchase(state,item.id).bought);assert.equal(state.coins,before-item.price);assert.equal(sanitizeState(state).equipped[item.slot],item.value);assert.equal(sanitizeState(state).coins,state.coins);}
  for(const id of Object.keys(CHARACTERS)){state.character=id;assert.equal(sanitizeState(state).character,id);}state.character='invalid';assert.equal(sanitizeState(state).character,'explorer');
- for(const mode of ['boy','raccoon']){const b=readFileSync(new URL('../dist/assets/motion-'+mode+'.png',import.meta.url));assert.equal(b.readUInt32BE(16),1254);assert.equal(b.readUInt32BE(20),1254);}
+ for(const mode of ['boy','raccoon']){const b=readFileSync(new URL('../app2d/assets/motion-'+mode+'.png',import.meta.url));assert.equal(b.readUInt32BE(16),1254);assert.equal(b.readUInt32BE(20),1254);}
 });
 test('every school and government office has its own evidence-linked question',()=>{
  for(const list of [PLACES.filter(p=>p.schoolStory),PLACES.filter(p=>p.symbol==='government')]){assert.equal(new Set(list.map(p=>p.quiz.question)).size,list.length);for(const p of list){assert(p.quiz.hint.length>15);assert(p.quiz.options[p.quiz.answer]);assert(p.pages.length>=2);}}
@@ -36,7 +36,7 @@ test('every school and government office has its own evidence-linked question',(
 });
 test('new public facilities and channel destinations have real district placement, distinct icons and accessible assets',()=>{
  const ids=['public-police','public-fire','history-tower','history-seokdang','history-yongbongcheon'];
- for(const id of ids){const p=PLACES.find(p=>p.id===id),d=districtAt([p.lon,p.lat],data.districts);assert.equal(d.county+' '+d.name,p.area);assert(existsSync(new URL('../dist/'+p.image,import.meta.url)));}
+ for(const id of ids){const p=PLACES.find(p=>p.id===id),d=districtAt([p.lon,p.lat],data.districts);assert.equal(d.county+' '+d.name,p.area);assert(existsSync(new URL('../app2d/'+p.image,import.meta.url)));}
  assert.notEqual(symbolFor(PLACES.find(p=>p.id==='public-police')).path,symbolFor(PLACES.find(p=>p.id==='public-fire')).path);
  const videos=new Set(JSON.parse(readFileSync(new URL('../research/history-channel-v12.json',import.meta.url))).videos.map(v=>v.id));let linked=0;for(const p of PLACES)for(const s of p.storySources||[])if(s.label.startsWith('홍성역사 채널')){assert(videos.has(new URL(s.url).searchParams.get('v')));linked++;}assert(linked>=14);
  const sunset=PLACES.find(p=>p.id==='tourmap-sunset');assert(sunset.pages.join('').includes('더 긴 공기층'));assert(sunset.storySources.some(s=>s.url.includes('nasa.gov')));assert.equal(sunset.mediaType,'map');
@@ -55,5 +55,5 @@ test('worker rendering covers the viewport immediately and asks for sharp tiles 
 });
 test('font fitting reduces only until text fits; viewport declarations and release references stay aligned',()=>{
  const style={fontSize:'',setProperty(){}},speech={style,get scrollHeight(){return Number.parseFloat(style.fontSize)>18?230:190;},clientHeight:200},dialog={open:true,querySelector:s=>s==='.speech'?speech:null};fitPlaceDialog(dialog);assert.equal(style.fontSize,'17px');
- const html=readFileSync(new URL('../dist/index.html',import.meta.url),'utf8'),version=JSON.parse(readFileSync(new URL('../package.json',import.meta.url))).version;assert.equal(version,RELEASE.version);assert(html.includes('v'+version));assert(html.indexOf('id="search-button"')<html.indexOf('<section id="world"'));assert(html.indexOf('id="search-dialog"')>html.indexOf('</main>'));assert(!html.includes('걸음마다, 우리 고장'));
+ const html=readFileSync(new URL('../app2d/index.html',import.meta.url),'utf8'),version=JSON.parse(readFileSync(new URL('../package.json',import.meta.url))).version;assert.equal(version,RELEASE.version);assert(html.includes('v'+version));assert(html.indexOf('id="search-button"')<html.indexOf('<section id="world"'));assert(html.indexOf('id="search-dialog"')>html.indexOf('</main>'));assert(!html.includes('걸음마다, 우리 고장'));
 });

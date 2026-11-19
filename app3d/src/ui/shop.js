@@ -1,5 +1,5 @@
 // The 꾸미기 shop (pure, no DOM): the 2D catalogue as cards and the two actions. Prices, items and rules are the 2D
-// game's own: dist/content.js SHOP (22 items), dist/wardrobe.js SHOP_CATEGORIES / CHARACTERS, dist/core.js purchase.
+// game's own: app2d/content.js SHOP (22 items), app2d/wardrobe.js SHOP_CATEGORIES / CHARACTERS, app2d/core.js purchase.
 import { SHOP } from '#game/content.js';
 import { CHARACTERS } from '#game/wardrobe.js';
 import { purchase } from '#game/core.js';
@@ -25,7 +25,7 @@ export function shopView(state, category) {
 }
 
 /**
- * An item's button, straight through dist/core.js purchase: not owned -> buy and wear (if the coins reach), owned ->
+ * An item's button, straight through app2d/core.js purchase: not owned -> buy and wear (if the coins reach), owned ->
  * wear or take off. Returns purchase's {ok, bought, reason} plus equipped (worn now), the 2D sound ('coin' for a
  * purchase, 'click' otherwise) and the 2D message when it was refused.
  */

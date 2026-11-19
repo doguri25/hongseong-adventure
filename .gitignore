@@ -8,3 +8,6 @@ node_modules/
 .env.*
 spike/3d-naepo/build/
 build/
+# the build scripts (npm run build) are source, not output
+!/tools/build/
+dist/

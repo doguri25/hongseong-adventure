@@ -4,12 +4,13 @@
   "private": true,
   "type": "module",
   "imports": {
-    "#game/*": "./dist/*"
+    "#game/*": "./app2d/*"
   },
   "scripts": {
     "test": "node --test tests/*.test.js",
     "dev:3d": "vite --config app3d/vite.config.js",
     "build:3d": "vite build --config app3d/vite.config.js",
+    "build": "npm run build:3d && node tools/build/copy-2d.mjs",
     "test:3d": "node --test app3d/tests/*.test.js"
   },
   "devDependencies": {

@@ -5,10 +5,10 @@
 // and points), 발견 수첩 보기 / 계속 탐방하기. The panel carries data-view = story | sources | quiz | reward.
 // It is modal (ui/dom.js openModal: the rest of #app inert, focus in, Escape, focus back on the canvas on close) and is
 // the controller's 'place' dialog: every way out goes through ctx.onClose -> ctl.close(), which opens the next queued
-// arrival. Rewards use the game's own rules unchanged: discover / answer / quizCoins (dist/core.js) and
-// recordQuestVisit (dist/quests.js); a visit finds the place when it is physical or the place is story-only (P19, the
+// arrival. Rewards use the game's own rules unchanged: discover / answer / quizCoins (app2d/core.js) and
+// recordQuestVisit (app2d/quests.js); a visit finds the place when it is physical or the place is story-only (P19, the
 // 2D visit). Pages, questions and options are HTML from the game's content (trusted repository content); every other
-// text goes in through textContent. Copy is the 2D game's (dist/game.js renderPlace, renderQuiz, renderReward).
+// text goes in through textContent. Copy is the 2D game's (app2d/game.js renderPlace, renderQuiz, renderReward).
 import { el as h, openModal, closeModal } from './dom.js';
 import { renderSources } from './sources.js';
 import { discover, answer, quizCoins } from '#game/core.js';
@@ -130,7 +130,7 @@ export function createPlaceDialog(doc, ctx = {}) {
   function renderStory() {
     const p = view.place, n = p.pages.length, last = view.page >= n - 1;
     const speech = h('div', { className: 'speech', tabIndex: 0, role: 'region', 'aria-label': '장소 설명' });
-    speech.innerHTML = p.pages[view.page];   // trusted repository content (dist/content.js)
+    speech.innerHTML = p.pages[view.page];   // trusted repository content (app2d/content.js)
     body.replaceChildren(
       h('div', { className: 'meta' }, h('img', { className: 'guide', src: GUIDE, alt: '', decoding: 'async' }), h('span', { className: 'speaker' }, '길잡이 · 다정 선생님'), h('span', { className: 'page-num' }, `${view.page + 1} / ${n}`)),
       speech,

@@ -108,7 +108,7 @@ test('restoreTravel: a travel mode changed in the 2D game wins over the stale 3D
   const st = fakeStorage(), state = freshState();
   saveSession(st, state, { travel: 'car' }, { x: 24000, y: 3700, mode: 'car' });   // the 3D last ran as a car
   assert.equal(restoreTravel(...Object.values(loadSession(st))), 'car');
-  // the 2D game then switches to the bike and writes its own save (as dist/game.js does: JSON of its sanitized state)
+  // the 2D game then switches to the bike and writes its own save (as app2d/game.js does: JSON of its sanitized state)
   const twoD = sanitizeState(JSON.parse(st.getItem(STORAGE_KEY)));
   twoD.travelSpeed = 'bike';
   st.setItem(STORAGE_KEY, JSON.stringify(twoD));

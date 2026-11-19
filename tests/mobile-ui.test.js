@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {mobileLayout,mapViewportFrame,readHudPreferences,HUD_STORAGE_KEY} from '../dist/mobile-ui.js';
-import {World} from '../dist/world.js';
-import {STORAGE_KEY} from '../dist/core.js';
+import {mobileLayout,mapViewportFrame,readHudPreferences,HUD_STORAGE_KEY} from '../app2d/mobile-ui.js';
+import {World} from '../app2d/world.js';
+import {STORAGE_KEY} from '../app2d/core.js';
 
 test('narrow or short screens use mobile HUD, independently of device names',()=>{
  for(const [w,h] of [[320,568],[360,640],[390,844],[844,390],[932,430],[568,320],[768,1024]])assert.equal(mobileLayout(w,h).mobile,true);
@@ -37,10 +37,10 @@ test('desktop projection remains unchanged and mobile projection is exactly inve
  }
 });
 test('collapse markup keeps the original controls and adds accessible toggle semantics',()=>{
- const html=readFileSync(new URL('../dist/index.html',import.meta.url),'utf8');
+ const html=readFileSync(new URL('../app2d/index.html',import.meta.url),'utf8');
  for(const id of ['quest-toggle','quest-title','quest-content','quest-route','quests-button','mobile-hud','movement-toggle','mobile-travel-settings'])assert.equal((html.match(new RegExp(`id="${id}"`,'g'))||[]).length,1);
  assert.match(html,/aria-controls="quest-content"/);assert.match(html,/aria-controls="mobile-travel-settings"/);
- const css=readFileSync(new URL('../dist/mobile-ui.css',import.meta.url),'utf8');
+ const css=readFileSync(new URL('../app2d/mobile-ui.css',import.meta.url),'utf8');
  assert.match(css,/grid-template-rows:auto auto minmax\(0,1fr\) auto/);assert.match(css,/safe-area-inset-bottom/);
  assert.match(css,/#quest-content\[hidden\]\{display:none!important\}/);
 });

@@ -7,7 +7,7 @@
 // legend of the 2D place symbols and the 18 story-only cards (우리 고장의 문화 이야기). Every 찾아가기 goes through the
 // game controller (2D goToPlace): ctl.goTo heads for a place (a story-only one opens its story, P19; a place already
 // in reach opens as a visit, P24; 죽도 goes by the ferry). It is modal (ui/dom.js openModal) and every way out
-// goes through ctx.onClose -> ctl.close(). Copy is the 2D game's (dist/game.js showTravel, showNearby, dist/search.js).
+// goes through ctx.onClose -> ctl.close(). Copy is the 2D game's (app2d/game.js showTravel, showNearby, app2d/search.js).
 import { el, openModal, closeModal } from './dom.js';
 import { createSearch, createNearby, symbolIcon, nearbyPlaces } from './search.js';
 import { heroImage } from './place-dialog.js';

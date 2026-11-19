@@ -651,7 +651,7 @@ function settingsView() {
     speed: String(s.speed), movement: s.movementMode, quality: G.qstate.mode, camera: G.cam.mode, time: G.timeKey,
   };
 }
-// one 설정 change, with the 2D rules (dist/game.js showHelp: music on turns the sound on), heard at once (game/sound.js)
+// one 설정 change, with the 2D rules (app2d/game.js showHelp: music on turns the sound on), heard at once (game/sound.js)
 function applySetting(key, value) {
   const s = G.state, p = G.player;
   if (key === 'quality') return setQuality(value);

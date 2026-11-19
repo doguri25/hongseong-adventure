@@ -1,6 +1,6 @@
 """County data pipeline for the Three.js version (app3d/).
 
-Inputs : dist/map-county.json, spike/3d-naepo/data/{county,naepo}-buildings.geojson,
+Inputs : app2d/map-county.json, spike/3d-naepo/data/{county,naepo}-buildings.geojson,
          Terrarium DEM tiles (downloaded once into build/dem-cache/).
 Outputs: app3d/public/data/{world.json,features.json,buildings.json,heights.png}  (committed).
 Run    : python3 tools/3d/prepare_world.py
@@ -18,7 +18,7 @@ ZOOM = 13
 CELL = 25
 Q = 10  # integer units per metre (decimetres)
 
-game = json.load(open(os.path.join(ROOT, 'dist', 'map-county.json')))
+game = json.load(open(os.path.join(ROOT, 'app2d', 'map-county.json')))
 BOUNDS = game['bounds']           # lon0, lat0, lon1, lat1
 ORIGIN = game['origin']
 M_LON = 111320 * math.cos(ORIGIN[1] * math.pi / 180)

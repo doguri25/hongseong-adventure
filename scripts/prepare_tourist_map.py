@@ -1,7 +1,7 @@
 """Tourist-map reconciliation. Never invent precise coordinates for unverified markers."""
 import json
 from pathlib import Path
-ROOT=Path(__file__).resolve().parents[1];OUT=ROOT/'dist'
+ROOT=Path(__file__).resolve().parents[1];OUT=ROOT/'app2d'
 osm={e['id']:e for e in json.loads((ROOT/'research/map-additions-osm.json').read_text())['elements']}
 star={e['name']:e for e in json.loads((ROOT/'research/tourism-coordinates.json').read_text())}
 MAP='./assets/hongseong-tourist-map-2022.jpg';TOUR='https://hongju.or.kr/home/content.do?menu_cd=000098';STAR='https://data.star365.site/p/지역/충남-가볼만한곳'

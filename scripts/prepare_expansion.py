@@ -1,7 +1,7 @@
 """Version 1.1 curated original grade-3 lessons. Raw coordinate references retained in research/."""
 import json,re
 from pathlib import Path
-OUT=Path('dist');es={e['id']:e for e in json.load(open('research/expansion-v11-osm.json'))['elements']}
+OUT=Path('app2d');es={e['id']:e for e in json.load(open('research/expansion-v11-osm.json'))['elements']}
 entries=[]
 def osm(id):
  e=es[id];b=e.get('bounds');c=e.get('center');return (e.get('lon') or(c['lon']if c else(b['minlon']+b['maxlon'])/2),e.get('lat')or(c['lat']if c else(b['minlat']+b['maxlat'])/2),'https://www.openstreetmap.org/'+e['type']+'/'+str(id))

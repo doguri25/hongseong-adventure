@@ -1,10 +1,10 @@
-// QR로 열기 (2D showQR): the 2D game's own QR picture (dist/assets/demo-qr.png, which holds the live address below) with
+// QR로 열기 (2D showQR): the 2D game's own QR picture (app2d/assets/demo-qr.png, which holds the live address below) with
 // the 2D wording and 접속 주소 복사. The controller's 'qr' kind. Phase 2b revisits the address when the 3D app takes it.
 import { el } from './dom.js';
 import { createPanelDialog, button } from './help.js';
 
 const QR_IMAGE = new URL('#game/assets/demo-qr.png', import.meta.url).href;
-/** The address the 2D QR holds (dist/game.js showQR). */
+/** The address the 2D QR holds (app2d/game.js showQR). */
 export const QR_URL = 'https://hongseong-adventure-demo.anyconium.chatgpt.site';
 const COPIED = '접속 주소를 복사했어요.', COPY_BY_HAND = '아래에 표시된 주소를 길게 눌러 복사해 주세요.';
 // the 2D lines, as plain text (the 2D <br> breaks are kept as line breaks)

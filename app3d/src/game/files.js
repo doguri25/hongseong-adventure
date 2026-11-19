@@ -1,4 +1,4 @@
-// The 수첩's files, in the 2D game's formats (dist/game.js exportResult, export-save / backup-first, importSave):
+// The 수첩's files, in the 2D game's formats (app2d/game.js exportResult, export-save / backup-first, importSave):
 // the result text a child hands in, the 이어하기 save file, reading one back and the download link itself. No globals
 // at import time; download() reaches the document it is handed (Blob and URL are in browsers and in Node).
 import { STORAGE_KEY, sanitizeState, rankFor } from '#game/core.js';

@@ -1,4 +1,4 @@
-// The 58 village NPC billboards (20 m tall) with a "···" bubble. Positions come from dist/npcs.js createNpcs (game frame).
+// The 58 village NPC billboards (20 m tall) with a "···" bubble. Positions come from app2d/npcs.js createNpcs (game frame).
 import * as THREE from 'three';
 import { createNpcs } from '#game/npcs.js';
 import { project, toRender } from '../frame.js';
@@ -7,7 +7,7 @@ import { showCell } from './actors.js';
 
 export const NPC_HEIGHT = 20, TALK_RADIUS = 80, BUBBLE_SHOW = 450;
 
-// places need .point = projected [x,y]; navigator is the walking-road navigator (dist/navigation.js)
+// places need .point = projected [x,y]; navigator is the walking-road navigator (app2d/navigation.js)
 export function buildNpcs(places, navigator) { return createNpcs(places, navigator, project); }
 
 function bubbleTexture() {

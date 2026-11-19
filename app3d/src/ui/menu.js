@@ -4,8 +4,8 @@
 // 수첩 (the discovery journal and the save files, ui/journal.js) and 설정.
 // It is the game controller's 'menu' dialog: opening it pauses the game (the world keeps rendering behind at <= 10 fps)
 // and every way out (the primary button, Escape) goes through ctx.onClose -> ctl.close(). The rules stay in the pure
-// modules (game/missions.js missionCards, shop.js, dist/core.js purchase); main.js applies every effect (ctx below).
-// Copy is the 2D game's (dist/game.js showMissions, showShop, showHelp settings and reset).
+// modules (game/missions.js missionCards, shop.js, app2d/core.js purchase); main.js applies every effect (ctx below).
+// Copy is the 2D game's (app2d/game.js showMissions, showShop, showHelp settings and reset).
 import { el, openModal, closeModal } from './dom.js';
 import { shopView, pressItem, chooseCharacter } from './shop.js';
 import { createJournal } from './journal.js';

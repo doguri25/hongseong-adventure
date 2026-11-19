@@ -1,16 +1,16 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync,existsSync} from 'node:fs';
-import {PLACES} from '../dist/content.js';
-import {freshState,sanitizeState,discover,purchase} from '../dist/core.js';
-import {dayKey,ensureQuests,activeQuest,selectQuest,recordQuestVisit,questCompleted,DIRECT_BONUS} from '../dist/quests.js';
-import {RELEASE,VEHICLES,movementKey,isTypingTarget} from '../dist/release.js';
-import {layoutMode,pageCount} from '../dist/layout.js';
-import {WaterGuard} from '../dist/water.js';
-import {World} from '../dist/world.js';
-import {createNpcs,createDecorations} from '../dist/npcs.js';
-import {SPRITE_CELLS} from '../dist/sprite-cells.js';
-import {isChroma} from '../dist/sprites.js';
+import {PLACES} from '../app2d/content.js';
+import {freshState,sanitizeState,discover,purchase} from '../app2d/core.js';
+import {dayKey,ensureQuests,activeQuest,selectQuest,recordQuestVisit,questCompleted,DIRECT_BONUS} from '../app2d/quests.js';
+import {RELEASE,VEHICLES,movementKey,isTypingTarget} from '../app2d/release.js';
+import {layoutMode,pageCount} from '../app2d/layout.js';
+import {WaterGuard} from '../app2d/water.js';
+import {World} from '../app2d/world.js';
+import {createNpcs,createDecorations} from '../app2d/npcs.js';
+import {SPRITE_CELLS} from '../app2d/sprite-cells.js';
+import {isChroma} from '../app2d/sprites.js';
 const now=Date.UTC(2026,8,9,3),position=[126.671,36.656];
 test('daily missions vary, persist on refresh, stay mapped, and renew on the Korean calendar day',()=>{
  const a=freshState(),b=freshState();assert(ensureQuests(a,PLACES,position,now,()=>.1));ensureQuests(b,PLACES,position,now,()=>.8);assert.equal(a.dailyQuests.targets.length,3);assert.notDeepEqual(a.dailyQuests.targets,b.dailyQuests.targets);const saved=[...a.dailyQuests.targets];assert.equal(ensureQuests(a,PLACES,position,now,()=>.7),false);assert.deepEqual(a.dailyQuests.targets,saved);for(const id of saved)assert(!PLACES.find(p=>p.id===id).remote);assert.equal(dayKey(Date.UTC(2026,8,9,16)),'2026-09-10');assert(ensureQuests(a,PLACES,position,now+86400000,()=>.4));
@@ -39,5 +39,5 @@ test('NPCs cover all eleven townships and decorations remain inside mapped green
 });
 test('all six mounted views and four NPC figures reference intact atlas rectangles with a removable background',()=>{
  for(const n of ['bicycle-front','bicycle-back','compact-car-front','compact-car-back','supercar-front','supercar-back','local-guide','museum-guide','farmer','harbor-worker']){const[x,y,w,h]=SPRITE_CELLS[n];assert(x>=0&&y>=0&&w>0&&h>0&&x+w<=1254&&y+h<=1254);}
- assert(isChroma(251,3,251));assert(!isChroma(255,255,255));assert(!isChroma(230,185,35));assert(existsSync(new URL('../dist/assets/game-sprites-chroma-atlas.png',import.meta.url)));assert.equal(RELEASE.version,JSON.parse(readFileSync(new URL('../package.json',import.meta.url))).version);
+ assert(isChroma(251,3,251));assert(!isChroma(255,255,255));assert(!isChroma(230,185,35));assert(existsSync(new URL('../app2d/assets/game-sprites-chroma-atlas.png',import.meta.url)));assert.equal(RELEASE.version,JSON.parse(readFileSync(new URL('../package.json',import.meta.url))).version);
 });

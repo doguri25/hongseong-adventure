@@ -23,7 +23,7 @@ export function josa(name, kind) {
   return fin && fin !== 8 ? '으로' : '로';   // 8 = ㄹ: '로' (마을로)
 }
 
-/** The 2D game's layout key (dist/mobile-ui.js mobileLayout): phones are <= 820 wide or <= 600 tall. */
+/** The 2D game's layout key (app2d/mobile-ui.js mobileLayout): phones are <= 820 wide or <= 600 tall. */
 export function hudLayoutKey(width, height) {
   return width <= 820 || height <= 600 ? (width > height ? 'landscape' : 'portrait') : 'desktop';
 }

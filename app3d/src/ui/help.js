@@ -5,7 +5,7 @@
 // rows and the other 안내 dialogs), 선생님 (the 2D 선생님을 위한 안내, word for word) and 자료 출처 (the 2D 실제 지도와 표현
 // 방식, 이번에 추가한 장소 and 사진과 자료 출처, told for the 3D map: the real data under it, what is decoration, the download
 // links to the 2D game's own files, the photo credits). 자료 출처 in 설정 opens the help at that tab (P26).
-// About (the 'about' kind) is the 2D showAbout from RELEASE. Copy is the 2D game's (dist/game.js showHelp, showAbout)
+// About (the 'about' kind) is the 2D showAbout from RELEASE. Copy is the 2D game's (app2d/game.js showHelp, showAbout)
 // unless the 3D app works differently; every link is a button-sized chip (44 px), web links open in a new tab.
 import { el, openModal, closeModal } from './dom.js';
 import { RELEASE } from '#game/release.js';

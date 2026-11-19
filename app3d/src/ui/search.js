@@ -6,12 +6,12 @@
 // chooses a result (composingKey: isComposing, the compositionstart..end span, and Safari's keyCode 229).
 // 주변 찾기 is the 2D showNearby: the fifteen PLACE_FILTERS, the substring filter, nearest first, each row with its
 // distance, 발견 +N금화 and 찾아가기 / 안내 보기 / 이야기 보기; given a fixed list (the pins under one tap of the county map)
-// it shows only those. Copy is the 2D game's (dist/search.js, dist/game.js showNearby).
+// it shows only those. Copy is the 2D game's (app2d/search.js, app2d/game.js showNearby).
 import { el } from './dom.js';
 import { searchPlaces } from '#game/search.js';
 import { symbolKey, symbolFor } from '#game/place-icons.js';
 
-// dist/game.js PLACE_FILTERS (not exported there)
+// app2d/game.js PLACE_FILTERS (not exported there)
 export const PLACE_FILTERS = [['all', '전체'], ['government', '관공서'], ['post', '우체국'], ['bank', '은행'], ['school', '초·중·고·대학교'], ['mart', '마트'], ['shop', '일상 가게'], ['heritage', '역사 유적'], ['museum', '박물관·미술관'], ['festival', '축제·행사'], ['market', '시장'], ['specialty', '특산물·먹거리'], ['cafe', '카페'], ['nature', '공원·자연'], ['mapStories', '관광지도 이야기']];
 const SCHOOLS = ['elementary', 'middle', 'high', 'university'], MUSEUMS = ['museum', 'gallery'];
 const NEAR_LEAD = '가까운 장소부터 보여요. 장소를 고르면 지금 위치에서 이동해요. 원에 들어가면 안내가 열려요. ‘관광지도 이야기’에는 위치를 더 확인하고 있는 장소도 있어요.';
@@ -19,7 +19,7 @@ const SEARCH_LEAD = '장소 이름 일부나 초성을 입력하면 자동완성
 const SVG = 'http://www.w3.org/2000/svg';
 const QUIET = { play() {} };
 
-/** One place against one 2D filter (dist/game.js showNearby). */
+/** One place against one 2D filter (app2d/game.js showNearby). */
 export function matchesFilter(p, filter) {
   const k = symbolKey(p);
   return filter === 'all' || (filter === 'mapStories' && !!p.fromTouristMap) || k === filter
@@ -70,7 +70,7 @@ export function comboKey({ active = -1, count = 0, open = false } = {}, key, com
   return { active, action: null };
 }
 
-/** The 2D place pictogram (dist/place-icons.js) in its colour circle. */
+/** The 2D place pictogram (app2d/place-icons.js) in its colour circle. */
 export function symbolIcon(doc, p) {
   const s = symbolFor(p), svg = doc.createElementNS(SVG, 'svg'), path = doc.createElementNS(SVG, 'path');
   svg.setAttribute('viewBox', '0 0 24 24'); svg.setAttribute('aria-hidden', 'true'); path.setAttribute('d', s.path); svg.append(path);

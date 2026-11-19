@@ -8,7 +8,7 @@ import { dayKey } from '#game/quests.js';
 const NOW = Date.UTC(2026, 10, 19, 3, 0);   // 2026-11-19 12:00 KST
 const byId = (id) => PLACES.find((p) => p.id === id);
 
-// a save as the 2D game writes it (dist/game.js: JSON.stringify(state, null, 2)), slightly tampered: an unknown place,
+// a save as the 2D game writes it (app2d/game.js: JSON.stringify(state, null, 2)), slightly tampered: an unknown place,
 // a solved place that was never discovered and a coin count the actions do not earn
 function twoDSave() {
   const s = freshState();
@@ -67,7 +67,7 @@ test('saveFile writes the 2D format and round-trips through readSaveFile', () =>
   s.travelSpeed = 'bike';
   s.coins = sanitizeState(s).coins;   // the 100 seeded coins are not earned: keep the state self-consistent
   const text = saveFile(s);
-  assert.equal(text, JSON.stringify(s, null, 2));   // dist/game.js export-save / backup-first
+  assert.equal(text, JSON.stringify(s, null, 2));   // app2d/game.js export-save / backup-first
   const r = readSaveFile(text, Buffer.byteLength(text));
   assert.equal(r.ok, true);
   assert.deepEqual(r.state, s);

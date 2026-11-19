@@ -12,7 +12,7 @@ import { showCell, DIRS, EXPLORER_HEIGHT, BIKE_HEIGHT } from '../world/actors.js
 import { outfitMatrix, applyOutfit } from '../world/outfit.js';
 
 export const THUMB_SIZE = 256;
-const SE = DIRS.indexOf('se');   // the 2D character picker draws the 'se' cell (dist/game.js drawCharacterChoices)
+const SE = DIRS.indexOf('se');   // the 2D character picker draws the 'se' cell (app2d/game.js drawCharacterChoices)
 const FOV = 30;
 
 /** Cache key for a picture: {kind:'vehicle', mode, character?, outfit?} | {kind:'character', id, outfit}. */

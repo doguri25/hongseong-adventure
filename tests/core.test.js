@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync,existsSync} from 'node:fs';
-import {freshState,sanitizeState,discover,answer,purchase,missionDone,buildGraph,nearestGraphPoint,findRoute,distance,pointInPolygon,clipPolyline,largestConnectedGraph} from '../dist/core.js';
-import {PLACES,SHOP,MISSIONS,REGIONS} from '../dist/content.js';
+import {freshState,sanitizeState,discover,answer,purchase,missionDone,buildGraph,nearestGraphPoint,findRoute,distance,pointInPolygon,clipPolyline,largestConnectedGraph} from '../app2d/core.js';
+import {PLACES,SHOP,MISSIONS,REGIONS} from '../app2d/content.js';
 
 test('first discovery pays the stated reward exactly once',()=>{const s=freshState();assert.deepEqual(discover(s,'library'),{coins:50,xp:80});assert.equal(discover(s,'library'),null);assert.equal(s.coins,50);assert.equal(s.discovered.length,1);});
 test('wrong quiz answers and premature answers never pay or penalize',()=>{const s=freshState();assert.equal(answer(s,'library',0).invalid,true);discover(s,'library');const before={coins:s.coins,xp:s.xp};assert.equal(answer(s,'library',2).correct,false);assert.deepEqual({coins:s.coins,xp:s.xp},before);assert.equal(s.solved.length,0);});
@@ -13,13 +13,13 @@ test('saved input is bounded, known and finite',()=>{const s=sanitizeState({vers
 test('full journey covers both counties, intangible culture and enough cosmetic funds',()=>{const s=freshState();for(const p of PLACES){discover(s,p.id);answer(s,p.id,p.quiz.answer);}assert.equal(missionDone(s,MISSIONS.at(-1)),true);assert(PLACES.some(p=>p.county==='예산군'));assert(PLACES.some(p=>p.type==='intangible'));for(const item of SHOP)assert.equal(purchase(s,item.id).ok,true);assert(s.coins>=0);const restored=sanitizeState(s);assert.equal(restored.coins,s.coins);assert.equal(restored.xp,s.xp);});
 
 
-import {districtAt,inGeometry,canVisit,placeRadius,updateEncounters,SpatialIndex} from '../dist/geography.js';
-import {symbolKey,SYMBOLS} from '../dist/place-icons.js';
-import {World} from '../dist/world.js';
-import {Cartography,tileLayout} from '../dist/cartography.js';
-import {CULTURE_PLACES} from '../dist/culture.js';
-import {FACILITIES} from '../dist/facilities.js';
-const data=JSON.parse(readFileSync(new URL('../dist/map-county.json',import.meta.url))),ml=111320*Math.cos(data.origin[1]*Math.PI/180),project=p=>[(p[0]-data.origin[0])*ml,(data.origin[1]-p[1])*111320],max=[(data.bounds[2]-data.bounds[0])*ml,(data.bounds[3]-data.bounds[1])*111320];
+import {districtAt,inGeometry,canVisit,placeRadius,updateEncounters,SpatialIndex} from '../app2d/geography.js';
+import {symbolKey,SYMBOLS} from '../app2d/place-icons.js';
+import {World} from '../app2d/world.js';
+import {Cartography,tileLayout} from '../app2d/cartography.js';
+import {CULTURE_PLACES} from '../app2d/culture.js';
+import {FACILITIES} from '../app2d/facilities.js';
+const data=JSON.parse(readFileSync(new URL('../app2d/map-county.json',import.meta.url))),ml=111320*Math.cos(data.origin[1]*Math.PI/180),project=p=>[(p[0]-data.origin[0])*ml,(data.origin[1]-p[1])*111320],max=[(data.bounds[2]-data.bounds[0])*ml,(data.bounds[3]-data.bounds[1])*111320];
 const mapped=PLACES.filter(p=>!p.remote).map(p=>({...p,point:project([p.lon,p.lat])}));
 
 test('one map contains all eleven Hongseong districts and every mapped destination',()=>{assert.equal(REGIONS.length,1);assert.equal(REGIONS[0].id,'county');const ds=data.districts.filter(d=>d.county==='홍성군');assert.equal(ds.length,11);assert.equal(ds.filter(d=>d.name.endsWith('읍')).length,3);for(const d of ds)assert.equal(districtAt(d.center,data.districts).name,d.name);for(const p of mapped){assert.equal(p.region,'county');assert(p.point.every((v,i)=>v>=0&&v<=max[i]),p.name);}});
@@ -32,7 +32,7 @@ test('old v1 and v2 saves migrate to county longitude and latitude with the same
 test('required facility types have distinct persistent icons and commercial names are masked',()=>{const keys=['government','post','bank','elementary','middle','high','university','mart'];for(const k of keys)assert(FACILITIES.some(p=>p.symbol===k),k);assert.equal(new Set(keys.map(k=>SYMBOLS[k].path)).size,8);assert.equal(FACILITIES.filter(p=>p.name.includes('행정복지센터')).length,11);assert(FACILITIES.some(p=>p.name==='롯0마트 홍성점'));assert(FACILITIES.some(p=>p.name.startsWith('하0로마트')));for(const p of FACILITIES.filter(p=>['bank','mart'].includes(p.symbol)))assert(p.name.includes('0'),p.name);for(const p of mapped)assert(SYMBOLS[symbolKey(p)]);});
 test('schools use current verified names and moved campuses; old names do not appear',()=>{for(const p of FACILITIES.filter(p=>['elementary','middle','high'].includes(p.symbol))){assert(p.schoolSource?.address,p.name);assert.equal(p.originalName,p.schoolSource.name);}assert.equal(FACILITIES.filter(p=>p.name==='홍북초등학교').length,1);assert.equal(FACILITIES.find(p=>p.name==='홍북초등학교').lon,126.685208);assert.equal(FACILITIES.find(p=>p.name==='홍주초등학교').area,'홍성군 홍북읍');for(const n of ['덕명초등학교','광동초등학교','구 광천중학교'])assert(!FACILITIES.some(p=>p.name===n));});
 test('spatial rendering retrieves crossing features without searching the whole county',()=>{const a={bounds:[0,0,30,30]},b={bounds:[1000,1000,2000,2000]},c={bounds:[0,10,1500,10]},idx=new SpatialIndex([a,b,c]);assert.deepEqual(new Set(idx.query([5,5,20,20])),new Set([a,c]));assert.deepEqual(idx.query([200,200,300,300]),[]);});
-test('all imagery, modules, source links and place identifiers are present',()=>{assert.equal(new Set(PLACES.map(p=>p.id)).size,PLACES.length);for(const p of PLACES){assert(p.source.startsWith('https://')||existsSync(new URL('../dist/'+p.source,import.meta.url)));assert(p.quiz.answer>=0&&p.quiz.answer<3);}for(const f of [...PLACES.map(p=>p.image),data.terrain,'assets/map-view-county.webp','assets/facility-location-sources.json','county-boundaries.json','geography.js','place-icons.js','cartography.js',...['green','gold'].flatMap(s=>['back','front'].map(d=>'assets/chibi-'+s+'-'+d+'.webp'))])assert(existsSync(new URL('../dist/'+f,import.meta.url)),f);});
+test('all imagery, modules, source links and place identifiers are present',()=>{assert.equal(new Set(PLACES.map(p=>p.id)).size,PLACES.length);for(const p of PLACES){assert(p.source.startsWith('https://')||existsSync(new URL('../app2d/'+p.source,import.meta.url)));assert(p.quiz.answer>=0&&p.quiz.answer<3);}for(const f of [...PLACES.map(p=>p.image),data.terrain,'assets/map-view-county.webp','assets/facility-location-sources.json','county-boundaries.json','geography.js','place-icons.js','cartography.js',...['green','gold'].flatMap(s=>['back','front'].map(d=>'assets/chibi-'+s+'-'+d+'.webp'))])assert(existsSync(new URL('../app2d/'+f,import.meta.url)),f);});
 
 
 test('shrinking and enlarging the map rebuilds crisp tiles with gap-free coverage',()=>{

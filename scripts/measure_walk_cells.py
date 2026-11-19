@@ -12,7 +12,7 @@ from PIL import Image
 root = Path(__file__).resolve().parents[1]
 result = {}
 for mode, name in [('walk', 'explorer'), ('boy', 'boy'), ('raccoon', 'raccoon')]:
-    a = np.asarray(Image.open(root / f'dist/assets/walk-cycle-{name}.png').convert('RGB')).astype(int)
+    a = np.asarray(Image.open(root / f'app2d/assets/walk-cycle-{name}.png').convert('RGB')).astype(int)
     height, width = a.shape[:2]
     r, g, b = a[:, :, 0], a[:, :, 1], a[:, :, 2]
     mask = ~((r > 160) & (b > 160) & (g < 120) & (r-g > 80) & (b-g > 80))
@@ -40,5 +40,5 @@ for mode, name in [('walk', 'explorer'), ('boy', 'boy'), ('raccoon', 'raccoon')]
             frames.append({'rect': [left, top, right-left, bottom-top],
                            'pivot': [head_x, bottom], 'cellHeight': height/4})
     result[mode] = frames
-(root / 'dist/walk-cells.js').write_text('// Measured source rectangles and foot baselines; original PNGs stay unchanged.\nexport const WALK_CELLS=' + json.dumps(result, separators=(',', ':')) + ';\n')
+(root / 'app2d/walk-cells.js').write_text('// Measured source rectangles and foot baselines; original PNGs stay unchanged.\nexport const WALK_CELLS=' + json.dumps(result, separators=(',', ':')) + ';\n')
 print(json.dumps({mode: len(frames) for mode, frames in result.items()}))

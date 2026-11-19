@@ -1,10 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {PLACES} from '../dist/content.js';
-import {SCHOOL_STORIES} from '../dist/school-stories.js';
-import {TOURIST_MAP_PLACES} from '../dist/tourist-map-places.js';
-import {DISTRICT_STORIES} from '../dist/district-stories.js';
-import {SYMBOLS} from '../dist/place-icons.js';
+import {PLACES} from '../app2d/content.js';
+import {SCHOOL_STORIES} from '../app2d/school-stories.js';
+import {TOURIST_MAP_PLACES} from '../app2d/tourist-map-places.js';
+import {DISTRICT_STORIES} from '../app2d/district-stories.js';
+import {SYMBOLS} from '../app2d/place-icons.js';
 
 test('all 41 schools have individual history, features and dated photo-source links',()=>{
  const schools=PLACES.filter(p=>['elementary','middle','high','university'].includes(p.symbol));assert.equal(schools.length,41);assert.equal(SCHOOL_STORIES.length,41);

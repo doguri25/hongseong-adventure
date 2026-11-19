@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {isTextEntry,setupTouchGuard} from '../dist/touch-ui.js';
+import {isTextEntry,setupTouchGuard} from '../app2d/touch-ui.js';
 
 function fixture(){
  const listeners=new Map();
@@ -44,15 +44,15 @@ test('guard does not register gesture listeners and cleanly removes its listener
  destroy();assert.equal(listeners.size,0);
 });
 test('landscape HUD uses original nodes inside a single header; portrait keeps its reserved HUD',()=>{
- const css=readFileSync(new URL('../dist/phone-controls.css',import.meta.url),'utf8');
- const js=readFileSync(new URL('../dist/mobile-ui.js',import.meta.url),'utf8');
+ const css=readFileSync(new URL('../app2d/phone-controls.css',import.meta.url),'utf8');
+ const js=readFileSync(new URL('../app2d/mobile-ui.js',import.meta.url),'utf8');
  assert.match(css,/-webkit-user-select:none;user-select:none;-webkit-touch-callout:none/);
  assert.match(css,/grid-template-rows:auto minmax\(0,1fr\) auto/);
  assert.match(css,/min-height:50px/);assert.match(css,/safe-area/); // safe areas are inherited from mobile-ui.css
  assert.match(js,/if\(landscape\)topbar\.insertBefore\(hud,settings\);else hudOrigin\.after\(hud\)/);
  assert.match(js,/\(landscape\?settings:locationBar\)\.append\(/);
  assert.doesNotMatch(js,/cloneNode/);
- const html=readFileSync(new URL('../dist/index.html',import.meta.url),'utf8');
+ const html=readFileSync(new URL('../app2d/index.html',import.meta.url),'utf8');
  assert(html.indexOf('phone-controls.css')>html.indexOf('mobile-ui.css'));
  assert(html.indexOf('arrival-ui.css')>html.indexOf('phone-controls.css'));
 });

@@ -1,6 +1,6 @@
 // 배 타기 (2D showFerry and the voyage status): the ferry dialog in front of boarding at 남당항 (the controller's 'ferry'
 // kind) and the voyage chip's labels. The voyage itself is game/ferry.js; main.js boards, sails and lands. Copy is the
-// 2D game's (dist/game.js showFerry, dist/world.js startVoyage and boardFerry); the return button is named as this
+// 2D game's (app2d/game.js showFerry, app2d/world.js startVoyage and boardFerry); the return button is named as this
 // game names it (죽도에서 돌아가기, shown on 죽도 in the HUD), not the 2D 배 타고 남당항으로. The 3D dialog opens only at
 // 남당항's pier (the walk there comes first, with FERRY_HINT), so its second line and button say the boat leaves from
 // here instead of the 2D "남당항까지 이동한 뒤" (M7).

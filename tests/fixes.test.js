@@ -1,12 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {World} from '../dist/world.js';
-import {setupPlaceSearch} from '../dist/search.js';
-import {DialogPages} from '../dist/layout.js';
-import {PLACES,SHOP} from '../dist/content.js';
-import {SHOP_CATEGORIES} from '../dist/wardrobe.js';
-import {motionMode,MotionSprites,DIRECTIONS,MOUNTED_MODES} from '../dist/motion-sprites.js';
+import {World} from '../app2d/world.js';
+import {setupPlaceSearch} from '../app2d/search.js';
+import {DialogPages} from '../app2d/layout.js';
+import {PLACES,SHOP} from '../app2d/content.js';
+import {SHOP_CATEGORIES} from '../app2d/wardrobe.js';
+import {motionMode,MotionSprites,DIRECTIONS,MOUNTED_MODES} from '../app2d/motion-sprites.js';
 
 test('airplane camera stays at the same screen anchor in eight directions and at changing frame rates',()=>{
  const w=Object.assign(Object.create(World.prototype),{position:[5000,5000],camera:[4500,4000],state:{travelSpeed:'plane'},width:800,height:1000,zoom:3.6});
@@ -44,9 +44,9 @@ test('catalog and scrolling map disable horizontal pagination, then a journal re
 
 test('selected boy and raccoon use their seated automobile sheets for every direction without an extra floating sprite',()=>{
  const sprites=Object.assign(Object.create(MotionSprites.prototype),{sheets:{}}),draws=[];
- for(const mode of MOUNTED_MODES){const b=readFileSync(new URL('../dist/assets/motion-'+mode+'.png',import.meta.url)),width=b.readUInt32BE(16),height=b.readUInt32BE(20);assert.equal(width,height);sprites.sheets[mode]={canvas:{mode},width:width/4,height:height/4};}
+ for(const mode of MOUNTED_MODES){const b=readFileSync(new URL('../app2d/assets/motion-'+mode+'.png',import.meta.url)),width=b.readUInt32BE(16),height=b.readUInt32BE(20);assert.equal(width,height);sprites.sheets[mode]={canvas:{mode},width:width/4,height:height/4};}
  const g={save(){},restore(){},drawImage(...args){draws.push(args);}};
  for(const speed of ['fast','faster'])for(const character of ['boy','raccoon']){const mode=motionMode(speed,character);assert.equal(mode,speed+'-'+character);for(const direction of DIRECTIONS)for(const phase of [Math.PI/2,Math.PI*1.5]){assert(sprites.draw(g,mode,direction,phase,true,200,300,110));const[canvas,x,y,w,h,dx,dy,dw,dh]=draws.at(-1);assert.equal(canvas.mode,mode);assert(x>=0&&y>=0&&x+w<=sprites.sheets[mode].width*4&&y+h<=sprites.sheets[mode].height*4);assert(Math.abs(dh-110)<1);assert.equal(dy+dh,300);}}
  assert.equal(motionMode('fast','explorer'),'fast');assert.equal(motionMode('walk','raccoon'),'raccoon');assert.equal(motionMode('fast','boy',true),'boat');
- const source=readFileSync(new URL('../dist/world.js',import.meta.url),'utf8');assert(!source.includes('x-48,y-58,42'));
+ const source=readFileSync(new URL('../app2d/world.js',import.meta.url),'utf8');assert(!source.includes('x-48,y-58,42'));
 });

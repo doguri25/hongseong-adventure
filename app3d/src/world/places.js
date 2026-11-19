@@ -38,7 +38,7 @@ function pinTexture(color) {
 }
 
 export class PlaceLayer {
-  // places: dist/content.js place objects with lon/lat. `this.places` are copies with point, x, y, ring added.
+  // places: app2d/content.js place objects with lon/lat. `this.places` are copies with point, x, y, ring added.
   constructor(scene, places, collider, field, { reduced = false } = {}) {
     this.field = field; this.reduced = reduced;
     this.group = new THREE.Group(); this.group.name = 'places'; scene.add(this.group);

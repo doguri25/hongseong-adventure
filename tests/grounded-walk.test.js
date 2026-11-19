@@ -1,11 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {measureSpriteCells,groundedRect,flightLift} from '../dist/sprite-ground.js';
-import {DIRECTIONS,WALK_SHEETS,MotionSprites,walkFrameIndex,advanceWalkPhase} from '../dist/motion-sprites.js';
-import {WALK_CELLS} from '../dist/walk-cells.js';
-import {World} from '../dist/world.js';
-import {freshState,distance} from '../dist/core.js';
+import {measureSpriteCells,groundedRect,flightLift} from '../app2d/sprite-ground.js';
+import {DIRECTIONS,WALK_SHEETS,MotionSprites,walkFrameIndex,advanceWalkPhase} from '../app2d/motion-sprites.js';
+import {WALK_CELLS} from '../app2d/walk-cells.js';
+import {World} from '../app2d/world.js';
+import {freshState,distance} from '../app2d/core.js';
 
 test('transparent cell margins do not leave feet or wheels above the ground',()=>{
  const pixels=new Uint8ClampedArray(40*20*4);
@@ -29,7 +29,7 @@ test('all three walking sheets render four distinct source frames in every direc
  const sprites=Object.assign(Object.create(MotionSprites.prototype),{sheets:{}}),draws=[];
  const g={save(){},restore(){},drawImage(...args){draws.push(args);}};
  for(const [mode,file] of Object.entries(WALK_SHEETS)){
-  const png=readFileSync(new URL('../dist/assets/'+file,import.meta.url)),width=png.readUInt32BE(16),height=png.readUInt32BE(20);
+  const png=readFileSync(new URL('../app2d/assets/'+file,import.meta.url)),width=png.readUInt32BE(16),height=png.readUInt32BE(20);
   assert.equal(width,height*2);assert.equal(WALK_CELLS[mode].length,32);
   sprites.sheets[mode]={canvas:{mode},width:width/8,height:height/4,cells:WALK_CELLS[mode],walking:true};
   for(const [d,direction] of DIRECTIONS.entries()){
