@@ -1,23 +1,30 @@
-# GitHub Pages deployment
+# Deployment
 
-The application is a static HTML/CSS/JavaScript project. Publish the contents of `dist`, not the repository root.
+The site is static and is built, not committed. `npm run build` puts the 3D game in `dist/` (`index.html`, `assets/`, `data/`, `models/`) and copies the frozen 2D game from `app2d/` into `dist/2d/`, byte for byte. Every URL in the build is relative, because GitHub Pages serves the site under `/hongseong-adventure/`.
 
-## Required source
+## Build and test
 
-Import the original `hongseong-adventure-v1.3.2-source(1).zip` into the root of this repository after removing its single enclosing directory. Keep `dist`, `tests`, `scripts`, `research`, `package.json`, `README.md`, `CHANGELOG.md`, and `.gitignore`. The `.openai` hosting metadata is not needed for GitHub Pages and should not be uploaded. Preserve source and asset attributions.
+```bash
+npm ci            # the exact versions in package-lock.json
+npm run build     # the 3D into dist/, the 2D into dist/2d/
+npm test          # the 2D tests
+npm run test:3d   # the 3D tests
+```
 
-Expected ZIP SHA-256: `96a996350f9ba02fb670f78529926c616c86037471908c49d3260f729eb732bf`.
+## GitHub Pages
 
-## Publishing
+Settings > Pages > Build and deployment > Source is GitHub Actions. `.github/workflows/deploy-pages.yml` runs the four commands above on a push to `main` that changes `app2d/`, `app3d/`, `tools/build/`, `tests/`, `package.json`, `package-lock.json` or the workflow itself, then uploads `dist/` and publishes it. It can also be started from Actions > Publish Hongseong Adventure > Run workflow.
 
-Set Settings > Pages > Build and deployment > Source to GitHub Actions. A push to `main` that includes the application source runs the tests and publishes `dist`. The workflow can also be started manually from Actions > Publish Hongseong Adventure > Run workflow.
+Address: https://doguri25.github.io/hongseong-adventure/ (the 3D QR code points here).
 
-Expected URL after successful application deployment: https://doguri25.github.io/hongseong-adventure/
+A run that finds no `app2d/index.html` skips publishing. Check that the **deploy** job finished and that the address opens the game.
 
-The workflow explicitly skips publishing when the application source is absent. A successful configuration-only workflow run does not mean the application is published. Confirm that the **deploy** job completed successfully and that the URL opens the game, not only the repository README.
+## Vercel
 
-## Local verification performed on the supplied archive
+`vercel.json` holds the same steps: install with `npm ci`, build with `npm run build && npm test && npm run test:3d`, and serve `dist`.
 
-The original v1.3.2 archive passed all 71 Node.js tests in this workspace. A scan for common credential patterns found no matches; this is not a full security audit. Browser/device testing and public application deployment have not yet been verified.
+## Going live
+
+Merging into `main` switches the live site. Work on other branches does not change it.
 
 Official references: https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages and https://docs.github.com/en/rest/pages/pages

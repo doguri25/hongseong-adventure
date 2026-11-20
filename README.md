@@ -1,3 +1,32 @@
+# 3D판과 2D판
+
+홍성 탐험대 3D판이 공개 주소의 기본 화면이에요. 2D판(홍성 모험 수첩)은 v1.3.6 그대로 함께 배포해요.
+
+- `app3d/`: 3D판 소스(Three.js, Vite).
+- `app2d/`: 2D판. v1.3.6에서 고정했으며 고치지 않아요.
+- `dist/`: `npm run build`가 만드는 배포본이에요. 3D판은 `dist/`에, 2D판은 `app2d/`를 그대로 복사한 `dist/2d/`에 들어가요. 빌드 결과라 저장소에 올리지 않아요.
+
+```bash
+npm ci            # package-lock.json의 버전 그대로 설치
+npm run build     # 3D판 → dist/, 2D판 → dist/2d/
+npm test          # 2D판 자동 검사
+npm run test:3d   # 3D판 자동 검사
+node app3d/tests/smoke.mjs   # 빌드 뒤 브라우저 점검 (Playwright·Chromium 필요, 약 40분)
+```
+
+점검 일부만 돌릴 때는 `SMOKE_ONLY=views,desktop`처럼 고르고, 화면 사진은 `SMOKE_OUT=<폴더>`에 저장돼요.
+
+열기 선택:
+
+- 주소 https://doguri25.github.io/hongseong-adventure/ 는 3D판으로 열려요. WebGL2가 없는 기기는 2D판(`./2d/`)으로 열리고, 이 선택은 기억하지 않아요.
+- 주소 끝에 `?view=2d`를 붙이거나 설정에서 `가벼운 2D로 열기`를 고르면 2D판이 열리고, 그 기기는 다음에도 2D판으로 열려요(`localStorage['hongseong-view-v1']`).
+- 주소 끝에 `?view=3d`를 붙이면 기억한 선택을 지우고 3D판으로 열어요.
+- 두 판은 같은 주소 아래에 있어서 같은 브라우저의 탐방 기록을 함께 써요.
+
+배포: `main`에 합치면(merge) 공개 사이트가 바뀌어요. GitHub Pages와 Vercel이 `dist/`를 배포해요. 자세한 내용은 `DEPLOYMENT.md`에 있어요.
+
+---
+
 > 현재 버전: **v1.3.5** (2026-09-10). 장소 설명은 휴대폰 15px, 큰 화면 최대 17px이며 사진·대화창 배치와 버튼·퀴즈 글씨는 유지합니다. v1.3.3과 v1.3.4의 모바일 개선도 포함합니다.
 
 # 도착 대화창 모바일 수정 · v1.3.4
