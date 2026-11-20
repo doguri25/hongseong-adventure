@@ -4,9 +4,12 @@ on:
   push:
     branches: [main]
     paths:
-      - 'dist/**'
+      - 'app2d/**'
+      - 'app3d/**'
+      - 'tools/build/**'
       - 'tests/**'
       - 'package.json'
+      - 'package-lock.json'
       - '.github/workflows/deploy-pages.yml'
   workflow_dispatch:
 
@@ -30,7 +33,7 @@ jobs:
         id: source
         shell: bash
         run: |
-          if [ -f dist/index.html ] && [ -f package.json ]; then
+          if [ -f app2d/index.html ] && [ -f package.json ]; then
             echo 'ready=true' >> "$GITHUB_OUTPUT"
           else
             echo 'ready=false' >> "$GITHUB_OUTPUT"
@@ -41,9 +44,19 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Run application tests
+          cache: npm
+      - name: Install dependencies
         if: steps.source.outputs.ready == 'true'
-        run: node --test tests/*.test.js
+        run: npm ci
+      - name: Build the 3D and the 2D into dist
+        if: steps.source.outputs.ready == 'true'
+        run: npm run build
+      - name: Run the 2D tests
+        if: steps.source.outputs.ready == 'true'
+        run: npm test
+      - name: Run the 3D tests
+        if: steps.source.outputs.ready == 'true'
+        run: npm run test:3d
       - name: Prepare static site
         if: steps.source.outputs.ready == 'true'
         run: touch dist/.nojekyll

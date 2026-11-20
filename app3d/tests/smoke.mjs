@@ -30,6 +30,9 @@
 // 죽도 opens on landing with the chime or the arrival sound (never both) and 죽도에서 돌아가기 sails back; 찾아가기 죽도
 // from the mainland heads for 남당항 with the 2D hint and a place in reach opens as a visit; each 설정 row opens its
 // dialog (help tabs, the downloads resolve, the photo credits, the RELEASE facts, the QR picture and the copy button);
+// phase 2b Task 4: every download in 자료 출처 answers HTTP 200 under the sub-path, the 2D files at the deployed copy
+// (./2d/…, P27), no href anywhere holds the #game/ alias; the QR picture decodes at its size and is the committed
+// app3d/src/assets/qr-pages.png, and 접속 주소 복사 puts the Pages address on the clipboard (granted to the context);
 // 효과음 / 배경음 / 소리 크기 take effect at once with no errors, and walking plays footsteps.
 // Task 9 at all four viewports (checkWardrobeFx): only the chosen character's walking sheet loads at boot, the others
 // on first use; every 꾸미기 category passes the sizes, fonts and layout; 하트 발자국 and 바다 위치 고리 show live on
@@ -67,6 +70,7 @@ import { symbolKey } from '#game/place-icons.js';
 import { freshState } from '#game/core.js';
 import { RELEASE } from '#game/release.js';
 import credits from '#game/assets/photo-credits.json' with { type: 'json' };
+import { DOWNLOADS } from '../src/ui/help.js';
 
 const require = createRequire(import.meta.url);
 const { chromium } = require('playwright');
@@ -75,6 +79,9 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(here, '../../dist');
 // the site's path on GitHub Pages (https://doguri25.github.io/hongseong-adventure/): dist/ is served only under it
 const SUB = '/hongseong-adventure/';
+// the 3D QR (ui/qr.js QR_URL) and its picture, made once by tools/build/make-qr.py; written out here so a changed
+// address fails the smoke
+const PAGES_URL = 'https://doguri25.github.io/hongseong-adventure/', QR_PNG = path.join(here, '../src/assets/qr-pages.png');
 const OUT = process.env.SMOKE_OUT || path.join(os.tmpdir(), 'hongseong-3d-smoke');
 const READY_MS = Number(process.env.SMOKE_READY_MS) || 240000;
 const MODES = ['walk', 'bike', 'car', 'supercar', 'slowplane', 'plane'];
@@ -1256,18 +1263,22 @@ async function checkTalk(page, name, spec, shot) {
     await sleep(400);   // let the panel finish painting
     await shot(`t8-help-${view}`);
   }
-  // the sources: every download resolves, every web link opens a new tab, all the 2D photo credits
-  const files = await page.evaluate(async () => {
+  // the sources: every download answers HTTP 200 under the sub-path, the 2D files at the deployed 2D copy (P27: each
+  // DOWNLOADS url, ./2d/…, none bundled through the #game/ alias), every web link opens a new tab, all the 2D photo credits
+  const files = await page.evaluate(async ({ SUB, want }) => {
     const body = document.getElementById('help-body'), links = [...body.querySelectorAll('a[href]')];
     const downloads = links.filter((a) => a.hasAttribute('download') || !/^https?:/.test(a.getAttribute('href')) || a.href.startsWith(location.origin));
     const bad = [];
     for (const a of downloads) {
-      try { const res = await fetch(a.href, { method: a.href.startsWith('data:') ? 'GET' : 'HEAD' }); if (!res.ok) bad.push(a.textContent + ' ' + res.status); } catch (e) { bad.push(a.textContent + ' ' + e.message); }
+      if (!new URL(a.href).pathname.startsWith(SUB)) { bad.push(`${a.textContent} outside ${SUB} (${a.href.slice(0, 60)})`); continue; }
+      try { const res = await fetch(a.href, { method: 'HEAD' }); if (res.status !== 200) bad.push(a.textContent + ' ' + res.status); } catch (e) { bad.push(a.textContent + ' ' + e.message); }
     }
-    const web = links.filter((a) => !downloads.includes(a));
-    return { downloads: downloads.length, bad, web: web.length, safe: web.every((a) => a.target === '_blank' && /noopener/.test(a.rel)), credits: body.querySelectorAll('.credit-item').length, names: downloads.map((a) => a.textContent) };
-  });
-  check(files.downloads >= 10 && files.bad.length === 0 && files.web >= 8 && files.safe && files.credits === credits.assets.length, `${name}: 자료 출처 offers ${files.downloads} downloads that all resolve, ${files.web} web links in a new tab and the ${files.credits} 2D photo credits${files.bad.length ? ' — failed: ' + files.bad.join(', ') : ''} (${files.names.slice(0, 4).join(' / ')} …)`);
+    const hrefs = downloads.map((a) => a.getAttribute('href')), web = links.filter((a) => !downloads.includes(a));
+    return { downloads: downloads.length, bad, web: web.length, safe: web.every((a) => a.target === '_blank' && /noopener/.test(a.rel)), credits: body.querySelectorAll('.credit-item').length, names: downloads.map((a) => a.textContent),
+      unlinked: want.filter((u) => !hrefs.includes(u)), alias: [...document.querySelectorAll('[href]')].map((n) => n.getAttribute('href')).filter((h) => h.includes('#game/')) };
+  }, { SUB, want: DOWNLOADS.map((d) => d.url) });
+  check(files.downloads >= 10 && files.bad.length === 0 && files.web >= 8 && files.safe && files.credits === credits.assets.length, `${name}: 자료 출처 offers ${files.downloads} downloads that all answer HTTP 200 under ${SUB}, ${files.web} web links in a new tab and the ${files.credits} 2D photo credits${files.bad.length ? ' — failed: ' + files.bad.join(', ') : ''} (${files.names.slice(0, 4).join(' / ')} …)`);
+  check(files.unlinked.length === 0 && files.alias.length === 0, `${name}: the ${DOWNLOADS.length} 2D files are linked at the deployed 2D copy (${DOWNLOADS[0].url} …) and no href holds #game/${files.unlinked.length ? ' — not linked: ' + files.unlinked.join(', ') : ''}${files.alias.length ? ' — #game/ in: ' + files.alias.slice(0, 4).join(', ') : ''}`);
   // the help's 설정 shortcuts change the same settings; ArrowLeft moves between the tabs; 메뉴로 돌아가기 opens the menu's 설정
   const short = await page.evaluate(async () => {
     const W = window.__hs3d.world, wait = (ms) => new Promise((f) => setTimeout(f, ms));
@@ -1307,14 +1318,24 @@ async function checkTalk(page, name, spec, shot) {
   check(qrFocus.focus === 'copy-link' && qrFocus.inView, `${name}: QR로 열기 starts on 접속 주소 복사, wholly in view with its focus ring (${JSON.stringify(qrFocus)})`);
   const q = await page.evaluate(async () => {
     const img = document.getElementById('qr-img'), b = document.getElementById('qr-body');
-    const r = { w: img.naturalWidth, alt: img.alt, head: b.querySelector('h3')?.textContent, url: b.querySelector('.qr-url')?.textContent, text: b.textContent, copy: document.getElementById('copy-link')?.textContent };
+    const r = { alt: img.alt, head: b.querySelector('h3')?.textContent, url: b.querySelector('.qr-url')?.textContent, text: b.textContent, copy: document.getElementById('copy-link')?.textContent };
+    // the picture decodes, at its own size, and is the committed file (compared in Node)
+    try { await img.decode(); r.decoded = true; } catch (e) { r.decoded = e.name; }
+    r.size = [img.naturalWidth, img.naturalHeight];
+    try { r.bytes = [...new Uint8Array(await (await fetch(img.currentSrc || img.src)).arrayBuffer())]; } catch (e) { r.bytes = []; r.fetch = e.message; }
+    try { await navigator.clipboard.writeText(''); } catch { /* read back below */ }
     document.getElementById('copy-link').click();
     for (let i = 0; i < 30 && !document.getElementById('qr-status').textContent; i++) await new Promise((f) => setTimeout(f, 100));
     r.toast = document.getElementById('qr-status').textContent;
+    try { r.clip = await navigator.clipboard.readText(); } catch (e) { r.clip = 'unread: ' + e.name; }
     return r;
   });
-  check(qr.kind === 'qr' && qr.paused && qr.focusIn && qr.title === '태블릿으로 모험을 이어가요' && q.w > 0 && q.alt === '홍성 모험 수첩 데모 접속 QR 코드' && q.head === '카메라로 QR 코드를 비춰 주세요' && q.url === 'https://hongseong-adventure-demo.anyconium.chatgpt.site' && q.text.includes('각 기기에 따로 저장') && q.copy === '접속 주소 복사' && ['접속 주소를 복사했어요.', '아래에 표시된 주소를 길게 눌러 복사해 주세요.'].includes(q.toast),
-    `${name}: QR로 열기 shows the 2D game's QR (${q.w}px) and wording, 접속 주소 복사 answers "${q.toast}"`);
+  const png = fs.existsSync(QR_PNG) ? fs.readFileSync(QR_PNG) : null, pngSize = png ? [png.readUInt32BE(16), png.readUInt32BE(20)] : null;
+  const samePng = !!png && Buffer.from(q.bytes).equals(png);
+  check(qr.kind === 'qr' && qr.paused && qr.focusIn && qr.title === '태블릿으로 모험을 이어가요' && q.alt === '홍성 탐험대 접속 QR 코드' && q.head === '카메라로 QR 코드를 비춰 주세요' && q.url === PAGES_URL && q.text.includes('각 기기에 따로 저장') && q.text.includes('기기를 옮길 때는 ‘이어하기 파일’을 이용해요.') && !q.text.includes('비공개') && !q.text.includes('열람 권한') && q.copy === '접속 주소 복사',
+    `${name}: QR로 열기 shows the 2D wording without the private-build lines, the Pages address ${q.url} and alt "${q.alt}"`);
+  check(q.decoded === true && JSON.stringify(q.size) === JSON.stringify(pngSize) && samePng, `${name}: the QR picture decodes at ${q.size.join(' x ')} (${pngSize ? pngSize.join(' x ') : 'no ' + QR_PNG}) and is the committed qr-pages.png (${q.bytes.length} bytes, ${samePng ? 'same' : 'different'}${q.fetch ? ', ' + q.fetch : ''})`);
+  check(q.clip === PAGES_URL && q.toast === '접속 주소를 복사했어요.', `${name}: 접속 주소 복사 puts ${q.clip} on the clipboard and answers "${q.toast}"`);
   await checkUi(page, name, 'QR', touch);
   await checkPanelLayout(page, name, 'QR', 'qr-panel');
   await sleep(400);
@@ -1879,6 +1900,8 @@ async function checkLiteCard(page, name, spec, shot) {
 async function run(browser, site, spec) {
   const { name, viewport, touch } = spec;
   const ctx = await browser.newContext({ viewport, hasTouch: touch, isMobile: touch, deviceScaleFactor: touch ? 2 : 1, locale: 'ko-KR' });
+  // the clipboard, so 접속 주소 복사 really copies and checkTalk reads the address back
+  await ctx.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: new URL(site).origin });
   // SwiftShader draws far under 20 fps: without its session flag the low-frame-rate card would come up in the middle of
   // the other checks. checkLiteCard clears it to bring the card on purpose; every load (the reloads too) sets it again
   await ctx.addInitScript((KEY) => { try { sessionStorage.setItem(KEY, '1'); } catch {} }, SEEN_KEY);

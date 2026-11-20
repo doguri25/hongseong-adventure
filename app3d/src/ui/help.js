@@ -98,19 +98,20 @@ export const TEACHER = [
   ['열람:', '현재 사이트는 제작자 확인용 비공개 버전이에요. QR 코드는 접속 주소를 담고 있으며 사이트 열람 권한을 바꾸지는 않아요.'],
 ];
 
-// ---- 자료 출처: the 2D game's own files (bundled by Vite, P7), named as the 2D help names them
+// ---- 자료 출처: the 2D game's own files, named as the 2D help names them. Each links to the copy the build puts in
+// dist/2d/ (P27), by a relative address like the rest of the site, instead of being bundled into the 3D a second time
 export const DOWNLOADS = [
-  { path: 'map-county.json', label: '홍성군 지도 자료 (도로·건물: ODbL)', url: new URL('#game/map-county.json', import.meta.url).href },
-  { path: 'county-boundaries.json', label: '읍·면 경계 자료 (CC BY 4.0)', url: new URL('#game/county-boundaries.json', import.meta.url).href },
-  { path: 'assets/facility-location-sources.json', label: '추가 시설과 확인 출처', url: new URL('#game/assets/facility-location-sources.json', import.meta.url).href },
-  { path: 'assets/culture-location-sources.json', label: '역사·문화·생활 장소와 확인 출처', url: new URL('#game/assets/culture-location-sources.json', import.meta.url).href },
-  { path: 'assets/shop-location-sources.json', label: '가게 위치 자료와 출처', url: new URL('#game/assets/shop-location-sources.json', import.meta.url).href },
-  { path: 'assets/expansion-location-sources.json', label: '추가 장소와 좌표 출처', url: new URL('#game/assets/expansion-location-sources.json', import.meta.url).href },
-  { path: 'assets/hongseong-tourist-map-2022.jpg', label: '첨부 관광지도 원본 · 2022년 11월', url: new URL('#game/assets/hongseong-tourist-map-2022.jpg', import.meta.url).href, view: true },
-  { path: 'assets/tourist-map-reconciliation.json', label: '관광지도 대조 결과', url: new URL('#game/assets/tourist-map-reconciliation.json', import.meta.url).href },
-  { path: 'assets/school-research.json', label: '학교별 확인 자료', url: new URL('#game/assets/school-research.json', import.meta.url).href },
-  { path: 'assets/NANUM-LICENSE.txt', label: 'SIL Open Font License', url: new URL('#game/assets/NANUM-LICENSE.txt', import.meta.url).href, view: true },
-];
+  { path: 'map-county.json', label: '홍성군 지도 자료 (도로·건물: ODbL)' },
+  { path: 'county-boundaries.json', label: '읍·면 경계 자료 (CC BY 4.0)' },
+  { path: 'assets/facility-location-sources.json', label: '추가 시설과 확인 출처' },
+  { path: 'assets/culture-location-sources.json', label: '역사·문화·생활 장소와 확인 출처' },
+  { path: 'assets/shop-location-sources.json', label: '가게 위치 자료와 출처' },
+  { path: 'assets/expansion-location-sources.json', label: '추가 장소와 좌표 출처' },
+  { path: 'assets/hongseong-tourist-map-2022.jpg', label: '첨부 관광지도 원본 · 2022년 11월', view: true },
+  { path: 'assets/tourist-map-reconciliation.json', label: '관광지도 대조 결과' },
+  { path: 'assets/school-research.json', label: '학교별 확인 자료' },
+  { path: 'assets/NANUM-LICENSE.txt', label: 'SIL Open Font License', view: true },
+].map((d) => ({ ...d, url: `./2d/${d.path}` }));
 const file = (path) => {
   const d = DOWNLOADS.find((f) => f.path === path);
   return d.view ? el('a', { className: 'btn', href: d.url, target: '_blank', rel: 'noopener' }, d.label) : el('a', { className: 'btn', href: d.url, download: path.split('/').pop() }, d.label);
