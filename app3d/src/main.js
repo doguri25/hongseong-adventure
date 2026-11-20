@@ -877,5 +877,5 @@ function ready() {
 
 boot().catch((e) => {
   console.error(e);
-  hud.fatal('3D 지도를 불러오지 못했어요. 인터넷 연결을 확인하고 다시 열어 주세요.');
+  if ($('fatal').hidden) hud.fatal('3D 지도를 불러오지 못했어요. 인터넷 연결을 확인하고 다시 열어 주세요.');   // the WebGL message stays
 });

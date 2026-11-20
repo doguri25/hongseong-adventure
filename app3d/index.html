@@ -207,7 +207,9 @@
 
   <div id="loading"><div>홍성군을 3D로 짓고 있어요<p id="loading-step">지도 자료를 받는 중</p><div id="loading-bar"><i></i></div></div></div>
   <div id="lost" hidden><div>그래픽이 잠시 멈췄어요<p>기기가 3D 화면을 쉬게 했어요. 다시 불러오면 화질을 낮춰서 시작해요.</p><button id="reload">다시 불러오기</button></div></div>
-  <div id="fatal" hidden><div>3D 화면을 열 수 없어요<p id="fatal-text">WebGL을 지원하는 최신 브라우저에서 열어 주세요.</p></div></div>
+  <!-- the 3D cannot start (no WebGL2 after ?view=3d, or the game did not arrive): the way out is the light 2D, a plain
+       link that is not remembered, so a passing failure (offline) does not keep this device on the 2D -->
+  <div id="fatal" hidden><div>3D 화면을 열 수 없어요<p id="fatal-text">WebGL을 지원하는 최신 브라우저에서 열어 주세요.</p><a id="fatal-2d" href="./2d/">가벼운 2D로 열기</a></div></div>
 </div>
 <script type="module" src="./src/boot.js"></script>
 </body>

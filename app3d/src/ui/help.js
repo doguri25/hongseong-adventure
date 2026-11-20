@@ -2,9 +2,10 @@
 // QR in ui/qr.js, the ferry in ui/ferry.js, NPC talk in ui/npc.js).
 // The help (the controller's 'help' kind, {section}) has four tabs in the 2D order: 탐방 방법 (how to play, in the 3D
 // controls: stick, drag to turn and tilt, pinch or wheel zoom, tap to go, the keys), 설정 (shortcuts to the menu's sound
-// rows and the other 안내 dialogs), 선생님 (the 2D 선생님을 위한 안내, word for word but 열람: Q8) and 자료 출처 (the 2D 실제 지도와 표현
-// 방식, 이번에 추가한 장소 and 사진과 자료 출처, told for the 3D map: the real data under it, what is decoration, the download
-// links to the 2D game's own files, the photo credits). 자료 출처 in 설정 opens the help at that tab (P26).
+// rows and the other 안내 dialogs), 선생님 (the 2D 선생님을 위한 안내, word for word except the 열람 line, which gives the
+// public address) and 자료 출처 (the 2D 실제 지도와 표현 방식, 이번에 추가한 장소 and 사진과 자료 출처, told for the 3D map:
+// the real data under it, what is decoration, the download links to the 2D game's own files, the photo credits).
+// 자료 출처 in 설정 opens the help at that tab (P26).
 // About (the 'about' kind) is the 2D showAbout from RELEASE. Copy is the 2D game's (app2d/game.js showHelp, showAbout)
 // unless the 3D app works differently; every link is a button-sized chip (44 px), web links open in a new tab.
 import { el, openModal, closeModal } from './dom.js';
@@ -98,6 +99,26 @@ export const TEACHER = [
   ['저장:', '이름·계정·GPS 없이 브라우저에 저장해요. 브라우저 데이터 삭제나 시크릿 모드에서는 기록이 사라질 수 있어요. 결과 또는 이어하기 파일을 내려받아 보관할 수 있어요.'],
   ['열람:', '누구나 https://doguri25.github.io/hongseong-adventure/ 에서 열 수 있어요. QR 코드는 이 접속 주소를 담고 있어요.'],
 ];
+
+/**
+ * A note's web address cut where the line may wrap: [before, host, path, after], the host with its slash
+ * ('https://doguri25.github.io/') and the path after it ('hongseong-adventure/'), or null for a note without one.
+ * Joined, the parts are the note again.
+ */
+export function addressParts(text) {
+  const m = /https?:\/\/[^\s/]+\/\S*/.exec(text);
+  if (!m) return null;
+  const host = m[0].slice(0, m[0].indexOf('/', m[0].indexOf('//') + 2) + 1);
+  return [text.slice(0, m.index), host, m[0].slice(host.length), text.slice(m.index + m[0].length)];
+}
+// the note on the page: its address wraps only after the host (…github.io/ | hongseong-adventure/), never at the
+// hyphen in the path; each part stays on one line and <wbr> allows the break between them
+function note(text) {
+  const a = addressParts(text);
+  if (!a) return text;
+  const [before, host, path, after] = a;
+  return [before, el('span', { className: 'nowrap' }, host), el('wbr'), el('span', { className: 'nowrap' }, path), after];
+}
 
 // ---- 자료 출처: the 2D game's own files, named as the 2D help names them. Each links to the copy the build puts in
 // dist/2d/ (P27), by a relative address like the rest of the site, instead of being bundled into the 3D a second time
@@ -201,7 +222,7 @@ export function createHelpDialog(doc, ctx) {
       section('화면 움직이기', list(CONTROLS)),
       section('키보드', list(KEYS, true)),
     ] : view === 'settings' ? shortcuts()
-      : view === 'teacher' ? [section('선생님을 위한 안내', ...TEACHER.map(([label, text]) => (label ? P(el('strong', {}, label), ' ', text) : P(text))))]
+      : view === 'teacher' ? [section('선생님을 위한 안내', ...TEACHER.map(([label, text]) => (label ? P(el('strong', {}, label), ' ', note(text)) : P(text))))]
         : sources();
     d.body.replaceChildren(...parts);
   }

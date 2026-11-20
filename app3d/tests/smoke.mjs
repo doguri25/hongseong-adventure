@@ -56,12 +56,19 @@
 // the sizes and fonts (checkMenu), and the low-frame-rate card (checkLiteCard) comes on the real measurement: SwiftShader
 // draws far under 20 fps, so at 화질 낮음 10 s of play brings it; it is a dialog over play, never behind another dialog,
 // once per session. Every other check runs with the card's session flag set (an init script), so it never comes up there.
+// Phase 2b Task 5: without WebGL2, ?view=3d ends on #fatal, which says the device cannot draw the 3D and links the light
+// 2D (가벼운 2D로 열기, ./2d/, not remembered); the link lands on /2d/ under the sub-path (checkViews). At all four
+// viewports the 선생님 tab's 열람 line keeps its pinned text, wraps the Pages address only after github.io/ (never at
+// the hyphen in hongseong-adventure/) and stays inside its paragraph (checkAddressLine). At the desktop, on the way to
+// the pier (찾아가기 죽도), 배 타고 죽도로 near it opens the ferry dialog, and closing it shows no 배 타러 가는 길을
+// 멈췄어요 note; the desktop also logs the bytes fetched until the 3D is ready (first load, spec §13-1: no gate).
 // Screenshots go to OUT (SMOKE_OUT, default a folder in the system temp directory; SMOKE_ONLY=2d,views,tablet,phone,landscape
 // runs only those passes).
 import http from 'node:http';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import zlib from 'node:zlib';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { PLACES } from '#game/content.js';
@@ -70,7 +77,7 @@ import { symbolKey } from '#game/place-icons.js';
 import { freshState } from '#game/core.js';
 import { RELEASE } from '#game/release.js';
 import credits from '#game/assets/photo-credits.json' with { type: 'json' };
-import { DOWNLOADS } from '../src/ui/help.js';
+import { DOWNLOADS, TEACHER } from '../src/ui/help.js';
 
 const require = createRequire(import.meta.url);
 const { chromium } = require('playwright');
@@ -152,14 +159,14 @@ const TEXT_15 = ['#where', '.stats', '.hint', '.credit .lead', '.credit summary'
   '.place-hero figcaption', '#place-caption', '.speech', '.speech small', '.quiz .options button', '.quiz .q-text', '.quiz .lead', '.rv p', '.rv .num small', '.src p', '.src .facts span',
   '.map-note', '.mview .lead', '.cp-text strong', '.story-body p', '.search-input', '.opt-text strong', '.opt-text small', '.search-empty', '.empty-note', '.near-title', '.near-search', '.place-row h4', '.place-row p',
   '#voyage-status', '.npc-speech', '.npc-text .note', '#ferry-body p', '#help-body p', '.help-sec li', '.keys dd', '#about-body p', '#about-body dd', '.qr-text p', '.qr-url', '#qr-status',
-  '#records-status', '#lite-note', '.lite-addr', '#lite-body p'];
+  '#records-status', '#lite-note', '.lite-addr', '#lite-body p', '#fatal p'];
 const LABEL_MIN = [['.travel button span', 13], ['.travel button small', 12], ['.dialog .tag', 13], ['.skill .lbl', 13], ['.skill small', 12], ['.mission-kick', 13], ['#mission-title', 13], ['.mission .badge', 13], ['.mission-foot .btn', 13], ['#speed-factor', 12], ['.cam-pad button', 13],
   ['.menu .tabs [role="tab"]', 13], ['.menu h3', 13], ['.mis-kick', 13], ['.mis-card h4', 13], ['.mis-card .btn', 13], ['.ride-head b', 13], ['.card .factor', 12], ['.shop-cats .cat', 13], ['.card.char b', 13], ['.card.char span', 13], ['.product h4', 13], ['.product .buy', 13], ['.opt-name', 13], ['.seg button', 13], ['.menu select', 13], ['.menu .settings > .btn', 13], ['.reset-confirm .btn', 13], ['.menu .go', 13],
   ['.j-filters button', 13], ['.j-tag', 13], ['.j-stamp', 13], ['.j-card b', 13], ['.j-actions .btn', 13],
   ['#place-kind', 13], ['.dialog .speaker', 13], ['.dialog .page-num', 13], ['#place-footer .btn', 13], ['.q-kick', 13], ['.quiz .options b', 13], ['.voice-status', 13], ['.src .btn', 13], ['.src h3', 13],
   ['.map-tabs [role="tab"]', 13], ['.map-tools button', 13], ['#map-zoom', 13], ['.map-side h3', 13], ['.districts button', 13], ['.cp-text small', 13], ['.map-more summary', 13], ['.legend-item', 13], ['.story-body h4', 13], ['.story-body .btn', 13], ['.row-tag', 13], ['#map-back', 13], ['.near-filters button', 13], ['.place-row .go', 13], ['.mis-tools .btn', 13],
   ['.npc-topics [role="tab"]', 13], ['.npc-text h3', 13], ['#npc-footer .btn', 13], ['#ferry-footer .btn', 13], ['.help-tabs [role="tab"]', 13], ['.help-sec h3', 13], ['.help-sec h4', 13], ['.keys dt', 13], ['.panel-dialog .links .btn', 13], ['.panel-dialog footer .btn', 13], ['.about-info dt', 13], ['.qr-text h3', 13], ['#copy-link', 13],
-  ['.records .btn', 13], ['#open-2d', 13], ['#lite-footer .btn', 13]];
+  ['.records .btn', 13], ['#open-2d', 13], ['#lite-footer .btn', 13], ['#fatal-2d', 13]];
 // touch screens: nothing interactive in the stick zone (left 42 % of the width, lower 45 % of the height) while
 // playing; the discovery chip (a button: the 수첩) clear of every other HUD piece; overlaps() as ui/dom.js: edges that
 // only touch do not count
@@ -1167,6 +1174,42 @@ async function checkPanelLayout(page, name, where, id) {
   check(r.nBad === 0 && r.out.length === 0 && r.wide.length === 0 && r.room >= 72, `${name} ${where}: ${r.parts} parts inside the panel and screen, none overlapping, labels fit, body ${r.room} px${r.nBad ? ' — overlap: ' + r.bad.join(', ') : ''}${r.out.length ? ' — outside: ' + r.out.join(', ') : ''}${r.wide.length ? ' — too wide: ' + r.wide.join(', ') : ''}`);
 }
 
+// The 선생님 tab's 열람 line (help.js TEACHER), the help open at that tab: its text exactly as pinned; the Pages address
+// wraps, if at all, only after github.io/ (https://doguri25.github.io/ and hongseong-adventure/ each on one line, so
+// never hongseong-|adventure/); every line box inside the paragraph, nothing scrolled sideways
+async function checkAddressLine(page, name, shot) {
+  const want = '열람: ' + TEACHER.find(([label]) => label === '열람:')[1];
+  const r = await page.evaluate(({ PAGES_URL }) => {
+    const p = [...document.querySelectorAll('#help-body p')].find((e) => e.textContent.startsWith('열람:'));
+    if (!p) return null;
+    // the paragraph's text nodes with their offsets, so a run of text is found across the parts it is drawn in
+    const nodes = [], walk = document.createTreeWalker(p, NodeFilter.SHOW_TEXT);
+    let all = '';
+    for (let n = walk.nextNode(); n; n = walk.nextNode()) { nodes.push([n, all.length]); all += n.data; }
+    const at = (i) => { const [n, o] = nodes.findLast(([, o]) => o <= i); return [n, i - o]; };
+    const rects = (range) => [...range.getClientRects()].filter((q) => q.width > 0.5 && q.height > 0.5);
+    // the lines a run of text is drawn on: rect tops more than half a line apart
+    const lines = (s) => {
+      const i = all.indexOf(s);
+      if (i < 0) return 0;
+      const range = document.createRange();
+      range.setStart(...at(i)); range.setEnd(...at(i + s.length));
+      const tops = rects(range).map((q) => q.top).sort((a, b) => a - b);
+      return tops.reduce((n, t, k) => n + (k && t - tops[k - 1] > 8 ? 1 : 0), tops.length ? 1 : 0);
+    };
+    const P = p.getBoundingClientRect(), whole = document.createRange();
+    whole.selectNodeContents(p);
+    const out = rects(whole).filter((q) => q.left < P.left - 0.5 || q.right > P.right + 0.5).length;
+    const host = PAGES_URL.slice(0, PAGES_URL.indexOf('/', 8) + 1), rest = PAGES_URL.slice(host.length);
+    return { text: p.textContent, address: lines(PAGES_URL), host: lines(host), rest: lines(rest), out, sideways: p.scrollWidth - p.clientWidth, width: Math.round(P.width) };
+  }, { PAGES_URL });
+  check(!!r && r.text === want && r.host === 1 && r.rest === 1 && r.out === 0 && r.sideways <= 1,
+    `${name}: the 선생님 tab's 열람 line keeps its text and wraps the address only after github.io/, inside its ${r?.width} px paragraph (${JSON.stringify(r && { ...r, text: r.text === want ? 'as pinned' : r.text })})`);
+  await page.evaluate(() => [...document.querySelectorAll('#help-body p')].find((e) => e.textContent.startsWith('열람:'))?.scrollIntoView({ block: 'center' }));
+  await sleep(300);
+  await shot('t8-help-teacher-address');
+}
+
 // NPC talk, the ferry, 도움말 / 자료 출처 / 만든 사람 / QR and the sound (Task 8) at this viewport. Each dialog opens paused
 // with the focus inside and the 2D wording, passes the sizes, fonts and layout, and Escape closes it into play.
 async function checkTalk(page, name, spec, shot) {
@@ -1262,6 +1305,7 @@ async function checkTalk(page, name, spec, shot) {
     await checkPanelLayout(page, name, `help ${view}`, 'help-panel');
     await sleep(400);   // let the panel finish painting
     await shot(`t8-help-${view}`);
+    if (view === 'teacher') await checkAddressLine(page, name, shot);
   }
   // the sources: every download answers HTTP 200 under the sub-path, the 2D files at the deployed 2D copy (P27: each
   // DOWNLOADS url, ./2d/…, none bundled through the #game/ alias), every web link opens a new tab, all the 2D photo credits
@@ -1444,6 +1488,33 @@ async function checkTalk(page, name, spec, shot) {
     return out;
   });
   check(hint.r === 'dock' && hint.dock && !hint.island && hint.pending && hint.toast === '남당항으로 이동한 뒤 배를 타요.' && hint.sounds.includes('move'), `${name}: 찾아가기 죽도 from the mainland heads for 남당항 with the 2D hint (${JSON.stringify(hint)})`);
+
+  // ---- the ferry dialog is no interruption of the trip to the pier (main.js stopPlayer): 찾아가기 죽도 from 220 m east
+  // of the pier, walk until 배 타고 죽도로 shows, press it before the trip ends; closing the dialog shows no 배 타러 가는
+  // 길을 멈췄어요 note (any other dialog on the way does). One viewport
+  if (spec.ferryNote) {
+    const STOPPED = '배 타러 가는 길을 멈췄어요';   // game/travel.js FERRY_STOPPED, written out so a changed note fails here
+    const fn = await page.evaluate(async () => {
+      const W = window.__hs3d.world, wait = (ms) => new Promise((r) => setTimeout(r, ms)), b = document.getElementById('ferry-btn');
+      const toast = () => document.getElementById('toast').textContent;
+      for (let i = 0; i < 4 && W.ctl.paused(); i++) window.__hs3d.closeDialogs();
+      const at = window.__hs3d.teleport(W.docks.namdang[0] + 220, W.docks.namdang[1]);
+      const r = { at: !!at, goTo: W.ctl.goTo('tourmap-jukdo') };
+      const t0 = performance.now();
+      while (b.hidden && W.target && performance.now() - t0 < 60000) await wait(100);
+      r.walked = Math.round((performance.now() - t0) / 100) / 10;
+      r.onTrip = !!W.target && !!W.ferryPending; r.shown = !b.hidden;
+      r.left = Math.round(Math.hypot(W.player.x - W.docks.namdang[0], W.player.y - W.docks.namdang[1]));
+      b.click();
+      r.kind = W.ctl.dialog?.kind; r.before = toast();
+      document.getElementById('ferry-close').click();
+      await wait(600);
+      r.paused = W.ctl.paused(); r.after = toast(); r.target = !!W.target;
+      return r;
+    });
+    check(fn.at && fn.goTo === 'dock' && fn.onTrip && fn.shown && fn.kind === 'ferry' && !fn.paused && !fn.target && !fn.after.includes(STOPPED),
+      `${name}: on the way to the pier, 배 타고 죽도로 opens the ferry dialog and closing it shows no stop note (${JSON.stringify(fn)})`);
+  }
 
   // ---- the ferry: 배 타고 죽도로 at 남당항 opens the 2D ferry dialog; boarding sails with the voyage chip
   const pier = await page.evaluate(async () => {
@@ -1897,6 +1968,20 @@ async function checkLiteCard(page, name, spec, shot) {
   check(auto.mode === 'auto' && !auto.paused, `${name}: 화질 자동 again after the card check`);
 }
 
+// The bytes of the files a page fetched (their paths under SUB), read from dist/: as the smoke's server sends them, and
+// with the text files gzipped as GitHub Pages sends them (an estimate: zlib's default level)
+const TEXT = new Set(['.html', '.js', '.css', '.json', '.svg', '.txt']);
+function logFirstLoad(name, paths) {
+  const files = paths.map((p) => {
+    const rel = decodeURIComponent(p).slice(SUB.length), file = path.join(ROOT, rel.endsWith('/') || rel === '' ? path.join(rel, 'index.html') : rel);
+    const body = fs.readFileSync(file);
+    return { rel: rel || 'index.html', raw: body.length, wire: TEXT.has(path.extname(file).toLowerCase()) ? zlib.gzipSync(body).length : body.length };
+  });
+  const raw = files.reduce((n, f) => n + f.raw, 0), wire = files.reduce((n, f) => n + f.wire, 0), mb = (n) => (n / 1048576).toFixed(1) + ' MB';
+  const big = files.sort((a, b) => b.wire - a.wire).slice(0, 6).map((f) => `${f.rel} ${mb(f.wire)}`).join(', ');
+  console.log(`  ${name} first load: ${files.length} files until __hs3d.ready, ${mb(raw)} (${raw} bytes) as served here, about ${mb(wire)} (${wire} bytes) with the text files gzipped; largest: ${big}`);
+}
+
 async function run(browser, site, spec) {
   const { name, viewport, touch } = spec;
   const ctx = await browser.newContext({ viewport, hasTouch: touch, isMobile: touch, deviceScaleFactor: touch ? 2 : 1, locale: 'ko-KR' });
@@ -1914,6 +1999,9 @@ async function run(browser, site, spec) {
   const sheets = [];
   let booted = false;
   page.on('request', (r) => { const file = r.url().split('/').pop(); if (/^walk-cycle-/.test(file)) sheets.push({ file, boot: !booted }); });
+  // the first load (spec §13-1 aims at about 10 MB; logged, no gate): every file answered before the game was ready
+  const firstLoad = [];
+  if (spec.firstLoad) page.on('response', (r) => { const u = new URL(r.url()); if (!booted && r.status() === 200 && /^https?:$/.test(u.protocol) && u.pathname.startsWith(SUB)) firstLoad.push(u.pathname); });
 
   if (spec.keysWhileLoading) {
     // M5: action keys (quality, time, camera) pressed while the world is still loading must be ignored, not throw
@@ -1939,6 +2027,7 @@ async function run(browser, site, spec) {
   try { await page.waitForFunction(() => window.__hs3d && window.__hs3d.ready === true, null, { timeout: READY_MS, polling: 500 }); ready = true; } catch {}
   booted = true;
   check(ready, `${name}: __hs3d.ready within ${READY_MS / 1000} s (${((Date.now() - t0) / 1000).toFixed(1)} s)`);
+  if (spec.firstLoad) logFirstLoad(name, firstLoad);
   if (!ready) {
     await shot('not-ready').catch(() => {});
     check(errors.length === 0, `${name}: no pageerror (${errors.join(' | ').slice(0, 400)})`);
@@ -2303,6 +2392,22 @@ async function checkViews(browser, site) {
   check(ok && await stored(B.page) === null && !B.reqs.includes(GAME) && !B.reqs.includes(FEATURES) && heavy(B.reqs).length === 0 && B.reqs.includes(ENTRY),
     `${name}: without WebGL2 the root lands on ${new URL(B.page.url()).pathname}, unremembered, with no request for ${game} or data/features.json${heavy(B.reqs).length ? ' — fetched ' + heavy(B.reqs).join(', ') : ''}`);
   await B.page.screenshot({ path: path.join(OUT, `${name}-3-no-webgl2.png`) });
+  // ...and ?view=3d on that device: the 3D page cannot draw, so #fatal says so (the WebGL message, not the network one)
+  // with its way out, 가벼운 2D로 열기 (./2d/, not remembered: the next plain visit decides again), followed as a child would
+  await B.page.goto(site + '?view=3d', { waitUntil: 'load' });
+  const fatal = await B.page.waitForFunction(() => !document.getElementById('fatal').hidden, null, { timeout: 60000, polling: 250 }).then(() => true, () => false);
+  const fs3d = await B.page.evaluate(() => {
+    const a = document.querySelector('#fatal a'), r = a?.getBoundingClientRect();
+    return { text: document.getElementById('fatal-text')?.textContent, link: a?.textContent, href: a?.getAttribute('href'), id: a?.id, w: r && Math.round(r.width), h: r && Math.round(r.height), loading: !document.getElementById('loading').hidden };
+  });
+  check(fatal && fs3d.text?.startsWith('이 기기에서는 3D 화면을 열 수 없어요') && fs3d.link === '가벼운 2D로 열기' && fs3d.href === './2d/' && fs3d.w >= 44 && fs3d.h >= 44 && !fs3d.loading,
+    `${name}: without WebGL2, ?view=3d ends on #fatal with 가벼운 2D로 열기 (${JSON.stringify(fs3d)})`);
+  await checkUi(B.page, name, 'fatal screen');
+  await B.page.screenshot({ path: path.join(OUT, `${name}-4-fatal.png`) });
+  await B.page.click('#fatal a', { timeout: 10000 }).catch(() => {});
+  await B.page.waitForURL(on2d, { waitUntil: 'load', timeout: 30000 }).catch(() => {});
+  ok = on2d(B.page.url()) && await ready2d(B.page);
+  check(ok && await stored(B.page) === null, `${name}: the fatal screen's 가벼운 2D로 열기 lands on ${new URL(B.page.url()).pathname} under the sub-path, the choice not remembered`);
   await B.ctx.close();
 
   // 10. blocked storage (both storages throw, as with blocked site data): the 3D still boots; without WebGL2, the 2D
@@ -2334,7 +2439,7 @@ async function main() {
     if (!only || only.includes('2d')) await check2d(browser, site);
     if (!only || only.includes('views')) await checkViews(browser, site);
     for (const spec of [
-      { name: 'desktop', viewport: { width: 1280, height: 760 }, touch: false, tour: true, guided: true },
+      { name: 'desktop', viewport: { width: 1280, height: 760 }, touch: false, tour: true, guided: true, ferryNote: true, firstLoad: true },
       { name: 'phone', viewport: { width: 390, height: 844 }, touch: true, tour: true },
       { name: 'tablet', viewport: { width: 1024, height: 768 }, touch: true, quick: true, keysWhileLoading: true, guided: true },
       { name: 'landscape', viewport: { width: 844, height: 390 }, touch: true, quick: true },

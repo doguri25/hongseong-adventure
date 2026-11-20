@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { HELP_VIEWS, CONTROLS, KEYS, DOWNLOADS, TEACHER } from '../src/ui/help.js';
+import { HELP_VIEWS, CONTROLS, KEYS, DOWNLOADS, TEACHER, addressParts } from '../src/ui/help.js';
 import { QR_URL, QR_LINES, QR_ALT, QR_IMAGE } from '../src/ui/qr.js';
 import { FERRY_LINES, FERRY_HINT, VOYAGE_LABEL, BOARD_LABEL } from '../src/ui/ferry.js';
 
@@ -48,6 +48,14 @@ test('the teacher notes are the 2D 선생님을 위한 안내, word for word, bu
     const src = game.slice(at + `<strong>${label}</strong> `.length, game.indexOf('</p>', at));
     assert.equal(text, src.replace('${PLACES.filter(p=>!p.remote).length}', '223'), label);
   }
+});
+
+test('the 열람 line is drawn in parts that wrap only after github.io/ and join back to the pinned text', () => {
+  const text = TEACHER.find(([label]) => label === '열람:')[1];
+  assert.deepEqual(addressParts(text), ['누구나 ', 'https://doguri25.github.io/', 'hongseong-adventure/', ' 에서 열 수 있어요. QR 코드는 이 접속 주소를 담고 있어요.']);
+  assert.equal(addressParts(text).join(''), text);
+  // the other notes have no address: drawn as they are
+  for (const [label, t] of TEACHER) if (label !== '열람:') assert.equal(addressParts(t), null, label);
 });
 
 test('the QR keeps the 2D wording and points at the Pages address; the ferry keeps the 2D wording', () => {
