@@ -2,7 +2,7 @@
 // QR in ui/qr.js, the ferry in ui/ferry.js, NPC talk in ui/npc.js).
 // The help (the controller's 'help' kind, {section}) has four tabs in the 2D order: 탐방 방법 (how to play, in the 3D
 // controls: stick, drag to turn and tilt, pinch or wheel zoom, tap to go, the keys), 설정 (shortcuts to the menu's sound
-// rows and the other 안내 dialogs), 선생님 (the 2D 선생님을 위한 안내, word for word) and 자료 출처 (the 2D 실제 지도와 표현
+// rows and the other 안내 dialogs), 선생님 (the 2D 선생님을 위한 안내, word for word but 열람: Q8) and 자료 출처 (the 2D 실제 지도와 표현
 // 방식, 이번에 추가한 장소 and 사진과 자료 출처, told for the 3D map: the real data under it, what is decoration, the download
 // links to the 2D game's own files, the photo credits). 자료 출처 in 설정 opens the help at that tab (P26).
 // About (the 'about' kind) is the 2D showAbout from RELEASE. Copy is the 2D game's (app2d/game.js showHelp, showAbout)
@@ -88,14 +88,15 @@ export const KEYS = [
 const kbd = (k) => el('dt', {}, ...k.split(' · ').flatMap((part, i) => (i ? [' · ', el('kbd', {}, part)] : [el('kbd', {}, part)])));
 const list = (rows, keys = false) => el('dl', { className: 'keys' }, rows.flatMap(([k, v]) => [keys ? kbd(k) : el('dt', {}, k), el('dd', {}, v)]));
 
-// ---- 선생님: the 2D 선생님을 위한 안내 ([label, text], label null for a paragraph without one)
+// ---- 선생님: the 2D 선생님을 위한 안내 ([label, text], label null for a paragraph without one), but 열람 tells the
+// public address on GitHub Pages instead of the 2D's private build (Q8)
 export const TEACHER = [
   ['대상:', '아이스크림 초등 사회 3학년 1학기 1단원 연계 활동용 게임. 장소 경험 떠올리기, 주변 장소의 특징 알아보기, 친구에게 소개하기를 중심으로 구성했어요. 교과서 문장을 옮기지 않고 새로운 설명과 문항을 작성했어요.'],
   [null, '교과서의 정확한 차시·쪽수와 책으로 된 홍성 지역화 교재의 내용은 아직 대조하지 않았어요. 정식 수업용 문항은 교재 검토 후 확정해야 해요.'],
   ['구현 범위:', '홍성군의 3읍·8면 전체를 한 지도에서 이동하며 223개 장소를 탐방해요. 관공서·학교·가게·역사 유적·박물관·축제·시장·특산물·먹거리·카페·공원·휴양림을 유형별 아이콘으로 표시했어요. 지도에 없는 시설도 있어 전체 시설 명부와 같지는 않아요.'],
   ['보상:', '일상 장소 10금화, 공공·자연 장소 40~80금화, 지역 문화유산·무형문화 100금화, 시장·특산물·축제 60~100금화. 첫 발견에만 지급하고 퀴즈 보너스도 한 번만 받아요. 순위 경쟁은 없어요.'],
   ['저장:', '이름·계정·GPS 없이 브라우저에 저장해요. 브라우저 데이터 삭제나 시크릿 모드에서는 기록이 사라질 수 있어요. 결과 또는 이어하기 파일을 내려받아 보관할 수 있어요.'],
-  ['열람:', '현재 사이트는 제작자 확인용 비공개 버전이에요. QR 코드는 접속 주소를 담고 있으며 사이트 열람 권한을 바꾸지는 않아요.'],
+  ['열람:', '누구나 https://doguri25.github.io/hongseong-adventure/ 에서 열 수 있어요. QR 코드는 이 접속 주소를 담고 있어요.'],
 ];
 
 // ---- 자료 출처: the 2D game's own files, named as the 2D help names them. Each links to the copy the build puts in

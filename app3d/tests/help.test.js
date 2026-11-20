@@ -35,9 +35,13 @@ test('every 2D download in the help exists in the 2D game, is linked by the 2D h
   }
 });
 
-test('the teacher notes are the 2D 선생님을 위한 안내, word for word', () => {
+test('the teacher notes are the 2D 선생님을 위한 안내, word for word, but 열람 gives the public Pages address (Q8)', () => {
   assert.equal(TEACHER.length, 6);
+  const open = TEACHER.find(([label]) => label === '열람:');
+  assert.equal(open?.[1], '누구나 https://doguri25.github.io/hongseong-adventure/ 에서 열 수 있어요. QR 코드는 이 접속 주소를 담고 있어요.');
+  assert.ok(open[1].includes(QR_URL));
   for (const [label, text] of TEACHER) {
+    if (label === '열람:') continue;
     if (!label) { assert.ok(game.includes(`<p>${text}</p>`), text.slice(0, 20)); continue; }
     const at = game.indexOf(`<strong>${label}</strong> `);
     assert.ok(at > 0, label);
