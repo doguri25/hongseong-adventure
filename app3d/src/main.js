@@ -4,7 +4,9 @@
 // the 2D sounds and voice (game/sound.js over #game/audio.js). Boot: fetch data -> height field (+ water carving) ->
 // world layers -> road services -> actors, places, NPCs -> restore the session -> the title menu (paused) -> loop
 // (simulate -> camera -> actors/world -> ground, props, buildings -> post render -> HUD -> auto quality every 2 s ->
-// save every 2 s while moving).
+// save every 2 s while moving). Since phase 2b this module is the game chunk: boot.js (the page's entry) imports it once
+// the start choice (game/view-choice.js) is the 3D, so the light-2D path never fetches it, Three.js or the world data.
+// Auto quality's frame windows also feed the low-frame-rate card (ui/lite-card.js), which offers the light 2D.
 import * as THREE from 'three';
 import { BOUNDS, M_LON, M_LAT, project, unproject, toRender, fromRender } from './frame.js';
 import { decodeFeatures, decodeBuildings, terrariumHeight } from './data/decode.js';
@@ -40,6 +42,8 @@ import { createNpcDialog } from './ui/npc.js';
 import { createFerryDialog, FERRY_HINT, VOYAGE_LABEL } from './ui/ferry.js';
 import { createHelpDialog, createAboutDialog } from './ui/help.js';
 import { createQrDialog } from './ui/qr.js';
+import { createLiteCard, slowWatch } from './ui/lite-card.js';
+import { writeView } from './game/view-choice.js';
 import { createSound, unlockOnPress } from './game/sound.js';
 import { createMenu } from './ui/menu.js';
 import { createMapDialog, MAP_KINDS } from './ui/county-map.js';
@@ -251,7 +255,7 @@ async function boot() {
     renderer, scene, camera, sky, lighting, ground, terrain, water, buildings, collider, props, placeLayer, places, npcLayer, actors, minimap,
     field, features, graph, navigator, waterGuard, services, world, state, extra, player, cam, held, docks, byId, post,
     Q, qstate, autoKey, view: null, missionPoint: null, turn: null, voyage: null, timeKey: extra.time, running: false,
-    frameTimes: [], lastCheck: 0, pausedAt: 0, announcedAt: -1, wide: null, fps: 0, saveAt: 0, hudAt: 0, waterNoteAt: -1e9, flyH: 0, speedFx: 0, tapRing: null, rendered: false,
+    frameTimes: [], lastCheck: 0, slow: slowWatch(), pausedAt: 0, announcedAt: -1, wide: null, fps: 0, saveAt: 0, hudAt: 0, waterNoteAt: -1e9, flyH: 0, speedFx: 0, tapRing: null, rendered: false,
   };
   Object.defineProperties(G, {   // the trip (game/travel.js) as the debug hook and the smoke see it
     target: { get: () => G.travel.target, set: (v) => { if (v) startTrip(G.travel, v); else clearTarget(); } },
@@ -280,6 +284,7 @@ async function boot() {
     help: createHelpDialog(document, { ...shell, settings: settingsView, setting: applySetting }),
     about: createAboutDialog(document, shell),
     qr: createQrDialog(document, { ...shell, toast: (m) => hud.toast(m) }),
+    lite: createLiteCard(document, { ...shell, lite: leaveForLite }),   // the low-frame-rate card (spec §9)
   };
   unlockOnPress(window, sound, () => state);
   document.addEventListener('click', (e) => { if (e.target.closest?.('button')) sound.press(); });   // the 2D click on every button
@@ -288,7 +293,7 @@ async function boot() {
     root: $('app'), returnFocus: canvas, getState: () => state, places, ctl, thumbs: G.thumbs,
     current: () => ({ mode: G.voyage ? 'boat' : player.mode, pending: player.pending }),
     settings: settingsView, setting: applySetting, dress, reset: resetProgress, importSave: importProgress,
-    changed, onClose: () => ctl.close(),
+    changed, lite: leaveForLite, onClose: () => ctl.close(),
   });
   // 홍성군 전체 지도 with 장소 찾기 and 주변 찾기 (P23): the controller's map, search and nearby kinds
   G.mapDialog = createMapDialog(document, {
@@ -681,6 +686,9 @@ function rewrite(write) {
   if (write()) { location.reload(); return true; }
   return (G.resetting = false);
 }
+// 가벼운 2D로 열기 (설정 or the low-frame-rate card), just before its link opens ./2d/: the save is written (the 2D reads
+// the same hongseong-adventure-v1) and this device remembers the 2D until ?view=3d (game/view-choice.js)
+function leaveForLite() { save(); writeView(storage, '2d'); }
 
 function resize() {
   if (!G) return;
@@ -697,14 +705,18 @@ function resize() {
 }
 
 // automatic quality: on the median frame time of the last 2 s, resolution first, then bloom, MSAA, shadows and the
-// geometry budget (render/quality.js nextQuality)
+// geometry budget (render/quality.js nextQuality). The same window, at the quality it was drawn at, goes to the
+// low-frame-rate watch first (ui/lite-card.js): 10 s under 20 fps with nothing lighter left offers the light 2D, once
+// per session and only in play (the window is taken in play; an arrival may have paused the game since)
 function autoQuality() {
   const times = G.frameTimes; G.frameTimes = [];
   if (!times.length) return;
   const med = times.slice().sort((a, b) => a - b)[Math.floor(times.length / 2)];
   G.fps = Math.round(1000 / med);
   hud.setFps(G.fps);
-  if (document.hidden || times.length < 2) return;   // a very slow device still steps down every few seconds
+  if (document.hidden) return;
+  if (G.slow.sample(times, med, G.qstate) && !G.ctl.paused() && G.panels.lite.due()) G.ctl.open('lite');
+  if (times.length < 2) return;   // a very slow device still steps down every few seconds
   applyQuality(nextQuality(G.qstate, med));
 }
 

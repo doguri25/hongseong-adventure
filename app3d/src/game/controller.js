@@ -5,7 +5,8 @@
 //   screen: 'title'|'play' (starts 'play'; 'title' while open('menu', {title: true}) is showing, the boot title menu),
 //   dialog: null|{kind, data}, paused(), open(kind, data), close(clearQueue),
 //   onArrive(place, physical), onNpc(npc), startMission(id), goTo(placeId), setMode(mode), dayTick(now, force) }
-// Dialog kinds: place {place, physical} | npc {npc} | ferry | menu | map | search | nearby | help {section} | about | qr.
+// Dialog kinds: place {place, physical} | npc {npc} | ferry | menu | map | search | nearby | help {section} | about | qr |
+// lite (the low-frame-rate card, ui/lite-card.js).
 // goTo (찾아가기, every path: journal, place dialog, mission start, map, HUD 길 안내, a pin tap: P30) follows the 2D
 // goToPlace -> navigate (P24 widened): a story-only place opens its story ('story'); nothing else while the ferry sails
 // (false, any dialog closed); a place already in reach opens as a visit ('visit', P24); 죽도 from the mainland on the

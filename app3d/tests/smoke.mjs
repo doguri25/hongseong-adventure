@@ -43,7 +43,17 @@
 // dialog; the QR's first focus wholly in view, ring included; the ferry dialog's at-the-pier wording; and, at the desktop and tablet
 // (checkGuided), a guided walk in 길로만 mode to 홍성초등학교 that opens it at the route end, and a guided trip through
 // 홍성읍 that opens only its target and keeps the 직행 bonus.
-// Screenshots go to OUT (SMOKE_OUT, default a folder in the system temp directory; SMOKE_ONLY=2d,tablet,phone,landscape
+// Phase 2b Task 3, the start choice (checkViews, contexts of its own): ?view=2d opens /2d/ and remembers it
+// (localStorage['hongseong-view-v1']), and the 2D shows the progress made in the 3D (its discovery count and 수첩 badge);
+// progress made in the 2D (a story place, the 수첩 note) shows in the 3D; a later plain visit opens the 2D again;
+// ?view=3d opens the 3D and clears the choice, and the next visit stays 3D; with getContext('webgl2') returning null the
+// root lands on /2d/ unremembered; blocked storage still boots the 3D (or the 2D without WebGL2); every 2D path fetches
+// neither the 3D game chunk nor data/; 설정 › 가벼운 2D로 열기 and the low-frame-rate card's link open /2d/ and remember
+// it, and the teacher's address beside the row brings the 3D back. At all four viewports the 설정 row and its note pass
+// the sizes and fonts (checkMenu), and the low-frame-rate card (checkLiteCard) comes on the real measurement: SwiftShader
+// draws far under 20 fps, so at 화질 낮음 10 s of play brings it; it is a dialog over play, never behind another dialog,
+// once per session. Every other check runs with the card's session flag set (an init script), so it never comes up there.
+// Screenshots go to OUT (SMOKE_OUT, default a folder in the system temp directory; SMOKE_ONLY=2d,views,tablet,phone,landscape
 // runs only those passes).
 import http from 'node:http';
 import fs from 'node:fs';
@@ -68,6 +78,9 @@ const SUB = '/hongseong-adventure/';
 const OUT = process.env.SMOKE_OUT || path.join(os.tmpdir(), 'hongseong-3d-smoke');
 const READY_MS = Number(process.env.SMOKE_READY_MS) || 240000;
 const MODES = ['walk', 'bike', 'car', 'supercar', 'slowplane', 'plane'];
+// the start choice (game/view-choice.js VIEW_KEY) and the low-frame-rate card's once-per-session flag (ui/lite-card.js
+// SEEN_KEY, in sessionStorage); written out here so a renamed key fails the smoke
+const VIEW_KEY = 'hongseong-view-v1', SEEN_KEY = 'hongseong-lite-card-v1', SAVE_KEY = 'hongseong-adventure-v1';
 const MIME = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8',
   '.css': 'text/css; charset=utf-8', '.json': 'application/json', '.png': 'image/png', '.webp': 'image/webp', '.jpg': 'image/jpeg',
@@ -132,14 +145,14 @@ const TEXT_15 = ['#where', '.stats', '.hint', '.credit .lead', '.credit summary'
   '.place-hero figcaption', '#place-caption', '.speech', '.speech small', '.quiz .options button', '.quiz .q-text', '.quiz .lead', '.rv p', '.rv .num small', '.src p', '.src .facts span',
   '.map-note', '.mview .lead', '.cp-text strong', '.story-body p', '.search-input', '.opt-text strong', '.opt-text small', '.search-empty', '.empty-note', '.near-title', '.near-search', '.place-row h4', '.place-row p',
   '#voyage-status', '.npc-speech', '.npc-text .note', '#ferry-body p', '#help-body p', '.help-sec li', '.keys dd', '#about-body p', '#about-body dd', '.qr-text p', '.qr-url', '#qr-status',
-  '#records-status'];
+  '#records-status', '#lite-note', '.lite-addr', '#lite-body p'];
 const LABEL_MIN = [['.travel button span', 13], ['.travel button small', 12], ['.dialog .tag', 13], ['.skill .lbl', 13], ['.skill small', 12], ['.mission-kick', 13], ['#mission-title', 13], ['.mission .badge', 13], ['.mission-foot .btn', 13], ['#speed-factor', 12], ['.cam-pad button', 13],
   ['.menu .tabs [role="tab"]', 13], ['.menu h3', 13], ['.mis-kick', 13], ['.mis-card h4', 13], ['.mis-card .btn', 13], ['.ride-head b', 13], ['.card .factor', 12], ['.shop-cats .cat', 13], ['.card.char b', 13], ['.card.char span', 13], ['.product h4', 13], ['.product .buy', 13], ['.opt-name', 13], ['.seg button', 13], ['.menu select', 13], ['.menu .settings > .btn', 13], ['.reset-confirm .btn', 13], ['.menu .go', 13],
   ['.j-filters button', 13], ['.j-tag', 13], ['.j-stamp', 13], ['.j-card b', 13], ['.j-actions .btn', 13],
   ['#place-kind', 13], ['.dialog .speaker', 13], ['.dialog .page-num', 13], ['#place-footer .btn', 13], ['.q-kick', 13], ['.quiz .options b', 13], ['.voice-status', 13], ['.src .btn', 13], ['.src h3', 13],
   ['.map-tabs [role="tab"]', 13], ['.map-tools button', 13], ['#map-zoom', 13], ['.map-side h3', 13], ['.districts button', 13], ['.cp-text small', 13], ['.map-more summary', 13], ['.legend-item', 13], ['.story-body h4', 13], ['.story-body .btn', 13], ['.row-tag', 13], ['#map-back', 13], ['.near-filters button', 13], ['.place-row .go', 13], ['.mis-tools .btn', 13],
   ['.npc-topics [role="tab"]', 13], ['.npc-text h3', 13], ['#npc-footer .btn', 13], ['#ferry-footer .btn', 13], ['.help-tabs [role="tab"]', 13], ['.help-sec h3', 13], ['.help-sec h4', 13], ['.keys dt', 13], ['.panel-dialog .links .btn', 13], ['.panel-dialog footer .btn', 13], ['.about-info dt', 13], ['.qr-text h3', 13], ['#copy-link', 13],
-  ['.records .btn', 13]];
+  ['.records .btn', 13], ['#open-2d', 13], ['#lite-footer .btn', 13]];
 // touch screens: nothing interactive in the stick zone (left 42 % of the width, lower 45 % of the height) while
 // playing; the discovery chip (a button: the 수첩) clear of every other HUD piece; overlaps() as ui/dom.js: edges that
 // only touch do not count
@@ -214,6 +227,29 @@ async function checkMenu(page, name, spec, shot) {
     await checkMenuLayout(page, name, tab);
     await shot(`menu-${tab}`);
   }
+  // 설정 › 안내: 가벼운 2D로 열기 (./2d/, phase 2b Task 3) and, beside it, the teacher's way back (?view=3d at the end of
+  // the 3D's own address); sizes, fonts and layout with the row in view. Pressing it is checked in checkViews.
+  const lite = await page.evaluate(() => {
+    document.getElementById('tab-settings').click();
+    const a = document.getElementById('open-2d'), note = document.getElementById('lite-note');
+    a.scrollIntoView({ block: 'center' });
+    const r = a.getBoundingClientRect(), n = note.getBoundingClientRect(), row = a.parentElement.getBoundingClientRect();
+    return { shown: !a.hidden && getComputedStyle(a).display !== 'none' && r.width > 0, text: a.textContent, href: a.href, tag: a.tagName,
+      note: note.hidden ? null : note.textContent, addr: document.getElementById('lite-addr')?.textContent, block: a.closest('.opt-links') === note.closest('.opt-links'),
+      // ?view=3d is never split over two lines, in the sentence or in the address (one box each)
+      whole: [...note.querySelectorAll('.nowrap')].map((s) => s.getClientRects().length),
+      under: n.top >= row.bottom - 0.5 && n.top - row.bottom < 40, inView: r.top >= 0 && r.bottom <= innerHeight };
+  });
+  const base = new URL(SUB, page.url()).href;
+  check(lite.shown && lite.tag === 'A' && lite.text === '가벼운 2D로 열기' && lite.href === base + '2d/' && lite.inView, `${name}: 설정 › 안내 shows 가벼운 2D로 열기 linking to ${lite.href}`);
+  check(!!lite.note && lite.note.includes('선생님') && lite.note.includes('?view=3d') && lite.addr === base + '?view=3d' && lite.block && lite.under,
+    `${name}: beside it a note tells a teacher that ?view=3d brings the 3D back, with the address ${lite.addr} ("${(lite.note || '').slice(0, 80)}…")`);
+  check(lite.whole.length === 2 && lite.whole.every((n) => n === 1), `${name}: ?view=3d stays on one line in the note and in the address (line boxes ${lite.whole.join(', ')})`);
+  await sleep(300);
+  await checkUi(page, name, 'menu settings 가벼운 2D', touch);
+  await checkMenuLayout(page, name, 'settings 가벼운 2D');
+  await shot('menu-settings-lite');
+  await page.evaluate(() => { document.getElementById('menu-scroll').scrollTop = 0; });
   // 탈것: a card switches the mode (or says why not)
   const ride = await page.evaluate(() => { document.getElementById('tab-vehicles').click(); document.querySelector('#pane-vehicles [data-mode="bike"]').click(); const r = { mode: window.__hs3d.player.mode, pressed: document.querySelector('#pane-vehicles [data-mode="bike"]').getAttribute('aria-pressed'), status: document.getElementById('ride-status').textContent }; document.querySelector('#pane-vehicles [data-mode="walk"]').click(); return { ...r, back: window.__hs3d.player.mode }; });
   check((ride.mode === 'bike' && ride.pressed === 'true' || ride.status.length > 0) && ride.back === 'walk', `${name}: the 자전거 card switches the mode (${ride.mode}${ride.status ? ' · "' + ride.status + '"' : ''}) and 걷기 switches back`);
@@ -1763,9 +1799,89 @@ async function checkWardrobeFx(page, name, spec, shot, sheets) {
   await page.evaluate(() => { const W = window.__hs3d.world; W.target = null; W.player.route = null; });
 }
 
+// The low-frame-rate card (spec §9, ui/lite-card.js) at this viewport, on the real measurement: 화질 낮음 (the lightest
+// quality) through 설정, the session's flag cleared, then play; SwiftShader draws far under 20 fps, so 10 s of play
+// brings the card. It is a dialog over play (paused, the focus inside on 3D로 계속하기, Tab kept in, the HUD inert) with
+// 3D로 계속하기 and 가벼운 2D로 열기 (./2d/), passing the sizes, fonts and layout. The desktop also keeps the menu open long
+// enough for it and sees it wait (never behind a dialog), and closes it once with Escape. 3D로 계속하기 closes into play
+// and it does not come again this session, though play stays slow. Then 화질 자동 again. Its link: checkViews.
+async function checkLiteCard(page, name, spec, shot) {
+  const touch = !!spec.touch, desktop = !touch;
+  const cardOpen = () => page.evaluate(() => !document.getElementById('lite-dialog').hidden);
+  const waitCard = async (ms) => { try { await page.waitForFunction(() => !document.getElementById('lite-dialog').hidden, null, { timeout: ms, polling: 250 }); return true; } catch { return false; } };
+  const setup = await page.evaluate((KEY) => {
+    const W = window.__hs3d.world;
+    for (let i = 0; i < 4 && W.ctl.paused(); i++) window.__hs3d.closeDialogs();
+    W.target = null;
+    document.getElementById('home-btn').click(); document.getElementById('tab-settings').click();
+    document.querySelector('[data-setting="quality"] [data-value="low"]').click();
+    sessionStorage.removeItem(KEY);   // the init script set it so the other checks run without the card
+    return { mode: W.qstate.mode, menu: W.ctl.dialog?.kind, flag: sessionStorage.getItem(KEY) };
+  }, SEEN_KEY);
+  check(setup.mode === 'low' && setup.menu === 'menu' && setup.flag === null, `${name}: low-fps card set up: 화질 낮음 through 설정, the session flag cleared (${JSON.stringify(setup)})`);
+  if (desktop) {
+    // a dialog open for longer than the card needs: it does not come behind it
+    await sleep(14000);
+    const behind = await page.evaluate(() => ({ card: !document.getElementById('lite-dialog').hidden, kind: window.__hs3d.ctl.dialog?.kind }));
+    check(!behind.card && behind.kind === 'menu', `${name}: the low-fps card does not come while the menu is open for 14 s (${JSON.stringify(behind)})`);
+  }
+  const t0 = Date.now();
+  await page.evaluate(() => document.getElementById('menu-go').click());   // into play
+  let shown = await waitCard(60000);
+  const st = await page.evaluate(() => {
+    const W = window.__hs3d.world, panel = document.getElementById('lite-panel'), a = document.activeElement;
+    return { kind: W.ctl.dialog?.kind, paused: W.ctl.paused(), role: panel.getAttribute('role'), modal: panel.getAttribute('aria-modal'), title: document.getElementById('lite-title').textContent,
+      focus: a?.id, inside: panel.contains(a), hudInert: document.querySelector('.hud-br').inert, canvasInert: document.getElementById('c').inert,
+      buttons: [...panel.querySelectorAll('footer .btn')].map((b) => [b.tagName, b.id, b.textContent, b.href || '']), fps: W.fps, slowMs: W.slow.slowMs, quality: W.qstate.mode };
+  });
+  const base = new URL(SUB, page.url()).href;
+  const want = JSON.stringify([['BUTTON', 'lite-stay', '3D로 계속하기', ''], ['A', 'lite-open', '가벼운 2D로 열기', base + '2d/']]);
+  check(shown && st.kind === 'lite' && st.paused && st.role === 'dialog' && st.modal === 'true' && st.focus === 'lite-stay' && st.inside && st.hudInert && JSON.stringify(st.buttons) === want && st.slowMs >= 10000,
+    `${name}: after ${((Date.now() - t0) / 1000).toFixed(1)} s of play at ${st.fps} fps the low-fps card opens over play: paused, focus on 3D로 계속하기, the HUD inert, 3D로 계속하기 and 가벼운 2D로 열기 → ./2d/ (${JSON.stringify(st)})`);
+  if (!shown) return;
+  await sleep(400);
+  await checkUi(page, name, 'low-fps card', touch);
+  await checkPanelLayout(page, name, 'low-fps card', 'lite-panel');
+  await shot('lite-card');
+  const tabs = [];
+  for (const key of [...Array(6).fill('Tab'), ...Array(3).fill('Shift+Tab')]) {
+    await page.keyboard.press(key);
+    tabs.push(await page.evaluate(() => { const a = document.activeElement; return { id: a?.id || a?.tagName, inside: !!a?.closest('#lite-panel'), body: a === document.body || a === null }; }));
+  }
+  // as tabStaysIn: past the last control the focus may leave the page (the body), never reach a control outside the card
+  const outside = tabs.filter((t) => !t.inside && !t.body).map((t) => t.id), visited = new Set(tabs.filter((t) => t.inside).map((t) => t.id));
+  check(outside.length === 0 && visited.size >= 2, `${name}: Tab stays inside the low-fps card (${[...visited].join(', ')} visited${outside.length ? ' — reached ' + outside.join(', ') : ''})`);
+  if (desktop) {
+    // Escape is 3D로 계속하기 too; with the flag cleared once more it comes back on the next slow window
+    await page.keyboard.press('Escape');
+    const esc = await page.evaluate((KEY) => ({ card: !document.getElementById('lite-dialog').hidden, paused: window.__hs3d.ctl.paused(), focus: document.activeElement?.id, flag: sessionStorage.getItem(KEY) }), SEEN_KEY);
+    check(!esc.card && !esc.paused && esc.focus === 'c' && esc.flag === '1', `${name}: Escape closes the low-fps card into play, focus on the map, the session flag set (${JSON.stringify(esc)})`);
+    await page.evaluate((KEY) => sessionStorage.removeItem(KEY), SEEN_KEY);
+    const again = await waitCard(30000);
+    check(again, `${name}: with the flag cleared the card comes again on the next slow window`);
+  }
+  await page.click('#lite-stay');
+  const stay = await page.evaluate((KEY) => ({ card: !document.getElementById('lite-dialog').hidden, paused: window.__hs3d.ctl.paused(), screen: window.__hs3d.ctl.screen, focus: document.activeElement?.id, hudInert: document.querySelector('.hud-br').inert, flag: sessionStorage.getItem(KEY) }), SEEN_KEY);
+  check(!stay.card && !stay.paused && stay.screen === 'play' && stay.focus === 'c' && !stay.hudInert && stay.flag === '1', `${name}: 3D로 계속하기 closes the card into play, focus on the map (${JSON.stringify(stay)})`);
+  await sleep(8000);
+  const once = await page.evaluate(() => ({ card: !document.getElementById('lite-dialog').hidden, slowMs: window.__hs3d.world.slow.slowMs, fps: window.__hs3d.world.fps }));
+  check(!once.card && once.slowMs >= 10000, `${name}: the card does not come again this session though play stays slow (${JSON.stringify(once)})`);
+  const auto = await page.evaluate(() => {
+    const W = window.__hs3d.world;
+    document.getElementById('home-btn').click(); document.getElementById('tab-settings').click();
+    document.querySelector('[data-setting="quality"] [data-value="auto"]').click();
+    document.getElementById('menu-go').click();
+    return { mode: W.qstate.mode, paused: W.ctl.paused() };
+  });
+  check(auto.mode === 'auto' && !auto.paused, `${name}: 화질 자동 again after the card check`);
+}
+
 async function run(browser, site, spec) {
   const { name, viewport, touch } = spec;
   const ctx = await browser.newContext({ viewport, hasTouch: touch, isMobile: touch, deviceScaleFactor: touch ? 2 : 1, locale: 'ko-KR' });
+  // SwiftShader draws far under 20 fps: without its session flag the low-frame-rate card would come up in the middle of
+  // the other checks. checkLiteCard clears it to bring the card on purpose; every load (the reloads too) sets it again
+  await ctx.addInitScript((KEY) => { try { sessionStorage.setItem(KEY, '1'); } catch {} }, SEEN_KEY);
   const page = await ctx.newPage();
   const errors = [];
   page.on('pageerror', (e) => errors.push(String(e && e.stack || e)));
@@ -1826,6 +1942,7 @@ async function run(browser, site, spec) {
   await checkTalk(page, name, spec, shot);
   if (spec.guided) await checkGuided(page, name);
   await checkWardrobeFx(page, name, spec, shot, sheets);
+  await checkLiteCard(page, name, spec, shot);
   await shot('1-start');
   if (spec.quick) {
     // touch tablet: the credit stays a collapsed toggle, and a short still touch in the stick zone taps the map
@@ -2004,6 +2121,183 @@ async function check2d(browser, site) {
   await ctx.close();
 }
 
+// The start choice (phase 2b Task 3: boot.js, game/view-choice.js) at 1280 x 760, in contexts of its own: which files
+// each path fetches (the 2D paths: neither the 3D game chunk nor anything under data/ or models/, no 3D script but the
+// entry), the stored choice localStorage['hongseong-view-v1'], and the progress both games share
+// (localStorage['hongseong-adventure-v1']: found in the 3D shows in the 2D's count and 수첩 badge; a story place and the
+// 수첩 note made in the 2D show in the 3D).
+async function checkViews(browser, site) {
+  const name = 'views';
+  const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
+  const entry = html.match(/<script type="module"[^>]*src="\.\/(assets\/[^"]+\.js)"/)?.[1] || '';
+  const entryCode = entry ? fs.readFileSync(path.join(ROOT, entry), 'utf8') : '';
+  const game = entryCode.match(/["'`](?:\.\/|assets\/)(main-[\w-]+\.js)["'`]/)?.[1] || '';   // boot.js's import('./main.js')
+  const scripts = [...html.matchAll(/<(?:script|link)\b[^>]*(?:src|href)="([^"]+\.js)"/g)].map((m) => m[1]);
+  check(!!entry && !!game && JSON.stringify(scripts) === JSON.stringify(['./' + entry]) && entryCode.length < 20000,
+    `${name}: the page loads one small script, the entry ${entry} (${(entryCode.length / 1024).toFixed(1)} kB), and no modulepreload; the game is its own chunk assets/${game} (scripts: ${scripts.join(', ')})`);
+  const GAME = SUB + 'assets/' + game, FEATURES = SUB + 'data/features.json', ENTRY = SUB + entry;
+  // nothing of the 3D game: no game chunk, no world data or models, no 3D script but the entry
+  const heavy = (list) => list.filter((p) => p === GAME || p.startsWith(SUB + 'data/') || p.startsWith(SUB + 'models/') || (p.startsWith(SUB + 'assets/') && p.endsWith('.js') && p !== ENTRY));
+  const on2d = (u) => new URL(u).pathname === SUB + '2d/';
+  const errors = [];
+  async function open(opts = {}, init = []) {
+    const ctx = await browser.newContext({ viewport: { width: 1280, height: 760 }, locale: 'ko-KR', ...opts });
+    await ctx.addInitScript((KEY) => { try { sessionStorage.setItem(KEY, '1'); } catch {} }, SEEN_KEY);   // the card only on purpose (step 9)
+    for (const fn of init) await ctx.addInitScript(fn);
+    const page = await ctx.newPage(), reqs = [];
+    page.on('pageerror', (e) => errors.push(String(e && e.stack || e)));
+    page.on('console', (m) => { if (m.type() === 'error') console.log(`  [${name} console.error] ${m.text().slice(0, 300)}`); });
+    page.on('request', (r) => reqs.push(new URL(r.url()).pathname));
+    return { ctx, page, reqs };
+  }
+  const ready3d = (page) => page.waitForFunction(() => window.__hs3d && window.__hs3d.ready === true, null, { timeout: READY_MS, polling: 250 }).then(() => true, () => false);
+  const ready2d = (page) => page.waitForFunction(() => document.getElementById('map-loading')?.hidden === true, null, { timeout: 60000, polling: 250 }).then(() => true, () => false);
+  // a visit that should land on the 2D: boot.js replaces the page with ./2d/ before the root's load
+  async function to2d(page, url) {
+    await page.goto(url, { waitUntil: 'commit' }).catch(() => {});
+    await page.waitForURL(on2d, { waitUntil: 'load', timeout: 30000 }).catch(() => {});
+    return on2d(page.url()) && await ready2d(page);
+  }
+  const stored = (page) => page.evaluate((K) => { try { return localStorage.getItem(K); } catch { return 'blocked'; } }, VIEW_KEY);
+  const saved = (page) => page.evaluate((K) => JSON.parse(localStorage.getItem(K) || '{}'), SAVE_KEY);
+  const count2d = (page) => page.evaluate(() => ({ path: location.pathname, title: document.title, count: document.getElementById('discovery-count')?.textContent, badge: document.getElementById('journal-badge')?.textContent, badgeShown: !document.getElementById('journal-badge')?.hidden }));
+  // the 2D's own count (app2d/game.js update): the places of its region found; the 수첩 badge: every place found
+  const local2d = (ids, region = 'county') => PLACES.filter((p) => !p.remote && (p.region || 'naepo') === region && ids.includes(p.id)).length;
+
+  const A = await open();
+  let { page, reqs } = A, from;
+  // 1. ?view=3d: the 3D, no choice stored; the game chunk and the world data are fetched (the control for the 2D paths)
+  from = reqs.length;
+  await page.goto(site + '?view=3d', { waitUntil: 'load' });
+  let ok = await ready3d(page), got = reqs.slice(from);
+  check(ok && new URL(page.url()).pathname === SUB && await stored(page) === null && got.includes(GAME) && got.includes(FEATURES),
+    `${name}: ?view=3d opens the 3D with no choice stored, fetching ${game} and data/features.json (${got.length} requests)`);
+  // progress made in the 3D: two places found on a physical visit, saved at once
+  const found = await page.evaluate(() => {
+    const W = window.__hs3d.world, got = [];
+    for (const p of W.places) {
+      if (got.length >= 2) break;
+      for (let i = 0; i < 4 && W.ctl.paused(); i++) window.__hs3d.closeDialogs();
+      if (!window.__hs3d.teleport(p.point[0] + 8, p.point[1] + 8)) continue;
+      window.__hs3d.openPlace(p.id);
+      if (W.dialog.isOpen && W.dialog.place?.id === p.id && W.state.discovered.includes(p.id)) got.push(p.id);
+    }
+    for (let i = 0; i < 4 && W.ctl.paused(); i++) window.__hs3d.closeDialogs();
+    return got;
+  });
+  const save3d = await saved(page);
+  check(found.length === 2 && found.every((id) => save3d.discovered?.includes(id)), `${name}: the 3D finds ${found.join(', ')} on a physical visit and saves them (${save3d.discovered?.length} found, ${save3d.coins} coins)`);
+
+  // 2. ?view=2d: the 2D page, the choice remembered, nothing of the 3D game fetched; it shows the 3D's progress
+  from = reqs.length;
+  ok = await to2d(page, site + '?view=2d');
+  got = reqs.slice(from);
+  let c = await count2d(page);
+  check(ok && c.title.startsWith('홍성 모험 수첩') && await stored(page) === '2d' && heavy(got).length === 0,
+    `${name}: ?view=2d lands on ${c.path} ("${c.title}") and remembers 2d; no 3D game fetched${heavy(got).length ? ' — fetched ' + heavy(got).join(', ') : ''}`);
+  check(c.count === String(local2d(save3d.discovered || [])) && c.badge === String(save3d.discovered?.length) && c.badgeShown,
+    `${name}: the 2D reads the 3D's progress: 발견 ${c.count} (the 2D count), 수첩 badge ${c.badge} (${found.join(', ')})`);
+  await page.screenshot({ path: path.join(OUT, `${name}-1-2d-from-3d.png`) });
+  // progress made in the 2D: a story place found from its 수첩, and the 수첩 note (the 2D saves the whole state on it)
+  const NOTE2 = '2D에서 적었어요. 3D에서도 보여요!';
+  const story = PLACES.find((p) => p.remote).id;
+  const made = await page.evaluate(async ([id, note]) => {
+    const tick = () => new Promise((r) => setTimeout(r, 300)), $ = (i) => document.getElementById(i);
+    if (!$('journal-button')) return { story: false, badge: null };   // not on the 2D page
+    $('journal-button').click(); await tick();
+    document.querySelector(`[data-place="${id}"]`)?.click(); await tick();
+    const story = !!$('place-dialog')?.open;
+    document.querySelector('#place-dialog [data-close]')?.click(); await tick();
+    $('journal-button').click(); await tick();
+    const ta = $('my-note');
+    if (ta) { ta.value = note; ta.dispatchEvent(new Event('input', { bubbles: true })); }
+    return { story, badge: $('journal-badge')?.textContent };
+  }, [story, NOTE2]);
+  const save2d = await saved(page);
+  check(made.story && save2d.discovered?.includes(story) && save2d.note === NOTE2 && found.every((id) => save2d.discovered.includes(id)),
+    `${name}: in the 2D, the story place ${story} is found from the 수첩 and the note is written; the 2D saves both (badge ${made.badge})`);
+
+  // 3. a later plain visit: the 2D again, still nothing of the 3D game fetched
+  from = reqs.length;
+  ok = await to2d(page, site);
+  got = reqs.slice(from);
+  check(ok && await stored(page) === '2d' && heavy(got).length === 0 && got.includes(ENTRY), `${name}: a later plain visit to ${SUB} opens the 2D again (only the entry ran${heavy(got).length ? ' — fetched ' + heavy(got).join(', ') : ''})`);
+
+  // 4. ?view=3d: the 3D again, the choice cleared; it shows the 2D's story place and note
+  from = reqs.length;
+  await page.goto(site + '?view=3d', { waitUntil: 'load' });
+  ok = await ready3d(page);
+  const back = ok ? await page.evaluate(() => { const W = window.__hs3d.world; document.getElementById('tab-journal').click(); return { found: W.state.discovered, note: document.getElementById('journal-note')?.value, path: location.pathname }; }) : { found: [] };
+  check(ok && back.path === SUB && await stored(page) === null && back.found.includes(story) && found.every((id) => back.found.includes(id)) && back.note === NOTE2,
+    `${name}: ?view=3d opens the 3D and clears the choice; it shows the 2D's progress (${story} found, the 수첩 note "${back.note}")`);
+  await page.screenshot({ path: path.join(OUT, `${name}-2-3d-from-2d.png`) });
+
+  // 5. the next plain visit stays 3D
+  from = reqs.length;
+  await page.goto(site, { waitUntil: 'load' });
+  ok = await ready3d(page);
+  got = reqs.slice(from);
+  check(ok && new URL(page.url()).pathname === SUB && await stored(page) === null && got.includes(GAME), `${name}: the next plain visit stays 3D`);
+
+  // 6. 설정 › 가벼운 2D로 열기: remembers the 2D and opens ./2d/ (pressed as a child would); the 3D's progress goes along
+  const addr = await page.evaluate(() => { document.getElementById('tab-settings')?.click(); return document.getElementById('lite-addr')?.textContent || ''; });
+  from = reqs.length;
+  await page.click('#open-2d', { timeout: 10000 }).catch(() => {});
+  await page.waitForURL(on2d, { waitUntil: 'load', timeout: 30000 }).catch(() => {});
+  ok = on2d(page.url()) && await ready2d(page);
+  got = reqs.slice(from);
+  c = await count2d(page);
+  check(ok && await stored(page) === '2d' && heavy(got).length === 0 && c.badge === String(back.found.length),
+    `${name}: 설정 › 가벼운 2D로 열기 opens ${c.path} and remembers 2d; the 2D still shows ${c.badge} found`);
+
+  // 7. the teacher's way back, the address beside the row: the 3D, the choice cleared
+  ok = false;
+  if (addr) { await page.goto(addr, { waitUntil: 'load' }); ok = await ready3d(page); }
+  check(ok && addr === site + '?view=3d' && new URL(page.url()).pathname === SUB && await stored(page) === null, `${name}: the address beside the row (${addr}) brings the 3D back and clears the choice`);
+
+  // 8. the low-frame-rate card's 가벼운 2D로 열기: 화질 낮음, the session flag cleared, play until it comes, then its link
+  await page.evaluate((KEY) => {
+    document.getElementById('tab-settings')?.click();
+    document.querySelector('[data-setting="quality"] [data-value="low"]')?.click();
+    sessionStorage.removeItem(KEY);
+    document.getElementById('menu-go')?.click();
+  }, SEEN_KEY).catch(() => {});
+  const card = await page.waitForFunction(() => !document.getElementById('lite-dialog').hidden, null, { timeout: 60000, polling: 250 }).then(() => true, () => false);
+  if (card) {
+    await page.click('#lite-open');
+    await page.waitForURL(on2d, { waitUntil: 'load', timeout: 30000 }).catch(() => {});
+  }
+  ok = card && on2d(page.url()) && await ready2d(page);
+  check(ok && await stored(page) === '2d', `${name}: the low-fps card's 가벼운 2D로 열기 opens the 2D and remembers it (card ${card ? 'shown' : 'never came'})`);
+  await A.ctx.close();
+
+  // 9. no WebGL2 (getContext('webgl2') -> null): the root lands on the 2D, not remembered, nothing of the 3D game fetched
+  const B = await open({}, [() => {
+    const get = HTMLCanvasElement.prototype.getContext;
+    HTMLCanvasElement.prototype.getContext = function (type, ...rest) { return type === 'webgl2' ? null : get.call(this, type, ...rest); };
+  }]);
+  ok = await to2d(B.page, site);
+  check(ok && await stored(B.page) === null && !B.reqs.includes(GAME) && !B.reqs.includes(FEATURES) && heavy(B.reqs).length === 0 && B.reqs.includes(ENTRY),
+    `${name}: without WebGL2 the root lands on ${new URL(B.page.url()).pathname}, unremembered, with no request for ${game} or data/features.json${heavy(B.reqs).length ? ' — fetched ' + heavy(B.reqs).join(', ') : ''}`);
+  await B.page.screenshot({ path: path.join(OUT, `${name}-3-no-webgl2.png`) });
+  await B.ctx.close();
+
+  // 10. blocked storage (both storages throw, as with blocked site data): the 3D still boots; without WebGL2, the 2D
+  const blockStorage = () => {
+    for (const k of ['localStorage', 'sessionStorage']) Object.defineProperty(window, k, { configurable: true, get() { throw new DOMException('The operation is insecure.', 'SecurityError'); } });
+  };
+  const C = await open({}, [blockStorage]);
+  await C.page.goto(site, { waitUntil: 'load' });
+  ok = await ready3d(C.page);
+  check(ok && new URL(C.page.url()).pathname === SUB && C.reqs.includes(GAME), `${name}: with storage blocked the root still boots the 3D`);
+  await C.ctx.close();
+  const D = await open({}, [blockStorage, () => { const get = HTMLCanvasElement.prototype.getContext; HTMLCanvasElement.prototype.getContext = function (t, ...r) { return t === 'webgl2' ? null : get.call(this, t, ...r); }; }]);
+  ok = await to2d(D.page, site);
+  check(ok && heavy(D.reqs).length === 0, `${name}: with storage blocked and no WebGL2 the root lands on the 2D, nothing of the 3D game fetched`);
+  await D.ctx.close();
+  check(errors.length === 0, `${name}: no pageerror${errors.length ? ' — ' + errors.join(' | ').slice(0, 600) : ''}`);
+}
+
 async function main() {
   if (!fs.existsSync(path.join(ROOT, 'index.html'))) { console.error('dist/index.html missing: run npm run build first'); process.exit(1); }
   fs.mkdirSync(OUT, { recursive: true });
@@ -2015,6 +2309,7 @@ async function main() {
   const browser = await chromium.launch({ env, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--enable-webgl'] });
   try {
     if (!only || only.includes('2d')) await check2d(browser, site);
+    if (!only || only.includes('views')) await checkViews(browser, site);
     for (const spec of [
       { name: 'desktop', viewport: { width: 1280, height: 760 }, touch: false, tour: true, guided: true },
       { name: 'phone', viewport: { width: 390, height: 844 }, touch: true, tour: true },

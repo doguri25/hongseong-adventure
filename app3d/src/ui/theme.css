@@ -554,6 +554,10 @@ html.reduce-motion .mission .dots i.active { animation: none; }
 .opt-links:not(:has(.links > :not([hidden]))) { display: none; }
 .links { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
 .links a.btn { display: inline-flex; align-items: center; text-decoration: none; }
+/* beside 가벼운 2D로 열기: the teacher's way back, the 3D's address with ?view=3d on a line of its own (phase 2b) */
+.menu .opt-links .note { margin-top: 10px; }
+.nowrap { white-space: nowrap; }
+.lite-addr { display: block; margin-top: 2px; color: var(--cyan); font-weight: 700; overflow-wrap: anywhere; -webkit-user-select: all; user-select: all; }
 .reset-confirm { display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 2px solid rgba(255, 84, 104, .55); border-radius: 14px; background: rgba(255, 84, 104, .08); }
 .reset-confirm p { font-size: 15px; line-height: 1.55; }
 .reset-confirm .row { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -721,6 +725,11 @@ html.reduce-motion .map-note.away { transition: none; }
 .npc-text .note { margin: 8px 0 0; font-size: 15px; line-height: 1.5; color: var(--chip-sub); }
 
 .dialog.ferry { width: min(540px, 100%); }
+/* the low-frame-rate card (ui/lite-card.js): a short glass panel over play, 3D로 계속하기 and 가벼운 2D로 열기 */
+.dialog.lite { width: min(500px, 100%); }
+#lite-body p { margin: 0 0 10px; font-size: 16px; line-height: 1.65; word-break: keep-all; }
+#lite-body p.lead { color: #fff; }
+#lite-body p.sub { margin: 0; font-size: 15px; color: var(--chip-sub); }
 #ferry-body p { margin: 0 0 10px; font-size: 16px; line-height: 1.65; word-break: keep-all; }
 #ferry-body p.lead { font-weight: 700; color: #fff; }
 #ferry-body p.sub { margin: 0; font-size: 15px; color: var(--chip-sub); }
@@ -780,7 +789,7 @@ html.reduce-motion .map-note.away { transition: none; }
 @media (max-height: 460px) {
   .scrim.npc-scrim, .scrim.ferry-scrim { place-items: center; }
   .dialog.panel-dialog { height: 100%; }
-  .dialog.ferry { height: auto; }
+  .dialog.ferry, .dialog.lite { height: auto; }
   .dialog.npc, .dialog.qr { width: min(720px, 100%); }
   .panel-dialog header { padding: 4px 6px 4px 14px; gap: 6px; align-items: center; }
   .panel-dialog header .titles { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 10px; }

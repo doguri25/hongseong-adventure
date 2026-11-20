@@ -13,8 +13,9 @@ import { download, saveFile, SAVE_NAME, SAVE_FAILED } from '../game/files.js';
 import { missionCards } from '../game/missions.js';
 import { SHOP_CATEGORIES } from '#game/wardrobe.js';
 import { koreanVoices } from '#game/audio.js';
+import { backAddress } from '../game/view-choice.js';
 
-const LITE_2D = false;   // 가벼운 2D로 열기 (./2d/): phase 2b moves the 2D game there and turns this on
+const LITE_2D = true;   // 설정 › 가벼운 2D로 열기 (./2d/, phase 2b): the frozen 2D game, built into dist/2d/
 const TABS = ['missions', 'vehicles', 'wardrobe', 'journal', 'settings'];
 // the six vehicles: label, factor (ui/gauge.js factorLabel), one line about each
 export const RIDES = [
@@ -43,6 +44,8 @@ const NO_SPEECH = '이 브라우저는 설명 읽기를 지원하지 않아요.'
  *   thumbs                 ui/thumbs.js (paint(canvas, spec))
  *   reset()                기록 지우고 처음부터 (main.js wipes the save and reloads; false: it could not be written)
  *   importSave(state)      an accepted 이어하기 file (수첩): main.js stores it and reloads (false: not written)
+ *   lite()                 가벼운 2D로 열기 was pressed: main.js saves and remembers the 2D (hongseong-view-v1); the link
+ *                          itself then opens ./2d/
  *   onClose()              the menu asks to close
  */
 export function createMenu(doc, ctx) {
@@ -186,14 +189,19 @@ export function createMenu(doc, ctx) {
   }
 
   // ---- 설정: two- to four-way switches, the volume, the voice; the 안내 rows (도움말, 자료 출처 = the help at its sources,
-  // 만든 사람, QR: P26); the 2D link stays hidden until phase 2b
+  // 만든 사람, QR: P26) and 가벼운 2D로 열기, a plain link to ./2d/ that first has the choice remembered (ctx.lite), with the
+  // teacher's way back beside it: this page's address with ?view=3d (the frozen 2D has no link back, ruling Q2)
   const groups = [...panes.settings.querySelectorAll('[data-setting]')];
   for (const g of groups) for (const b of g.querySelectorAll('[data-value]')) b.onclick = () => { ctx.setting(g.dataset.setting, b.dataset.value); ctx.ctl.sound.play('click'); syncSettings(); };
   $('opt-volume').oninput = (e) => ctx.setting('volume', Number(e.target.value));
   $('opt-voice').onchange = (e) => ctx.setting('voice', e.target.value);
   $('voice-test').onclick = () => ctx.ctl.narrator.speak(VOICE_TEST);
   for (const b of panes.settings.querySelectorAll('[data-open]')) b.onclick = () => ctx.ctl.open(b.dataset.open, b.dataset.section ? { section: b.dataset.section } : {});
-  $('open-2d').hidden = !LITE_2D;
+  $('open-2d').hidden = $('lite-note').hidden = !LITE_2D;
+  $('open-2d').onclick = () => { ctx.lite?.(); };   // no preventDefault: the link opens ./2d/ itself
+  // the address may wrap anywhere on a phone, but never inside ?view=3d (a teacher copies it by eye)
+  const back = backAddress(win.location?.href), cut = back.length - '?view=3d'.length;
+  $('lite-addr').replaceChildren(back.slice(0, cut), el('span', { className: 'nowrap' }, back.slice(cut)));
   const synth = win.speechSynthesis;
   if (synth?.addEventListener) synth.addEventListener('voiceschanged', () => { if (openNow && tab === 'settings') fillVoices(); });
   function fillVoices() {
